@@ -6,31 +6,31 @@ import FeatureCard from './FeatureCard.vue'
   <section class="bg-white py-20 px-4 sm:px-6 lg:px-8">
     <div class="max-w-4xl mx-auto space-y-6">
       <h2 class="text-4xl font-bold text-gray-900 text-center mb-16">
-        Perfect for Tutors in Test Prep
+        Testga tayyorlovchi repetitorlar uchun ideal yechim
       </h2>
 
       <FeatureCard
         icon="✓"
-        title="Create your own Assessments"
-        description="Create practice tests that targets student's weakness and save your time"
+        title="Shaxsiy testlaringizni yarating"
+        description="O‘quvchilarning zaif nuqtalariga yo‘naltirilgan amaliy testlar yarating va vaqtingizni tejang"
       />
 
       <FeatureCard
         icon="▦"
-        title="Any standardized test Interface"
-        description="Make use of any standardized test interface like SAT/ACT/SHSAT to prep your students"
+        title="Xalqaro imtihon interfeyslari"
+        description="O‘quvchilarni tayyorlash uchun SAT, ACT yoki SHSAT kabi xalqaro standartdagi test interfeyslaridan foydalaning"
       />
 
       <FeatureCard
         icon="✎"
-        title="Upload questions easily"
-        description="Upload a bulk collection of questions at once and create a test out of them"
+        title="Savollarni oson yuklang"
+        description="Katta hajmdagi savollar to‘plamini bir vaqtning o‘zida yuklang va ulardan tezda testlar hosil qiling"
       />
 
       <FeatureCard
         icon="👥"
-        title="Transparency with Parents"
-        description="Easily send student's reports to their parents and keep them updated"
+        title="Ota-onalar bilan shaffoflik"
+        description="O‘quvchilarning natijalari va hisobotlarini ota-onalarga osongina yuboring va ularni xabardor qilib boring"
       />
     </div>
   </section>
