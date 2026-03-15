@@ -8,6 +8,11 @@ const routes = [
     name: 'home',
     component: HomaPage
   },
+  {
+    path: '/pricing',
+    name: 'pricing',
+    component: () => import('@/views/PricingPage.vue') // Lazy load the pricing page
+  }
 ]
 
 const router = createRouter({

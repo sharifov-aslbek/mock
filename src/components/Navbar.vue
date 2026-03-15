@@ -1,5 +1,5 @@
 <template>
-  <nav class="bg-slate-900 text-white">
+  <nav class="bg-black text-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center h-16">
         <div class="flex items-center space-x-2">
@@ -11,7 +11,7 @@
           <a href="#" class="hover:text-blue-400 transition">ACT</a>
           <a href="#" class="hover:text-blue-400 transition">PSAT</a>
           <a href="#" class="hover:text-blue-400 transition">SHSAT</a>
-          <a href="#" class="hover:text-blue-400 transition">Pricing</a>
+          <a href="pricing" class="hover:text-blue-400 transition">Pricing</a>
           <div class="flex items-center space-x-1 hover:text-blue-400 transition cursor-pointer">
             <span>Resources</span>
             <span>▼</span>
