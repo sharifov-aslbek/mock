@@ -2,15 +2,18 @@
 import Navbar from '@/components/Navbar.vue'
 import FinalCTA from '@/components/FinalCTA.vue'
 import Footer from '@/components/Footer.vue'
-import { RouterView } from 'vue-router'
+import { RouterView , useRoute } from 'vue-router'
+
+
+const route = useRoute()
 </script>
 
 <template>
   <main class="w-full">
-     <Navbar />
+     <Navbar v-if="route.fullPath !== '/login'" />
     <RouterView />
-    <FinalCTA />
-    <Footer />
+    <FinalCTA v-if="route.fullPath !== '/login'" />
+    <Footer v-if="route.fullPath !== '/login'" />
   </main>
 </template>
 

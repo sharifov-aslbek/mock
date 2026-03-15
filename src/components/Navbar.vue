@@ -18,9 +18,11 @@
           </div>
         </div>
 
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition">
-          Book a Demo
-        </button>
+       <router-link to="/login">
+  <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition">
+    Book a Demo
+  </button>
+</router-link>
       </div>
     </div>
   </nav>
