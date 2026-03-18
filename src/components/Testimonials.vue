@@ -38,7 +38,8 @@ const testimonials = [
         O‘quvchilar fikri
       </h2>
 
-      <NCarousel
+      <div class="hidden md:flex">
+            <NCarousel
         draggable
         autoplay
         :interval="3000"
@@ -55,6 +56,27 @@ const testimonials = [
           <TestimonialCard v-bind="t" />
         </div>
       </NCarousel>
+      </div>
+
+      <div class="flex md:hidden">
+            <NCarousel
+        draggable
+        autoplay
+        :interval="3000"
+        :slides-per-view="1"
+        :space-between="20"
+        show-arrow
+        dot-type="line"
+      >
+        <div
+          v-for="t in testimonials"
+          :key="t.name"
+          class="pb-4"
+        >
+          <TestimonialCard v-bind="t" />
+        </div>
+      </NCarousel>
+      </div>
     </div>
   </section>
 </template>
