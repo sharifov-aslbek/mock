@@ -14,6 +14,11 @@ const routes = [
     component: () => import('@/views/PricingPage.vue') // Lazy load the pricing page
   },
   {
+    path: '/math',
+    name: 'math',
+    component: () => import('@/views/MathPage.vue')
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/Login.vue')

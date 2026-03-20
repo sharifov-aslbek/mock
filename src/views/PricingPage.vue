@@ -15,7 +15,7 @@
     </div>
 
     <button
-      class="mb-12 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition duration-200 ease-in-out hover:bg-blue-700 sm:mb-14 sm:px-7 sm:text-base lg:mb-16 lg:px-8"
+      class="mb-12 rounded-lg bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm transition duration-200 ease-in-out hover:bg-neutral-800 sm:mb-14 sm:px-7 sm:text-base lg:mb-16 lg:px-8"
     >
       Demoga hoziroq buyurtma bering
     </button>
@@ -26,13 +26,13 @@
         :key="index"
         :class="[
           'flex h-full flex-col rounded-2xl border border-gray-100 p-5 shadow-sm transition-transform hover:-translate-y-1 sm:p-6 lg:p-8',
-          plan.highlighted ? 'bg-blue-50/50' : 'bg-white'
+          plan.highlighted ? 'border-black bg-neutral-50' : 'bg-white'
         ]"
       >
         <h3
           :class="[
             'mb-4 text-xl font-bold sm:text-2xl',
-            plan.highlighted ? 'text-blue-500' : 'text-black'
+            plan.highlighted ? 'text-black' : 'text-black'
           ]"
         >
           {{ plan.name }}
@@ -71,7 +71,12 @@
         </ul>
 
         <button
-          class="mt-6 w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 sm:mt-8"
+          :class="[
+            'mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition sm:mt-8',
+            plan.highlighted
+              ? 'border border-black bg-black text-white hover:bg-neutral-800'
+              : 'border border-neutral-300 bg-white text-black hover:border-black hover:bg-neutral-100'
+          ]"
         >
           Ko‘proq ma’lumot
         </button>

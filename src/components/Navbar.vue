@@ -6,6 +6,7 @@ const isMenuOpen = ref(false)
 const navItems = [
   { name: 'SAT', href: '#' },
   { name: 'ACT', href: '#' },
+  { name: 'Math', to: '/math' },
   { name: 'PSAT', href: '#' },
   { name: 'SHSAT', href: '#' },
 ]
@@ -30,14 +31,16 @@ const closeMenu = () => {
 
         <!-- Desktop Menu -->
         <div class="hidden items-center space-x-8 md:flex">
-          <a
+          <component
             v-for="item in navItems"
             :key="item.name"
+            :is="item.to ? 'router-link' : 'a'"
+            :to="item.to"
             :href="item.href"
             class="transition hover:text-blue-400"
           >
             {{ item.name }}
-          </a>
+          </component>
 
           <router-link to="/pricing" class="transition hover:text-blue-400">
             Pricing
@@ -107,15 +110,17 @@ const closeMenu = () => {
           class="border-t border-white/10 py-4 md:hidden"
         >
           <div class="flex flex-col space-y-4">
-            <a
+            <component
               v-for="item in navItems"
               :key="item.name"
+              :is="item.to ? 'router-link' : 'a'"
+              :to="item.to"
               :href="item.href"
               class="rounded-lg px-2 py-2 text-sm transition hover:bg-white/5 hover:text-blue-400"
               @click="closeMenu"
             >
               {{ item.name }}
-            </a>
+            </component>
 
             <router-link
               to="/pricing"
