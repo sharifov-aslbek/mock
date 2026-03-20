@@ -6,14 +6,15 @@ import { RouterView , useRoute } from 'vue-router'
 
 
 const route = useRoute()
+const layoutlessRoutes = ['/login', '/dashboard']
 </script>
 
 <template>
   <main class="w-full">
-     <Navbar v-if="route.fullPath !== '/login'" />
+     <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
     <RouterView />
-    <FinalCTA v-if="route.fullPath !== '/login'" />
-    <Footer v-if="route.fullPath !== '/login'" />
+    <FinalCTA v-if="!layoutlessRoutes.includes(route.path)" />
+    <Footer v-if="!layoutlessRoutes.includes(route.path)" />
   </main>
 </template>
 
