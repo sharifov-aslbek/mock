@@ -1,8 +1,14 @@
+<script setup>
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+</script>
+
 <template>
   <section class="bg-white py-20 px-4 sm:px-6 lg:px-8">
     <div class="max-w-6xl mx-auto">
       <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-10 sm:mb-12">
-        Experience MilliyMock
+        {{ t('productShowcase.title') }}
       </h2>
 
       <!-- Tabs -->
@@ -11,12 +17,12 @@
           <button
             class="bg-white text-gray-900 px-6 sm:px-10 py-3 rounded-full font-semibold text-sm sm:text-base shadow-sm"
           >
-            SAT / PSAT
+            {{ t('productShowcase.sat') }}
           </button>
           <button
             class="text-gray-800 px-6 sm:px-10 py-3 rounded-full font-semibold text-sm sm:text-base transition hover:bg-white/60"
           >
-            Enhanced ACT
+            {{ t('productShowcase.act') }}
           </button>
         </div>
       </div>

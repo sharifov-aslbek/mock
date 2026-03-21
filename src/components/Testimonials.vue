@@ -1,41 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { NCarousel } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import TestimonialCard from './TestimonialCard.vue'
 
-const testimonials = [
-  {
-    name: 'Aziza Rahimova',
-    role: 'Milliy sertifikat o‘quvchisi',
-    text: "Mock testlar orqali haqiqiy imtihon muhitini his qildim va vaqtni to‘g‘ri taqsimlashni o‘rgandim."
-  },
-  {
-    name: 'Javohir Qodirov',
-    role: 'Abituriyent',
-    text: "Tahlil bo‘limi yordamida aynan qaysi mavzularda xato qilayotganimni ko‘rdim va natijam sezilarli yaxshilandi."
-  },
-  {
-    name: 'Madina Ortiqova',
-    role: 'O‘quvchi',
-    text: "Interfeys juda qulay, test ishlash jarayoni esa real imtihonga juda o‘xshash bo‘ldi."
-  },
-  {
-    name: 'Bekzod Tursunov',
-    role: 'Tutor',
-    text: "O‘quvchilarimning natijalarini kuzatish va ularning kuchsiz joylarini aniqlash ancha osonlashdi."
-  },
-  {
-    name: 'Sevara Ismoilova',
-    role: 'Milliy sertifikat nomzodi',
-    text: "Doimiy mock test ishlash menga ishonch berdi va imtihon oldi hayajonini kamaytirdi."
-  }
-]
+const { t, tm } = useI18n()
+const testimonials = computed(() => tm('testimonials.items'))
 </script>
 
 <template>
   <section class="bg-white py-20 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto">
       <h2 class="text-4xl font-bold text-gray-900 text-center mb-16">
-        O‘quvchilar fikri
+        {{ t('testimonials.title') }}
       </h2>
 
       <div class="hidden md:flex">

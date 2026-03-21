@@ -361,9 +361,6 @@ onBeforeUnmount(() => {
     />
   </n-layout-sider>
 
-  <n-layout>
-    ...
-  </n-layout>
 </n-layout>
 
         <div

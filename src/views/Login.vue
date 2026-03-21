@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
+const { t } = useI18n()
 
 const handleLogin = () => {
   console.log({
@@ -28,7 +30,7 @@ const handleTelegramLogin = () => {
       class="absolute left-6 top-6 flex items-center gap-2 text-sm text-gray-500 transition hover:text-black"
     >
       <span>←</span>
-      <span>Bosh sahifa</span>
+      <span>{{ t('login.home') }}</span>
     </router-link>
 
     <div class="mx-auto flex min-h-screen max-w-7xl items-center justify-center">
@@ -40,10 +42,10 @@ const handleTelegramLogin = () => {
             M
           </div>
           <h1 class="text-3xl font-semibold tracking-tight text-black">
-            Tizimga kirish
+            {{ t('login.title') }}
           </h1>
           <p class="mt-2 text-sm text-gray-500">
-            Email va parol orqali yoki ijtimoiy tarmoqlar orqali kiring
+            {{ t('login.description') }}
           </p>
         </div>
 
@@ -72,7 +74,7 @@ const handleTelegramLogin = () => {
                   fill="#EA4335"
                 />
               </svg>
-              Google orqali kirish
+              {{ t('login.google') }}
             </button>
 
             <button
@@ -85,39 +87,39 @@ const handleTelegramLogin = () => {
                   d="M21.944 4.666c.16-.714-.53-1.306-1.187-1.02L2.927 10.38c-.77.296-.73 1.401.058 1.64l4.55 1.377 1.76 5.51c.236.737 1.185.89 1.64.264l2.54-3.497 4.983 3.66c.611.448 1.488.11 1.647-.635l1.839-8.633ZM9.025 12.995l9.132-5.761-7.096 6.865a.75.75 0 0 0-.196.347l-.965 3.897-.875-3.53a.75.75 0 0 0-.45-.51l-2.886-1.108 3.336-1.2Z"
                 />
               </svg>
-              Telegram orqali kirish
+              {{ t('login.telegram') }}
             </button>
           </div>
 
           <div class="my-6 flex items-center gap-3">
             <div class="h-px flex-1 bg-gray-200"></div>
-            <span class="text-xs text-gray-400">yoki</span>
+            <span class="text-xs text-gray-400">{{ t('login.or') }}</span>
             <div class="h-px flex-1 bg-gray-200"></div>
           </div>
 
           <form class="space-y-4" @submit.prevent="handleLogin">
             <div>
               <label class="mb-2 block text-sm font-medium text-black">
-                Email
+                {{ t('login.email') }}
               </label>
               <input
                 v-model="email"
                 type="email"
-                placeholder="you@example.com"
+                :placeholder="t('login.emailPlaceholder')"
                 class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-black"
               />
             </div>
 
             <div>
               <label class="mb-2 block text-sm font-medium text-black">
-                Parol
+                {{ t('login.password') }}
               </label>
 
               <div class="relative">
                 <input
                   v-model="password"
                   :type="showPassword ? 'text' : 'password'"
-                  placeholder="Parolingizni kiriting"
+                  :placeholder="t('login.passwordPlaceholder')"
                   class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-14 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-black"
                 />
 
@@ -126,7 +128,7 @@ const handleTelegramLogin = () => {
                   @click="showPassword = !showPassword"
                   class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500 hover:text-black"
                 >
-                  {{ showPassword ? 'Hide' : 'Show' }}
+                  {{ showPassword ? t('login.hide') : t('login.show') }}
                 </button>
               </div>
             </div>
@@ -137,11 +139,11 @@ const handleTelegramLogin = () => {
                   type="checkbox"
                   class="h-4 w-4 rounded border-gray-300 text-black focus:ring-0"
                 />
-                Eslab qolish
+                {{ t('login.remember') }}
               </label>
 
               <a href="#" class="text-sm text-gray-500 hover:text-black">
-                Parolni unutdingizmi?
+                {{ t('login.forgot') }}
               </a>
             </div>
 
@@ -149,15 +151,15 @@ const handleTelegramLogin = () => {
               type="submit"
               class="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-900"
             >
-              Kirish
+              {{ t('login.submit') }}
             </button>
           </form>
         </div>
 
         <p class="mt-6 text-center text-sm text-gray-500">
-          Hisobingiz yo‘qmi?
+          {{ t('login.noAccount') }}
           <a href="#" class="font-medium text-black hover:underline">
-            Ro‘yxatdan o‘tish
+            {{ t('login.signUp') }}
           </a>
         </p>
       </div>

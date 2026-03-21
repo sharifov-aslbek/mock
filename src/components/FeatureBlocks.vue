@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FeatureCard from './FeatureCard.vue'
+
+const { t, tm } = useI18n()
+const cards = computed(() => tm('featureBlocks.cards'))
 </script>
 
 <template>
@@ -8,33 +13,17 @@ import FeatureCard from './FeatureCard.vue'
       
       <!-- Title -->
       <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 text-center mb-10 sm:mb-14 lg:mb-16 max-w-3xl mx-auto">
-        Testga tayyorlovchi repetitorlar uchun ideal yechim
+        {{ t('featureBlocks.title') }}
       </h2>
 
       <!-- Grid -->
       <div class="grid gap-6 sm:gap-8 md:grid-cols-2">
         <FeatureCard
-          icon="✓"
-          title="Shaxsiy testlaringizni yarating"
-          description="O‘quvchilarning zaif nuqtalariga yo‘naltirilgan amaliy testlar yarating va vaqtingizni tejang"
-        />
-
-        <FeatureCard
-          icon="▦"
-          title="Xalqaro imtihon interfeyslari"
-          description="O‘quvchilarni tayyorlash uchun SAT, ACT yoki SHSAT kabi xalqaro standartdagi test interfeyslaridan foydalaning"
-        />
-
-        <FeatureCard
-          icon="✎"
-          title="Savollarni oson yuklang"
-          description="Katta hajmdagi savollar to‘plamini bir vaqtning o‘zida yuklang va ulardan tezda testlar hosil qiling"
-        />
-
-        <FeatureCard
-          icon="👥"
-          title="Ota-onalar bilan shaffoflik"
-          description="O‘quvchilarning natijalari va hisobotlarini ota-onalarga osongina yuboring va ularni xabardor qilib boring"
+          v-for="card in cards"
+          :key="card.title"
+          :icon="card.icon"
+          :title="card.title"
+          :description="card.description"
         />
       </div>
 

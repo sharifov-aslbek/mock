@@ -1,10 +1,14 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
+
 defineProps({
   test: {
     type: Object,
     required: true
   }
 })
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -32,7 +36,7 @@ defineProps({
             test.isFree ? 'bg-emerald-100 text-emerald-700' : 'bg-black text-white'
           ]"
         >
-          {{ test.isFree ? 'BEPUL' : 'PREMIUM' }}
+          {{ test.isFree ? t('mathCard.free') : t('mathCard.premium') }}
         </span>
       </div>
 
@@ -50,30 +54,31 @@ defineProps({
 
       <div class="mb-6 grid grid-cols-2 gap-3">
         <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Test soni</p>
+          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.amount') }}</p>
           <p class="mt-3 text-2xl font-bold text-black">{{ test.amount }}</p>
         </div>
         <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Ishlaganlar</p>
+          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.people') }}</p>
           <p class="mt-3 text-2xl font-bold text-black">{{ test.peopleTook }}</p>
         </div>
       </div>
 
       <div class="mb-6 rounded-2xl border border-dashed border-black/10 bg-black/[0.02] p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Oxirgi natija</p>
+        <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.lastResult') }}</p>
         <p class="mt-2 text-base font-semibold text-black">{{ test.lastScore }}</p>
       </div>
 
       <div class="mt-auto space-y-3">
-        <button
+        <router-link
+          to="/test"
           class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.752 11.168-4.586-2.65A1 1 0 0 0 8.667 9.39v5.22a1 1 0 0 0 1.499.872l4.586-2.65a1 1 0 0 0 0-1.664Z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          Testni boshlash
-        </button>
+          {{ t('mathCard.start') }}
+        </router-link>
 
         <button
           class="flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black transition hover:border-black hover:bg-neutral-100"
@@ -81,7 +86,7 @@ defineProps({
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5m-9 6 2.4-2.4A2 2 0 0 0 7 16.2V7a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H4Z" />
           </svg>
-          Muhokamaga o‘tish
+          {{ t('mathCard.discuss') }}
         </button>
       </div>
     </div>

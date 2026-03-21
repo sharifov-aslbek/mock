@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { setLocale } from '@/i18n'
 
 const isMenuOpen = ref(false)
+const { t, locale } = useI18n()
 
-const navItems = [
-  { name: 'SAT', href: '#' },
-  { name: 'ACT', href: '#' },
-  { name: 'Math', to: '/math' },
-  { name: 'PSAT', href: '#' },
-  { name: 'SHSAT', href: '#' },
-]
+const navItems = computed(() => [
+  { name: t('navbar.items.sat'), href: '#' },
+  { name: t('navbar.items.act'), href: '#' },
+  { name: t('navbar.items.math'), to: '/math' },
+  { name: t('navbar.items.psat'), href: '#' },
+  { name: t('navbar.items.shsat'), href: '#' },
+])
+
+const localeModel = computed({
+  get: () => locale.value,
+  set: (value: string) => {
+    setLocale(value)
+  }
+})
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
@@ -43,23 +53,32 @@ const closeMenu = () => {
           </component>
 
           <router-link to="/pricing" class="transition hover:text-blue-400">
-            Pricing
+            {{ t('navbar.pricing') }}
           </router-link>
 
           <div class="cursor-pointer items-center space-x-1 transition hover:text-blue-400 flex">
-            <span>Resources</span>
+            <span>{{ t('navbar.resources') }}</span>
             <span class="text-xs">▼</span>
           </div>
         </div>
 
         <!-- Right Side -->
         <div class="flex items-center gap-3">
+          <select
+            v-model="localeModel"
+            class="hidden rounded-lg border border-white/10 bg-black px-3 py-2 text-xs font-semibold text-white outline-none transition md:block"
+          >
+            <option value="en">{{ t('navbar.languages.en') }}</option>
+            <option value="uz">{{ t('navbar.languages.uz') }}</option>
+            <option value="ru">{{ t('navbar.languages.ru') }}</option>
+          </select>
+
           <!-- Desktop Button -->
           <router-link to="/login" class="hidden md:block">
             <button
               class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
             >
-              Book a Demo
+              {{ t('navbar.bookDemo') }}
             </button>
           </router-link>
 
@@ -127,21 +146,30 @@ const closeMenu = () => {
               class="rounded-lg px-2 py-2 text-sm transition hover:bg-white/5 hover:text-blue-400"
               @click="closeMenu"
             >
-              Pricing
+              {{ t('navbar.pricing') }}
             </router-link>
 
             <div
               class="flex items-center justify-between rounded-lg px-2 py-2 text-sm transition hover:bg-white/5 hover:text-blue-400"
             >
-              <span>Resources</span>
+              <span>{{ t('navbar.resources') }}</span>
               <span class="text-xs">▼</span>
             </div>
+
+            <select
+              v-model="localeModel"
+              class="rounded-lg border border-white/10 bg-black px-3 py-3 text-sm text-white outline-none"
+            >
+              <option value="en">{{ t('navbar.languages.en') }}</option>
+              <option value="uz">{{ t('navbar.languages.uz') }}</option>
+              <option value="ru">{{ t('navbar.languages.ru') }}</option>
+            </select>
 
             <router-link to="/login" @click="closeMenu">
               <button
                 class="mt-2 w-full rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
               >
-                Book a Demo
+                {{ t('navbar.bookDemo') }}
               </button>
             </router-link>
           </div>

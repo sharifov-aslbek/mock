@@ -6,7 +6,7 @@ import { RouterView , useRoute } from 'vue-router'
 
 
 const route = useRoute()
-const layoutlessRoutes = ['/login', '/dashboard']
+const layoutlessRoutes = ['/login', '/dashboard', '/test']
 </script>
 
 <template>
