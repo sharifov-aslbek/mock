@@ -337,7 +337,7 @@ onMounted(() => {
   <main class="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
     
     <!-- Test Header -->
-    <header class="sticky top-0 z-10 border-b-2 border-black bg-white px-6 py-4">
+    <!-- <header class="sticky top-0 z-10 border-b-2 border-black bg-white px-6 py-4">
       <div class="mx-auto flex max-w-4xl items-center justify-between">
         <div>
           <h1 class="text-xl font-bold tracking-tight text-black">{{ t('testPage.title') }}</h1>
@@ -347,10 +347,10 @@ onMounted(() => {
           {{ t('testPage.submit') }}
         </NButton>
       </div>
-    </header>
+    </header> -->
 
     <!-- Questions Container -->
-    <div class="mx-auto max-w-4xl px-6 py-10 space-y-12">
+    <div class="mx-auto max-w-6xl px-6 py-10 space-y-12">
       
       <div v-for="(question, index) in questions" :key="question.id" class="question-block">
         
