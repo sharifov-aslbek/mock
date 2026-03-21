@@ -47,7 +47,7 @@ const closeMenu = () => {
             :is="item.to ? 'router-link' : 'a'"
             :to="item.to"
             :href="item.href"
-            class="transition hover:text-blue-400"
+            class="transition cursor-pointer hover:text-blue-400"
           >
             {{ item.name }}
           </component>
