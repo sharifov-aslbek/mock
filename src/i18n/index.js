@@ -14,12 +14,6 @@ const getInitialLocale = () => {
     return savedLocale
   }
 
-  const browserLocale = window.navigator.language.split('-')[0]
-
-  if (browserLocale in messages) {
-    return browserLocale
-  }
-
   return fallbackLocale
 }
 
