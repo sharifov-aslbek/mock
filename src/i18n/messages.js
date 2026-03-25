@@ -237,8 +237,8 @@ const messages = {
     },
     testPage: {
       title: 'Mathematics Test',
-      description: 'Questions are loaded from the backend and rendered here.',
       submit: 'SUBMIT TEST',
+      timer: 'Time Left',
       back: 'Back to tests',
       login: 'Go to login',
       retry: 'Retry',
@@ -479,8 +479,8 @@ const messages = {
     },
     testPage: {
       title: 'Matematika testi',
-      description: 'Savollar backend API dan yuklanib shu yerda ko‘rsatiladi.',
       submit: 'TESTNI YAKUNLASH',
+      timer: 'Qolgan vaqt',
       back: 'Testlarga qaytish',
       login: 'Login sahifasiga o‘tish',
       retry: 'Qayta urinish',
@@ -721,8 +721,8 @@ const messages = {
     },
     testPage: {
       title: 'Тест по математике',
-      description: 'Вопросы загружаются из backend API и показываются здесь.',
       submit: 'ОТПРАВИТЬ ТЕСТ',
+      timer: 'Осталось времени',
       back: 'Назад к тестам',
       login: 'Перейти ко входу',
       retry: 'Повторить',

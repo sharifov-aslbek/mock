@@ -1,26 +1,19 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NInput,
-  NRadio,
-  NRadioGroup,
-  NSpin,
-} from 'naive-ui'
+import { RouterLink, useRoute } from 'vue-router'
+import { NButton, NRadio, NRadioGroup, NSpin } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 
 const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const answers = reactive({})
 const pageErrorKey = ref('')
+const remainingSeconds = ref(0)
+let timerIntervalId = null
 
 const requestedTestId = computed(() => {
   if (typeof route.query.testId === 'string') {
@@ -77,10 +70,41 @@ const loginRoute = computed(() => ({
 
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
 
+const formattedTimer = computed(() => {
+  const minutes = Math.floor(remainingSeconds.value / 60)
+  const seconds = remainingSeconds.value % 60
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+})
+
 const clearAnswers = () => {
   for (const answerKey of Object.keys(answers)) {
     delete answers[answerKey]
   }
+}
+
+const stopTimer = () => {
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId)
+    timerIntervalId = null
+  }
+}
+
+const startTimer = (questionCount) => {
+  stopTimer()
+
+  const durationInSeconds = Math.max(Number(questionCount || 0) * 120, 600)
+  remainingSeconds.value = durationInSeconds
+
+  timerIntervalId = window.setInterval(() => {
+    if (remainingSeconds.value <= 1) {
+      remainingSeconds.value = 0
+      stopTimer()
+      return
+    }
+
+    remainingSeconds.value -= 1
+  }, 1000)
 }
 
 const loadTest = async (testId) => {
@@ -122,207 +146,176 @@ watch(
   },
 )
 
-const goBack = async () => {
-  await router.push('/math')
-}
+watch(
+  currentTest,
+  (test) => {
+    if (!test) {
+      stopTimer()
+      remainingSeconds.value = 0
+      return
+    }
 
-const getQuestionTypeLabel = (type) => t(`testPage.questionTypes.${type}`)
+    startTimer(test.questions?.length)
+  },
+  {
+    immediate: true,
+  },
+)
+
+onBeforeUnmount(() => {
+  stopTimer()
+})
+
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f7f7f5] px-4 py-8 text-black">
-    <div class="mx-auto max-w-6xl">
-      <section class="mb-8 rounded-[32px] border border-black/10 bg-white/90 p-6 shadow-sm backdrop-blur">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div class="max-w-3xl">
-            <button
-              type="button"
-              @click="goBack"
-              class="inline-flex items-center gap-2 text-sm font-medium text-black/60 transition hover:text-black"
-            >
-              <span>←</span>
-              <span>{{ t('testPage.back') }}</span>
-            </button>
+  <main class="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
+    <header class="sticky top-0 z-10 border-b-2 border-black bg-white px-6 py-4">
+      <div class="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-black">
+            {{ currentTest?.title || t('testPage.title') }}
+          </h1>
+        </div>
 
-            <h1 class="mt-4 text-3xl font-black tracking-tight text-black sm:text-4xl">
-              {{ currentTest?.title || t('testPage.title') }}
-            </h1>
-            <p class="mt-3 text-sm leading-6 text-black/60 sm:text-base">
-              {{ t('testPage.description') }}
+        <div class="flex items-center gap-4 self-start sm:self-auto">
+          <div class="border-2 border-black px-4 py-2 text-center">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/55">
+              {{ t('testPage.timer') }}
+            </p>
+            <p class="mt-1 text-lg font-bold text-black">
+              {{ formattedTimer }}
             </p>
           </div>
 
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div class="rounded-3xl border border-black/10 bg-black px-5 py-4 text-white">
-              <p class="text-xs uppercase tracking-[0.18em] text-white/60">
-                {{ t('testPage.questionCount') }}
-              </p>
-              <p class="mt-3 text-3xl font-black">
-                {{ currentTest?.questions?.length || 0 }}
-              </p>
-            </div>
+          <NButton
+            color="#000000"
+            text-color="#ffffff"
+            size="large"
+            class="!rounded-none !border-2 !border-black !px-8 !font-bold hover:!bg-white hover:!text-black transition-colors duration-200"
+          >
+            {{ t('testPage.submit') }}
+          </NButton>
+        </div>
+      </div>
+    </header>
 
-            <div class="rounded-3xl border border-black/10 bg-white px-5 py-4">
-              <p class="text-xs uppercase tracking-[0.18em] text-black/45">
-                Test ID
-              </p>
-              <p class="mt-3 text-3xl font-black text-black">
-                #{{ currentTest?.id || requestedTestId || '-' }}
-              </p>
+    <NSpin :show="testStore.isLoading">
+      <div class="mx-auto max-w-6xl px-6 py-10 space-y-12">
+        <div
+          v-if="resolvedErrorMessage"
+          class="rounded-none border-2 border-black bg-white p-5"
+        >
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-sm font-medium text-black">
+              {{ resolvedErrorMessage }}
+            </p>
+
+            <div class="flex gap-3">
+              <RouterLink
+                v-if="isLoginRequired"
+                :to="loginRoute"
+                class="inline-flex items-center justify-center border-2 border-black bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-black"
+              >
+                {{ t('testPage.login') }}
+              </RouterLink>
+
+              <button
+                v-else
+                type="button"
+                @click="loadTest(requestedTestId)"
+                class="border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
+              >
+                {{ t('testPage.retry') }}
+              </button>
             </div>
           </div>
         </div>
-      </section>
 
-      <NSpin :show="testStore.isLoading">
-        <div v-if="resolvedErrorMessage" class="mb-6">
-          <NAlert type="error" :show-icon="false">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <span>{{ resolvedErrorMessage }}</span>
-
-              <div class="flex gap-3">
-                <RouterLink
-                  v-if="isLoginRequired"
-                  :to="loginRoute"
-                  class="inline-flex items-center justify-center rounded-2xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
-                >
-                  {{ t('testPage.login') }}
-                </RouterLink>
-
-                <NButton
-                  v-else
-                  color="#000000"
-                  text-color="#ffffff"
-                  round
-                  @click="loadTest(requestedTestId)"
-                >
-                  {{ t('testPage.retry') }}
-                </NButton>
-              </div>
-            </div>
-          </NAlert>
-        </div>
-
-        <div v-else-if="currentTest" class="space-y-6">
-          <section
+        <div v-else-if="currentTest" class="space-y-12">
+          <div
             v-for="question in renderedQuestions"
             :key="question.id"
-            class="space-y-4"
+            class="question-block"
           >
-            <div
-              v-if="question.groupTitle"
-              class="rounded-[28px] border border-black/10 bg-black px-6 py-5 text-white shadow-sm"
-            >
-              <p class="text-xs uppercase tracking-[0.18em] text-white/60">
+            <div v-if="question.groupTitle" class="mb-4 ml-6 border-l-2 border-black pl-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-black/50">
                 {{ t('testPage.groupedTask') }}
               </p>
-              <h2 class="mt-3 text-lg font-semibold leading-7">
+              <p class="mt-2 text-base font-semibold leading-7 text-black">
                 {{ question.groupTitle }}
-              </h2>
+              </p>
             </div>
 
-            <NCard :bordered="false" class="!rounded-[28px] !bg-white !shadow-sm">
-              <div class="space-y-6">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div class="max-w-3xl">
-                    <p class="text-xs uppercase tracking-[0.18em] text-black/45">
-                      {{ t('testPage.questionLabel') }} {{ question.displayIndex }}
-                    </p>
-                    <h3 class="mt-3 text-xl font-bold leading-8 text-black">
-                      {{ question.text }}
-                    </h3>
-                  </div>
+            <h2 class="mb-4 text-[17px] font-bold leading-relaxed text-black">
+              {{ question.displayIndex }}. {{ question.text }}
+            </h2>
 
-                  <div class="flex flex-wrap gap-2">
-                    <span
-                      class="rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 text-xs font-semibold tracking-wide text-black/70"
-                    >
-                      {{ t('testPage.scoreLabel') }}: {{ question.score }}
+            <div v-if="question.imageUrl" class="mb-5 ml-6">
+              <img
+                :src="question.imageUrl"
+                :alt="t('testPage.imageAlt')"
+                class="max-w-[400px] border-2 border-black"
+              />
+            </div>
+
+            <div v-if="question.type === 'FreeAnswer'" class="ml-6 max-w-3xl">
+              <textarea
+                v-model="answers[question.id]"
+                rows="4"
+                class="w-full resize-y border-2 border-black bg-white p-4 text-base text-black outline-none placeholder:text-black/30"
+                :placeholder="t('testPage.freeAnswerPlaceholder')"
+              ></textarea>
+            </div>
+
+            <NRadioGroup
+              v-else
+              v-model:value="answers[question.id]"
+              class="ml-6 block"
+            >
+              <div class="grid gap-3 md:grid-cols-2">
+                <label
+                  v-for="option in question.options"
+                  :key="option.id"
+                  class="group flex cursor-pointer items-center gap-3"
+                >
+                  <span
+                    class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-2 border-black text-[13px] font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white"
+                    :class="
+                      answers[question.id] === option.id
+                        ? 'bg-black text-white'
+                        : 'bg-white text-black'
+                    "
+                  >
+                    {{ option.letter }}
+                  </span>
+
+                  <NRadio :value="option.id" class="test-radio">
+                    <span class="text-[16px] font-medium text-black">
+                      {{ option.text }}
                     </span>
-                    <span
-                      class="rounded-full border border-black/10 bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white"
-                    >
-                      {{ getQuestionTypeLabel(question.type) }}
-                    </span>
-                  </div>
-                </div>
-
-                <img
-                  v-if="question.imageUrl"
-                  :src="question.imageUrl"
-                  :alt="t('testPage.imageAlt')"
-                  class="max-h-[420px] w-full rounded-[24px] border border-black/10 bg-[#fafaf9] object-contain p-4"
-                />
-
-                <div v-if="question.type === 'FreeAnswer'" class="space-y-3">
-                  <p class="text-xs uppercase tracking-[0.18em] text-black/45">
-                    {{ t('testPage.freeAnswerLabel') }}
-                  </p>
-                  <NInput
-                    v-model:value="answers[question.id]"
-                    type="textarea"
-                    :autosize="{ minRows: 3, maxRows: 6 }"
-                    :placeholder="t('testPage.freeAnswerPlaceholder')"
-                  />
-                </div>
-
-                <div v-else class="space-y-4">
-                  <p class="text-xs uppercase tracking-[0.18em] text-black/45">
-                    {{ t('testPage.optionBank') }}
-                  </p>
-
-                  <NRadioGroup v-model:value="answers[question.id]" class="block">
-                    <div class="grid gap-3 md:grid-cols-2">
-                      <label
-                        v-for="option in question.options"
-                        :key="option.id"
-                        class="group flex cursor-pointer items-center gap-3 rounded-[22px] border border-black/10 bg-[#fafaf9] px-4 py-4 transition hover:border-black"
-                      >
-                        <span
-                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/15 bg-white text-sm font-bold text-black transition group-hover:bg-black group-hover:text-white"
-                          :class="
-                            answers[question.id] === option.id
-                              ? 'border-black bg-black text-white'
-                              : ''
-                          "
-                        >
-                          {{ option.letter }}
-                        </span>
-
-                        <NRadio :value="option.id" class="test-radio">
-                          <span class="text-sm font-medium leading-6 text-black">
-                            {{ option.text }}
-                          </span>
-                        </NRadio>
-                      </label>
-                    </div>
-                  </NRadioGroup>
-                </div>
+                  </NRadio>
+                </label>
               </div>
-            </NCard>
-          </section>
+            </NRadioGroup>
+          </div>
         </div>
-      </NSpin>
-    </div>
+      </div>
+    </NSpin>
   </main>
 </template>
 
 <style scoped>
-:deep(.test-radio .n-radio__dot--checked) {
-  box-shadow: inset 0 0 0 2px #000000 !important;
+:deep(.n-radio) {
+  align-items: center;
 }
 
-:deep(.test-radio .n-radio__dot::before) {
-  background-color: #000000 !important;
+:deep(.test-radio .n-radio__dot-wrapper) {
+  display: none !important;
 }
 
-:deep(.test-radio .n-radio__dot) {
-  border: 2px solid #000000 !important;
-  background-color: #ffffff !important;
-}
-
-:deep(.test-radio:hover .n-radio__dot) {
-  border-color: #000000 !important;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08) !important;
+:deep(.test-radio .n-radio__label) {
+  padding-left: 0 !important;
 }
 </style>
+  
