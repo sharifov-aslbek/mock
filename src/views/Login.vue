@@ -1,25 +1,36 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const { t } = useI18n()
+const router = useRouter()
+const authStore = useAuthStore()
 
-const handleLogin = () => {
-  console.log({
-    email: email.value,
-    password: password.value,
-  })
+const handleLogin = async () => {
+  if (!email.value || !password.value) {
+    authStore.errorMessage = t('login.validation')
+    return
+  }
+
+  try {
+    await authStore.login(email.value, password.value)
+    await router.push('/dashboard')
+  } catch {
+    // Store state already contains the backend or network error message.
+  }
 }
 
 const handleGoogleLogin = () => {
-  console.log('Google login')
+  authStore.errorMessage = t('login.socialDisabled')
 }
 
 const handleTelegramLogin = () => {
-  console.log('Telegram login')
+  authStore.errorMessage = t('login.socialDisabled')
 }
 </script>
 
@@ -54,7 +65,8 @@ const handleTelegramLogin = () => {
             <button
               type="button"
               @click="handleGoogleLogin"
-              class="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-gray-50"
+              class="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="authStore.isLoading"
             >
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none">
                 <path
@@ -80,7 +92,8 @@ const handleTelegramLogin = () => {
             <button
               type="button"
               @click="handleTelegramLogin"
-              class="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-gray-50"
+              class="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="authStore.isLoading"
             >
               <svg class="h-5 w-5 text-[#229ED9]" viewBox="0 0 24 24" fill="currentColor">
                 <path
@@ -104,9 +117,10 @@ const handleTelegramLogin = () => {
               </label>
               <input
                 v-model="email"
-                type="email"
+                type="text"
                 :placeholder="t('login.emailPlaceholder')"
                 class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-black"
+                :disabled="authStore.isLoading"
               />
             </div>
 
@@ -121,17 +135,26 @@ const handleTelegramLogin = () => {
                   :type="showPassword ? 'text' : 'password'"
                   :placeholder="t('login.passwordPlaceholder')"
                   class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-14 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-black"
+                  :disabled="authStore.isLoading"
                 />
 
                 <button
                   type="button"
                   @click="showPassword = !showPassword"
                   class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500 hover:text-black"
+                  :disabled="authStore.isLoading"
                 >
                   {{ showPassword ? t('login.hide') : t('login.show') }}
                 </button>
               </div>
             </div>
+
+            <p
+              v-if="authStore.errorMessage"
+              class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              {{ authStore.errorMessage }}
+            </p>
 
             <div class="flex items-center justify-between pt-1">
               <label class="flex items-center gap-2 text-sm text-gray-600">
@@ -149,9 +172,10 @@ const handleTelegramLogin = () => {
 
             <button
               type="submit"
-              class="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-900"
+              class="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:bg-gray-400"
+              :disabled="authStore.isLoading"
             >
-              {{ t('login.submit') }}
+              {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
             </button>
           </form>
         </div>

@@ -1,44 +1,85 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MathTestCard from '@/components/MathTestCard.vue'
 
 const activeTab = ref('all')
 const selectedSort = ref('newest')
-const { t, tm } = useI18n()
-const tests = computed(() => tm('math.tests'))
+const isLoading = ref(true)
+const errorKey = ref('')
+const rawTests = ref([])
+const { t } = useI18n()
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+
+const fetchTests = async () => {
+  isLoading.value = true
+  errorKey.value = ''
+
+  if (!apiBaseUrl) {
+    errorKey.value = 'math.errorConfig'
+    isLoading.value = false
+    return
+  }
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/test`, {
+      headers: {
+        accept: '*/*'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const payload = await response.json()
+    rawTests.value = Array.isArray(payload.data) ? payload.data : []
+  } catch (error) {
+    console.error(error)
+    errorKey.value = 'math.errorFetch'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(fetchTests)
+
+const tests = computed(() =>
+  rawTests.value.map((test) => ({
+    ...test,
+    subject: t('math.subjectValue')
+  }))
+)
 
 const tabs = computed(() => [
   { id: 'all', name: t('math.tabs.all'), count: tests.value.length },
-  { id: 'new', name: t('math.tabs.new'), count: tests.value.filter((test) => test.isNew).length },
-  { id: 'free', name: t('math.tabs.free'), count: tests.value.filter((test) => test.isFree).length },
-  { id: 'inProgress', name: t('math.tabs.inProgress'), count: tests.value.filter((test) => test.inProgress).length },
-  { id: 'completed', name: t('math.tabs.completed'), count: tests.value.filter((test) => test.completed).length }
+  {
+    id: 'notStarted',
+    name: t('math.tabs.notStarted'),
+    count: tests.value.filter((test) => Number(test.attemptCount) === 0).length
+  },
+  {
+    id: 'attempted',
+    name: t('math.tabs.attempted'),
+    count: tests.value.filter((test) => Number(test.attemptCount) > 0).length
+  }
 ])
 
 const filteredTests = computed(() => {
   let result = [...tests.value]
 
-  if (activeTab.value === 'new') {
-    result = result.filter((test) => test.isNew)
-  } else if (activeTab.value === 'free') {
-    result = result.filter((test) => test.isFree)
-  } else if (activeTab.value === 'inProgress') {
-    result = result.filter((test) => test.inProgress)
-  } else if (activeTab.value === 'completed') {
-    result = result.filter((test) => test.completed)
+  if (activeTab.value === 'notStarted') {
+    result = result.filter((test) => Number(test.attemptCount) === 0)
+  } else if (activeTab.value === 'attempted') {
+    result = result.filter((test) => Number(test.attemptCount) > 0)
   }
 
   if (selectedSort.value === 'popular') {
-    result.sort((a, b) => Number(b.peopleTook) - Number(a.peopleTook))
+    result.sort((a, b) => Number(b.attemptCount) - Number(a.attemptCount))
   } else if (selectedSort.value === 'score') {
-    result.sort((a, b) => {
-      const scoreA = Number.parseInt(a.lastScore, 10) || 0
-      const scoreB = Number.parseInt(b.lastScore, 10) || 0
-      return scoreB - scoreA
-    })
+    result.sort((a, b) => Number(b.questionCount) - Number(a.questionCount))
   } else {
-    result.sort((a, b) => b.order - a.order)
+    result.sort((a, b) => Number(b.id) - Number(a.id))
   }
 
   return result
@@ -89,11 +130,7 @@ const filteredTests = computed(() => {
         </button>
       </div>
 
-      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
-          {{ t('math.info') }}
-        </div>
-
+      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <div class="w-full sm:w-auto">
           <select
             v-model="selectedSort"
@@ -109,13 +146,27 @@ const filteredTests = computed(() => {
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <MathTestCard
           v-for="test in filteredTests"
-          :key="test.title"
+          :key="test.id"
           :test="test"
         />
       </div>
 
       <div
-        v-if="filteredTests.length === 0"
+        v-if="isLoading"
+        class="rounded-[28px] border border-dashed border-black/15 bg-white px-6 py-12 text-center text-gray-500 shadow-sm"
+      >
+        {{ t('math.loading') }}
+      </div>
+
+      <div
+        v-else-if="errorKey"
+        class="rounded-[28px] border border-dashed border-red-200 bg-red-50 px-6 py-12 text-center text-red-600 shadow-sm"
+      >
+        {{ t(errorKey) }}
+      </div>
+
+      <div
+        v-else-if="filteredTests.length === 0"
         class="rounded-[28px] border border-dashed border-black/15 bg-white px-6 py-12 text-center text-gray-500 shadow-sm"
       >
         {{ t('math.empty') }}

@@ -2,6 +2,7 @@
 import Navbar from '@/components/Navbar.vue'
 import FinalCTA from '@/components/FinalCTA.vue'
 import Footer from '@/components/Footer.vue'
+import SupportButton from '@/components/SupportButton.vue'
 import { RouterView , useRoute } from 'vue-router'
 
 
@@ -13,6 +14,7 @@ const layoutlessRoutes = ['/login', '/dashboard', '/test']
   <main class="w-full">
      <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
     <RouterView />
+    <SupportButton />
     <FinalCTA v-if="!layoutlessRoutes.includes(route.path)" />
     <Footer v-if="!layoutlessRoutes.includes(route.path)" />
   </main>

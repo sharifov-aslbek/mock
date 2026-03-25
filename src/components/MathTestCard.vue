@@ -30,47 +30,30 @@ const { t } = useI18n()
           <p class="mt-2 text-sm text-gray-500">{{ test.subject }}</p>
         </div>
 
-        <span
-          :class="[
-            'rounded-full px-3 py-1 text-xs font-semibold tracking-wide',
-            test.isFree ? 'bg-emerald-100 text-emerald-700' : 'bg-black text-white'
-          ]"
-        >
-          {{ test.isFree ? t('mathCard.free') : t('mathCard.premium') }}
+        <span class="rounded-full bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+          #{{ test.id }}
         </span>
       </div>
 
-      <div class="mb-6 flex flex-wrap gap-2">
-        <span class="rounded-full border border-black/10 bg-white/90 px-3 py-1 text-xs font-medium text-gray-700">
-          {{ test.type }}
-        </span>
-        <span
-          v-if="test.status"
-          class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700"
-        >
-          {{ test.status }}
-        </span>
+      <div class="mb-6 rounded-2xl border border-dashed border-black/10 bg-black/[0.02] p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('math.subjectLabel') }}</p>
+        <p class="mt-2 text-base font-semibold text-black">{{ test.subject }}</p>
       </div>
 
       <div class="mb-6 grid grid-cols-2 gap-3">
         <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
           <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.amount') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.amount }}</p>
+          <p class="mt-3 text-2xl font-bold text-black">{{ test.questionCount }}</p>
         </div>
         <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
           <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.people') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.peopleTook }}</p>
+          <p class="mt-3 text-2xl font-bold text-black">{{ test.attemptCount }}</p>
         </div>
-      </div>
-
-      <div class="mb-6 rounded-2xl border border-dashed border-black/10 bg-black/[0.02] p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.lastResult') }}</p>
-        <p class="mt-2 text-base font-semibold text-black">{{ test.lastScore }}</p>
       </div>
 
       <div class="mt-auto space-y-3">
         <router-link
-          to="/test"
+          :to="`/test?testId=${test.id}`"
           class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

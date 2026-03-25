@@ -17,6 +17,9 @@ const messages = {
         shsat: 'SHSAT'
       }
     },
+    supportButton: {
+      label: 'Support'
+    },
     hero: {
       badge: 'A modern mock platform for the national certificate',
       titleStart: 'Prepare for the National Certificate with',
@@ -185,6 +188,9 @@ const messages = {
       remember: 'Remember me',
       forgot: 'Forgot password?',
       submit: 'Sign in',
+      loading: 'Signing in...',
+      validation: 'Enter both email and password.',
+      socialDisabled: 'Only email and password login is available right now.',
       noAccount: 'Don’t have an account?',
       signUp: 'Sign up'
     },
@@ -196,17 +202,18 @@ const messages = {
       subjectValue: 'Mathematics',
       tabs: {
         all: 'All tests',
-        new: 'New tests',
-        free: 'Free tests',
-        inProgress: 'In progress',
-        completed: 'Completed'
+        notStarted: 'Not started',
+        attempted: 'Attempted'
       },
-      info: 'Curated math tests: practice drills, free sets, and full mock exams.',
+      info: 'Mathematics tests loaded from the backend API.',
       sort: {
         newest: 'Sort: newest first',
-        popular: 'Sort: most taken',
-        score: 'Sort: highest score'
+        popular: 'Sort: most attempts',
+        score: 'Sort: most questions'
       },
+      loading: 'Loading tests...',
+      errorConfig: 'API base URL is missing.',
+      errorFetch: 'Could not load tests from the API.',
       empty: 'No tests found in this section yet.',
       tests: [
         { title: 'Math Test #74', subject: 'Mathematics', amount: '40 questions', peopleTook: '2811', lastScore: 'Not taken', type: 'Practice test', status: 'New test', isFree: true, isNew: true, inProgress: false, completed: false, order: 74 },
@@ -220,8 +227,8 @@ const messages = {
     mathCard: {
       free: 'FREE',
       premium: 'PREMIUM',
-      amount: 'Test amount',
-      people: 'People took',
+      amount: 'Questions',
+      people: 'Attempts',
       lastResult: 'Last result',
       start: 'Start Test',
       discuss: 'Go Discuss'
@@ -249,6 +256,9 @@ const messages = {
         psat: 'PSAT',
         shsat: 'SHSAT'
       }
+    },
+    supportButton: {
+      label: 'Yordam'
     },
     hero: {
       badge: 'Milliy sertifikat uchun zamonaviy mock platforma',
@@ -400,6 +410,9 @@ const messages = {
       remember: 'Eslab qolish',
       forgot: 'Parolni unutdingizmi?',
       submit: 'Kirish',
+      loading: 'Kirilmoqda...',
+      validation: 'Email va parolni kiriting.',
+      socialDisabled: 'Hozircha faqat email va parol orqali kirish ishlaydi.',
       noAccount: 'Hisobingiz yo‘qmi?',
       signUp: 'Ro‘yxatdan o‘tish'
     },
@@ -411,17 +424,18 @@ const messages = {
       subjectValue: 'Matematika',
       tabs: {
         all: 'Barcha testlar',
-        new: 'Yangi testlar',
-        free: 'Bepul testlar',
-        inProgress: 'Jarayonda',
-        completed: 'Tugallangan'
+        notStarted: 'Boshlanmagan',
+        attempted: 'Urinish qilingan'
       },
-      info: 'Saralangan matematika testlari: amaliy mashqlar, bepul testlar va to‘liq mock imtihonlar.',
+      info: 'Backend API orqali yuklangan matematika testlari.',
       sort: {
         newest: 'Saralash: yangi testlar',
-        popular: 'Saralash: eng ko‘p ishlangan',
-        score: 'Saralash: eng yuqori natija'
+        popular: 'Saralash: eng ko‘p urinish',
+        score: 'Saralash: eng ko‘p savol'
       },
+      loading: 'Testlar yuklanmoqda...',
+      errorConfig: 'API manzili topilmadi.',
+      errorFetch: 'API dan testlarni yuklab bo‘lmadi.',
       empty: 'Bu bo‘limda hozircha test topilmadi.',
       tests: [
         { title: 'Matematika testi #74', subject: 'Matematika', amount: '40 ta savol', peopleTook: '2811', lastScore: 'Ishlanmagan', type: 'Amaliy test', status: 'Yangi test', isFree: true, isNew: true, inProgress: false, completed: false, order: 74 },
@@ -435,8 +449,8 @@ const messages = {
     mathCard: {
       free: 'BEPUL',
       premium: 'PREMIUM',
-      amount: 'Test soni',
-      people: 'Ishlaganlar',
+      amount: 'Savollar soni',
+      people: 'Urinishlar',
       lastResult: 'Oxirgi natija',
       start: 'Testni boshlash',
       discuss: 'Muhokamaga o‘tish'
@@ -464,6 +478,9 @@ const messages = {
         psat: 'PSAT',
         shsat: 'SHSAT'
       }
+    },
+    supportButton: {
+      label: 'Поддержка'
     },
     hero: {
       badge: 'Современная mock-платформа для национального сертификата',
@@ -615,6 +632,9 @@ const messages = {
       remember: 'Запомнить меня',
       forgot: 'Забыли пароль?',
       submit: 'Войти',
+      loading: 'Выполняется вход...',
+      validation: 'Введите email и пароль.',
+      socialDisabled: 'Сейчас работает только вход по email и паролю.',
       noAccount: 'Нет аккаунта?',
       signUp: 'Зарегистрироваться'
     },
@@ -626,17 +646,18 @@ const messages = {
       subjectValue: 'Математика',
       tabs: {
         all: 'Все тесты',
-        new: 'Новые тесты',
-        free: 'Бесплатные',
-        inProgress: 'В процессе',
-        completed: 'Завершённые'
+        notStarted: 'Не начаты',
+        attempted: 'С попытками'
       },
-      info: 'Подборка тестов по математике: практические задания, бесплатные наборы и полные mock-экзамены.',
+      info: 'Тесты по математике, загруженные из backend API.',
       sort: {
         newest: 'Сортировка: сначала новые',
-        popular: 'Сортировка: самые популярные',
-        score: 'Сортировка: лучший результат'
+        popular: 'Сортировка: больше попыток',
+        score: 'Сортировка: больше вопросов'
       },
+      loading: 'Тесты загружаются...',
+      errorConfig: 'Не найден базовый URL API.',
+      errorFetch: 'Не удалось загрузить тесты из API.',
       empty: 'В этом разделе пока нет тестов.',
       tests: [
         { title: 'Тест по математике #74', subject: 'Математика', amount: '40 вопросов', peopleTook: '2811', lastScore: 'Не пройден', type: 'Практический тест', status: 'Новый тест', isFree: true, isNew: true, inProgress: false, completed: false, order: 74 },
@@ -650,8 +671,8 @@ const messages = {
     mathCard: {
       free: 'БЕСПЛАТНО',
       premium: 'ПРЕМИУМ',
-      amount: 'Количество',
-      people: 'Прошли',
+      amount: 'Количество вопросов',
+      people: 'Попытки',
       lastResult: 'Последний результат',
       start: 'Начать тест',
       discuss: 'К обсуждению'
