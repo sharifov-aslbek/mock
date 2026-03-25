@@ -231,12 +231,32 @@ const messages = {
       people: 'Attempts',
       lastResult: 'Last result',
       start: 'Start Test',
+      starting: 'Opening...',
+      startError: 'The test could not be opened.',
       discuss: 'Go Discuss'
     },
     testPage: {
-      title: 'Advanced Mathematics Assessment',
-      description: 'Answer all 30 questions below.',
-      submit: 'SUBMIT TEST'
+      title: 'Mathematics Test',
+      description: 'Questions are loaded from the backend and rendered here.',
+      submit: 'SUBMIT TEST',
+      back: 'Back to tests',
+      login: 'Go to login',
+      retry: 'Retry',
+      questionCount: 'Questions',
+      questionLabel: 'Question',
+      scoreLabel: 'Score',
+      optionBank: 'Options',
+      groupedTask: 'Grouped task',
+      freeAnswerLabel: 'Free answer',
+      freeAnswerPlaceholder: 'Write your answer here',
+      imageAlt: 'Question image',
+      missingId: 'Test ID was not found.',
+      authRequired: 'Please sign in to open this test.',
+      questionTypes: {
+        MultipleChoice: 'Multiple choice',
+        FreeAnswer: 'Free answer',
+        Matching: 'Matching'
+      }
     }
   },
   uz: {
@@ -453,12 +473,32 @@ const messages = {
       people: 'Urinishlar',
       lastResult: 'Oxirgi natija',
       start: 'Testni boshlash',
+      starting: 'Ochilmoqda...',
+      startError: 'Testni ochib bo‘lmadi.',
       discuss: 'Muhokamaga o‘tish'
     },
     testPage: {
-      title: 'Murakkab matematika testi',
-      description: 'Quyidagi 30 ta savolning barchasiga javob bering.',
-      submit: 'TESTNI YAKUNLASH'
+      title: 'Matematika testi',
+      description: 'Savollar backend API dan yuklanib shu yerda ko‘rsatiladi.',
+      submit: 'TESTNI YAKUNLASH',
+      back: 'Testlarga qaytish',
+      login: 'Login sahifasiga o‘tish',
+      retry: 'Qayta urinish',
+      questionCount: 'Savollar',
+      questionLabel: 'Savol',
+      scoreLabel: 'Ball',
+      optionBank: 'Variantlar',
+      groupedTask: 'Guruhlangan topshiriq',
+      freeAnswerLabel: 'Erkin javob',
+      freeAnswerPlaceholder: 'Javobingizni shu yerga yozing',
+      imageAlt: 'Savol rasmi',
+      missingId: 'Test ID topilmadi.',
+      authRequired: 'Bu testni ochish uchun tizimga kiring.',
+      questionTypes: {
+        MultipleChoice: 'Tanlovli savol',
+        FreeAnswer: 'Erkin javob',
+        Matching: 'Moslashtirish'
+      }
     }
   },
   ru: {
@@ -675,12 +715,32 @@ const messages = {
       people: 'Попытки',
       lastResult: 'Последний результат',
       start: 'Начать тест',
+      starting: 'Открывается...',
+      startError: 'Не удалось открыть тест.',
       discuss: 'К обсуждению'
     },
     testPage: {
-      title: 'Продвинутый тест по математике',
-      description: 'Ответьте на все 30 вопросов ниже.',
-      submit: 'ОТПРАВИТЬ ТЕСТ'
+      title: 'Тест по математике',
+      description: 'Вопросы загружаются из backend API и показываются здесь.',
+      submit: 'ОТПРАВИТЬ ТЕСТ',
+      back: 'Назад к тестам',
+      login: 'Перейти ко входу',
+      retry: 'Повторить',
+      questionCount: 'Вопросы',
+      questionLabel: 'Вопрос',
+      scoreLabel: 'Баллы',
+      optionBank: 'Варианты',
+      groupedTask: 'Групповое задание',
+      freeAnswerLabel: 'Свободный ответ',
+      freeAnswerPlaceholder: 'Введите ваш ответ',
+      imageAlt: 'Изображение вопроса',
+      missingId: 'ID теста не найден.',
+      authRequired: 'Для открытия этого теста нужно войти в систему.',
+      questionTypes: {
+        MultipleChoice: 'Выбор ответа',
+        FreeAnswer: 'Свободный ответ',
+        Matching: 'Сопоставление'
+      }
     }
   }
 }

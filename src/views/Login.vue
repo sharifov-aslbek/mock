@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -19,7 +20,13 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(email.value, password.value)
-    await router.push('/dashboard')
+
+    const redirectTarget =
+      typeof route.query.redirect === 'string'
+        ? route.query.redirect
+        : '/dashboard'
+
+    await router.push(redirectTarget)
   } catch {
     // Store state already contains the backend or network error message.
   }

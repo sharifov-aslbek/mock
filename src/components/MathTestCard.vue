@@ -1,14 +1,50 @@
 <script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
+import { useTestStore } from '@/stores/test'
 
-defineProps({
+const props = defineProps({
   test: {
     type: Object,
     required: true
   }
 })
 
+const router = useRouter()
 const { t } = useI18n()
+const authStore = useAuthStore()
+const testStore = useTestStore()
+const isStarting = ref(false)
+const startError = ref('')
+
+const handleStartTest = async () => {
+  const redirectTarget = `/test?testId=${props.test.id}`
+
+  if (!authStore.isAuthenticated) {
+    await router.push({
+      path: '/login',
+      query: {
+        redirect: redirectTarget
+      }
+    })
+    return
+  }
+
+  isStarting.value = true
+  startError.value = ''
+
+  try {
+    await testStore.fetchTestById(props.test.id)
+    await router.push(redirectTarget)
+  } catch (error) {
+    console.error(error)
+    startError.value = testStore.errorMessage || t('mathCard.startError')
+  } finally {
+    isStarting.value = false
+  }
+}
 </script>
 
 <template>
@@ -52,16 +88,18 @@ const { t } = useI18n()
       </div>
 
       <div class="mt-auto space-y-3">
-        <router-link
-          :to="`/test?testId=${test.id}`"
+        <button
+          type="button"
+          @click="handleStartTest"
+          :disabled="isStarting"
           class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.752 11.168-4.586-2.65A1 1 0 0 0 8.667 9.39v5.22a1 1 0 0 0 1.499.872l4.586-2.65a1 1 0 0 0 0-1.664Z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          {{ t('mathCard.start') }}
-        </router-link>
+          {{ isStarting ? t('mathCard.starting') : t('mathCard.start') }}
+        </button>
 
         <button
           class="flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black transition hover:border-black hover:bg-neutral-100"
@@ -71,6 +109,10 @@ const { t } = useI18n()
           </svg>
           {{ t('mathCard.discuss') }}
         </button>
+
+        <p v-if="startError" class="text-sm text-red-600">
+          {{ startError }}
+        </p>
       </div>
     </div>
   </article>
