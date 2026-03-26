@@ -233,6 +233,9 @@ const messages = {
       start: 'Start Test',
       starting: 'Opening...',
       startError: 'The test could not be opened.',
+      confirmTitle: 'Do you really want to start the test?',
+      confirmYes: 'Yes',
+      confirmNo: 'No',
       discuss: 'Go Discuss'
     },
     testPage: {
@@ -249,6 +252,9 @@ const messages = {
       groupedTask: 'Grouped task',
       freeAnswerLabel: 'Free answer',
       freeAnswerPlaceholder: 'Write your answer here',
+      mathInputOpen: 'Math input is open below',
+      answerSaved: 'Answer entered',
+      preview: 'Preview',
       imageAlt: 'Question image',
       missingId: 'Test ID was not found.',
       authRequired: 'Please sign in to open this test.',
@@ -475,6 +481,9 @@ const messages = {
       start: 'Testni boshlash',
       starting: 'Ochilmoqda...',
       startError: 'Testni ochib bo‘lmadi.',
+      confirmTitle: 'Haqiqatdan ham testni boshlamoqchimisiz?',
+      confirmYes: 'Ha',
+      confirmNo: 'Yo‘q',
       discuss: 'Muhokamaga o‘tish'
     },
     testPage: {
@@ -491,6 +500,9 @@ const messages = {
       groupedTask: 'Guruhlangan topshiriq',
       freeAnswerLabel: 'Erkin javob',
       freeAnswerPlaceholder: 'Javobingizni shu yerga yozing',
+      mathInputOpen: 'Matematik input pastda ochiq',
+      answerSaved: 'Javob kiritilgan',
+      preview: 'Ko‘rinish',
       imageAlt: 'Savol rasmi',
       missingId: 'Test ID topilmadi.',
       authRequired: 'Bu testni ochish uchun tizimga kiring.',
@@ -717,6 +729,9 @@ const messages = {
       start: 'Начать тест',
       starting: 'Открывается...',
       startError: 'Не удалось открыть тест.',
+      confirmTitle: 'Вы действительно хотите начать тест?',
+      confirmYes: 'Да',
+      confirmNo: 'Нет',
       discuss: 'К обсуждению'
     },
     testPage: {
@@ -733,6 +748,9 @@ const messages = {
       groupedTask: 'Групповое задание',
       freeAnswerLabel: 'Свободный ответ',
       freeAnswerPlaceholder: 'Введите ваш ответ',
+      mathInputOpen: 'Математический ввод открыт ниже',
+      answerSaved: 'Ответ введён',
+      preview: 'Предпросмотр',
       imageAlt: 'Изображение вопроса',
       missingId: 'ID теста не найден.',
       authRequired: 'Для открытия этого теста нужно войти в систему.',

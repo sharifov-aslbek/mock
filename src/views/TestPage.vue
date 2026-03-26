@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute } from 'vue-router'
 import { NButton, NRadio, NRadioGroup, NSpin } from 'naive-ui'
+import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 
@@ -13,6 +14,7 @@ const testStore = useTestStore()
 const answers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
+const activeFreeAnswerId = ref(null)
 let timerIntervalId = null
 
 const requestedTestId = computed(() => {
@@ -81,6 +83,8 @@ const clearAnswers = () => {
   for (const answerKey of Object.keys(answers)) {
     delete answers[answerKey]
   }
+
+  activeFreeAnswerId.value = null
 }
 
 const stopTimer = () => {
@@ -259,13 +263,35 @@ onBeforeUnmount(() => {
               />
             </div>
 
-            <div v-if="question.type === 'FreeAnswer'" class="ml-6 max-w-3xl">
-              <textarea
+            <div v-if="question.type === 'FreeAnswer'" class="ml-6 max-w-3xl space-y-3">
+              <button
+                type="button"
+                @click="activeFreeAnswerId = question.id"
+                class="w-full rounded-2xl border-2 border-black bg-white px-4 py-4 text-left transition hover:bg-black/5"
+              >
+                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                  {{ t('testPage.freeAnswerLabel') }}
+                </span>
+                <span
+                  class="mt-2 block text-base"
+                  :class="answers[question.id] ? 'text-black' : 'text-black/35'"
+                >
+                  {{
+                    activeFreeAnswerId === question.id
+                      ? t('testPage.mathInputOpen')
+                      : answers[question.id]
+                        ? t('testPage.answerSaved')
+                        : t('testPage.freeAnswerPlaceholder')
+                  }}
+                </span>
+              </button>
+
+              <MathAnswerInput
+                v-if="activeFreeAnswerId === question.id"
                 v-model="answers[question.id]"
-                rows="4"
-                class="w-full resize-y border-2 border-black bg-white p-4 text-base text-black outline-none placeholder:text-black/30"
                 :placeholder="t('testPage.freeAnswerPlaceholder')"
-              ></textarea>
+                :preview-label="t('testPage.preview')"
+              />
             </div>
 
             <NRadioGroup

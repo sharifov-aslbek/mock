@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { NButton, NCard, NModal } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 
@@ -18,6 +19,7 @@ const authStore = useAuthStore()
 const testStore = useTestStore()
 const isStarting = ref(false)
 const startError = ref('')
+const showStartModal = ref(false)
 
 const handleStartTest = async () => {
   const redirectTarget = `/test?testId=${props.test.id}`
@@ -44,6 +46,11 @@ const handleStartTest = async () => {
   } finally {
     isStarting.value = false
   }
+}
+
+const confirmStartTest = async () => {
+  showStartModal.value = false
+  await handleStartTest()
 }
 </script>
 
@@ -90,7 +97,7 @@ const handleStartTest = async () => {
       <div class="mt-auto space-y-3">
         <button
           type="button"
-          @click="handleStartTest"
+          @click="showStartModal = true"
           :disabled="isStarting"
           class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
         >
@@ -115,5 +122,33 @@ const handleStartTest = async () => {
         </p>
       </div>
     </div>
+
+    <NModal v-model:show="showStartModal">
+      <div class="w-[calc(100vw-2rem)] max-w-md">
+        <NCard :bordered="false" size="large" class="!rounded-[28px]">
+          <div class="space-y-6 text-center">
+            <div>
+              <h4 class="text-xl font-bold tracking-tight text-black">
+                {{ t('mathCard.confirmTitle') }}
+              </h4>
+            </div>
+
+            <div class="flex justify-center gap-3">
+              <NButton round @click="showStartModal = false">
+                {{ t('mathCard.confirmNo') }}
+              </NButton>
+              <NButton
+                round
+                color="#000000"
+                text-color="#ffffff"
+                @click="confirmStartTest"
+              >
+                {{ t('mathCard.confirmYes') }}
+              </NButton>
+            </div>
+          </div>
+        </NCard>
+      </div>
+    </NModal>
   </article>
 </template>
