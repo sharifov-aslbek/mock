@@ -169,20 +169,19 @@ watch(
 onBeforeUnmount(() => {
   stopTimer()
 })
-
 </script>
 
 <template>
   <main class="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
     <header class="sticky top-0 z-10 border-b-2 border-black bg-white px-6 py-4">
-      <div class="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
-        <div class="min-w-0">
-          <h1 class="text-xl font-bold tracking-tight text-black">
+      <div class="mx-auto flex max-w-6xl items-start justify-between gap-4 sm:items-center">
+        <div class="min-w-0 flex-1 pr-2">
+          <h1 class="text-lg font-bold tracking-tight text-black sm:text-xl">
             {{ currentTest?.title || t('testPage.title') }}
           </h1>
         </div>
 
-        <div class="justify-self-center">
+        <div class="flex shrink-0 items-center gap-3">
           <div class="rounded-[999px] border border-black/12 bg-[radial-gradient(circle_at_top,rgba(255,255,255,1),rgba(245,245,245,0.95))] px-7 py-4 text-center shadow-[0_14px_40px_rgba(15,23,42,0.08)] ring-1 ring-black/5">
             <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-black/45">
               {{ t('testPage.timer') }}
@@ -191,17 +190,6 @@ onBeforeUnmount(() => {
               {{ formattedTimer }}
             </p>
           </div>
-        </div>
-
-        <div class="justify-self-start lg:justify-self-end">
-          <NButton
-            color="#000000"
-            text-color="#ffffff"
-            size="large"
-            class="!rounded-none !border-2 !border-black !px-8 !font-bold hover:!bg-white hover:!text-black transition-colors duration-200"
-          >
-            {{ t('testPage.submit') }}
-          </NButton>
         </div>
       </div>
     </header>
@@ -326,6 +314,17 @@ onBeforeUnmount(() => {
                 </label>
               </div>
             </NRadioGroup>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <NButton
+              color="#000000"
+              text-color="#ffffff"
+              size="large"
+              class="!rounded-none !border-2 !border-black !px-8 !font-bold hover:!bg-white hover:!text-black transition-colors duration-200"
+            >
+              {{ t('testPage.submit') }}
+            </NButton>
           </div>
         </div>
       </div>
