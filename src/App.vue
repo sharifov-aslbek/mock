@@ -14,7 +14,7 @@ const layoutlessRoutes = ['/login', '/dashboard', '/test']
   <main class="w-full">
      <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
     <RouterView />
-    <SupportButton />
+    <SupportButton v-if="route.path !== '/test'" />
     <FinalCTA v-if="!layoutlessRoutes.includes(route.path)" />
     <Footer v-if="!layoutlessRoutes.includes(route.path)" />
   </main>

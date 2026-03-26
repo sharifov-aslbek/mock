@@ -175,23 +175,25 @@ onBeforeUnmount(() => {
 <template>
   <main class="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
     <header class="sticky top-0 z-10 border-b-2 border-black bg-white px-6 py-4">
-      <div class="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div class="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
+        <div class="min-w-0">
           <h1 class="text-xl font-bold tracking-tight text-black">
             {{ currentTest?.title || t('testPage.title') }}
           </h1>
         </div>
 
-        <div class="flex items-center gap-4 self-start sm:self-auto">
-          <div class="border-2 border-black px-4 py-2 text-center">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/55">
+        <div class="justify-self-center">
+          <div class="rounded-[999px] border border-black/12 bg-[radial-gradient(circle_at_top,rgba(255,255,255,1),rgba(245,245,245,0.95))] px-7 py-4 text-center shadow-[0_14px_40px_rgba(15,23,42,0.08)] ring-1 ring-black/5">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-black/45">
               {{ t('testPage.timer') }}
             </p>
-            <p class="mt-1 text-lg font-bold text-black">
+            <p class="mt-2 text-2xl font-black tracking-[0.18em] text-black sm:text-[30px]">
               {{ formattedTimer }}
             </p>
           </div>
+        </div>
 
+        <div class="justify-self-start lg:justify-self-end">
           <NButton
             color="#000000"
             text-color="#ffffff"
