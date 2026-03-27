@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NButton, NCard, NModal } from 'naive-ui'
@@ -20,17 +20,27 @@ const testStore = useTestStore()
 const isStarting = ref(false)
 const startError = ref('')
 const showStartModal = ref(false)
+const isInProgressCard = computed(() => Boolean(props.test.isInProgressCard))
 
-const handleStartTest = async () => {
+const ensureAuth = async (redirectTarget) => {
+  if (authStore.isAuthenticated) {
+    return true
+  }
+
+  await router.push({
+    path: '/login',
+    query: {
+      redirect: redirectTarget,
+    },
+  })
+
+  return false
+}
+
+const openTest = async () => {
   const redirectTarget = `/test?testId=${props.test.id}`
 
-  if (!authStore.isAuthenticated) {
-    await router.push({
-      path: '/login',
-      query: {
-        redirect: redirectTarget
-      }
-    })
+  if (!(await ensureAuth(redirectTarget))) {
     return
   }
 
@@ -46,6 +56,14 @@ const handleStartTest = async () => {
   } finally {
     isStarting.value = false
   }
+}
+
+const handleStartTest = async () => {
+  await openTest()
+}
+
+const handleContinueTest = async () => {
+  await openTest()
 }
 
 const confirmStartTest = async () => {
@@ -83,7 +101,10 @@ const confirmStartTest = async () => {
         <p class="mt-2 text-base font-semibold text-black">{{ test.subject }}</p>
       </div>
 
-      <div class="mb-6 grid grid-cols-2 gap-3">
+      <div
+        v-if="!isInProgressCard"
+        class="mb-6 grid grid-cols-2 gap-3"
+      >
         <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
           <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.amount') }}</p>
           <p class="mt-3 text-2xl font-bold text-black">{{ test.questionCount }}</p>
@@ -94,8 +115,27 @@ const confirmStartTest = async () => {
         </div>
       </div>
 
+      <div
+        v-else
+        class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3"
+      >
+        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
+          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.remainingQuestions') }}</p>
+          <p class="mt-3 text-2xl font-bold text-black">{{ test.remainingQuestions }}</p>
+        </div>
+        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
+          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.remainingTime') }}</p>
+          <p class="mt-3 text-2xl font-bold text-black">{{ test.remainingTimeLabel }}</p>
+        </div>
+        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
+          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.answeredQuestions') }}</p>
+          <p class="mt-3 text-2xl font-bold text-black">{{ test.answeredCount }}</p>
+        </div>
+      </div>
+
       <div class="mt-auto space-y-3">
         <button
+          v-if="!isInProgressCard"
           type="button"
           @click="showStartModal = true"
           :disabled="isStarting"
@@ -109,12 +149,16 @@ const confirmStartTest = async () => {
         </button>
 
         <button
-          class="flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black transition hover:border-black hover:bg-neutral-100"
+          v-else
+          type="button"
+          @click="handleContinueTest"
+          :disabled="isStarting"
+          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5m-9 6 2.4-2.4A2 2 0 0 0 7 16.2V7a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H4Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6v12m0 0 7-6m-7 6-7-6" />
           </svg>
-          {{ t('mathCard.discuss') }}
+          {{ isStarting ? t('mathCard.continuing') : t('mathCard.continue') }}
         </button>
 
         <p v-if="startError" class="text-sm text-red-600">

@@ -1,20 +1,24 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRoute } from 'vue-router'
-import { NButton, NRadio, NRadioGroup, NSpin } from 'naive-ui'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { NRadio, NRadioGroup, NSpin } from 'naive-ui'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
+import { useTestProgressStore } from '@/stores/testProgress'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
+const testProgressStore = useTestProgressStore()
 const answers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const activeFreeAnswerId = ref(null)
+const shouldPersistProgress = ref(true)
 let timerIntervalId = null
 
 const requestedTestId = computed(() => {
@@ -79,6 +83,42 @@ const formattedTimer = computed(() => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
 
+const totalQuestions = computed(() => renderedQuestions.value.length)
+
+const totalDurationMinutes = computed(() =>
+  Math.max(totalQuestions.value * 2, 10),
+)
+
+const answeredCount = computed(() =>
+  renderedQuestions.value.reduce((count, question) => {
+    const answer = answers[question.id]
+
+    if (question.type === 'FreeAnswer') {
+      return count + (typeof answer === 'string' && answer.trim() ? 1 : 0)
+    }
+
+    return count + (answer ? 1 : 0)
+  }, 0),
+)
+
+const serializedAnswers = computed(() =>
+  JSON.stringify(
+    renderedQuestions.value.reduce((result, question) => {
+      const answer = answers[question.id]
+
+      if (typeof answer === 'string') {
+        if (answer.trim()) {
+          result[question.id] = answer
+        }
+      } else if (answer !== undefined && answer !== null && answer !== '') {
+        result[question.id] = answer
+      }
+
+      return result
+    }, {}),
+  ),
+)
+
 const clearAnswers = () => {
   for (const answerKey of Object.keys(answers)) {
     delete answers[answerKey]
@@ -94,10 +134,11 @@ const stopTimer = () => {
   }
 }
 
-const startTimer = (questionCount) => {
+const startTimer = (questionCount, initialRemainingSeconds = null) => {
   stopTimer()
 
-  const durationInSeconds = Math.max(Number(questionCount || 0) * 120, 600)
+  const durationInSeconds =
+    initialRemainingSeconds ?? Math.max(Number(questionCount || 0) * 120, 600)
   remainingSeconds.value = durationInSeconds
 
   timerIntervalId = window.setInterval(() => {
@@ -111,7 +152,60 @@ const startTimer = (questionCount) => {
   }, 1000)
 }
 
+const restoreProgress = async (testId) => {
+  const savedProgress = testProgressStore.getProgress(testId)
+
+  if (!savedProgress) {
+    return
+  }
+
+  Object.entries(savedProgress.answers || {}).forEach(([questionId, answer]) => {
+    answers[questionId] = answer
+  })
+
+  activeFreeAnswerId.value = savedProgress.activeFreeAnswerId || null
+
+  await nextTick()
+
+  if (typeof savedProgress.scrollY === 'number') {
+    window.scrollTo({
+      top: savedProgress.scrollY,
+      behavior: 'auto',
+    })
+  }
+}
+
+const persistCurrentProgress = () => {
+  if (!shouldPersistProgress.value || !currentTest.value) {
+    return
+  }
+
+  const savedAnswers = JSON.parse(serializedAnswers.value)
+  const fullDurationSeconds = Math.max(totalQuestions.value * 120, 600)
+  const hasMeaningfulProgress =
+    Object.keys(savedAnswers).length > 0 || remainingSeconds.value < fullDurationSeconds
+
+  if (!hasMeaningfulProgress) {
+    testProgressStore.clearProgress(currentTest.value.id)
+    return
+  }
+
+  testProgressStore.saveProgress({
+    testId: currentTest.value.id,
+    title: currentTest.value.title,
+    subject: t('math.subjectValue'),
+    questionCount: totalQuestions.value,
+    answeredCount: answeredCount.value,
+    answers: savedAnswers,
+    remainingSeconds: remainingSeconds.value,
+    activeFreeAnswerId: activeFreeAnswerId.value,
+    scrollY: window.scrollY,
+    completed: false,
+  })
+}
+
 const loadTest = async (testId) => {
+  shouldPersistProgress.value = true
   clearAnswers()
   pageErrorKey.value = ''
 
@@ -152,53 +246,75 @@ watch(
 
 watch(
   currentTest,
-  (test) => {
+  async (test) => {
     if (!test) {
       stopTimer()
       remainingSeconds.value = 0
       return
     }
 
-    startTimer(test.questions?.length)
+    const savedProgress = testProgressStore.getProgress(test.id)
+    startTimer(test.questions?.length, savedProgress?.remainingSeconds ?? null)
+    await restoreProgress(test.id)
   },
   {
     immediate: true,
   },
 )
 
+watch(
+  [serializedAnswers, remainingSeconds, activeFreeAnswerId],
+  () => {
+    persistCurrentProgress()
+  },
+)
+
+const handlePageLeave = () => {
+  persistCurrentProgress()
+}
+
+const handleSubmitTest = async () => {
+  shouldPersistProgress.value = false
+
+  if (currentTest.value?.id) {
+    testProgressStore.clearProgress(currentTest.value.id)
+  }
+
+  await router.push('/math')
+}
+
+onMounted(() => {
+  testProgressStore.hydrate()
+  window.addEventListener('beforeunload', handlePageLeave)
+  window.addEventListener('pagehide', handlePageLeave)
+})
+
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handlePageLeave)
+  window.removeEventListener('pagehide', handlePageLeave)
+  persistCurrentProgress()
   stopTimer()
 })
 </script>
 
 <template>
-  <main class="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
-    <header class="sticky top-0 z-10 border-b-2 border-black bg-white px-6 py-4">
-      <div class="mx-auto flex max-w-6xl items-start justify-between gap-4 sm:items-center">
-        <div class="min-w-0 flex-1 pr-2">
-          <h1 class="text-lg font-bold tracking-tight text-black sm:text-xl">
-            {{ currentTest?.title || t('testPage.title') }}
-          </h1>
-        </div>
-
-        <div class="flex shrink-0 items-center gap-3">
-          <div class="rounded-[999px] border border-black/12 bg-[radial-gradient(circle_at_top,rgba(255,255,255,1),rgba(245,245,245,0.95))] px-7 py-4 text-center shadow-[0_14px_40px_rgba(15,23,42,0.08)] ring-1 ring-black/5">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-black/45">
-              {{ t('testPage.timer') }}
-            </p>
-            <p class="mt-2 text-2xl font-black tracking-[0.18em] text-black sm:text-[30px]">
-              {{ formattedTimer }}
-            </p>
-          </div>
-        </div>
+  <main class="min-h-screen bg-[#f3efe8] text-black font-sans selection:bg-black selection:text-white">
+    <div
+      v-if="currentTest"
+      class="fixed right-4 top-4 z-30 sm:right-8 sm:top-8"
+    >
+      <div class="rounded-[26px] bg-black px-6 py-4 text-center text-white shadow-[0_18px_45px_rgba(15,23,42,0.22)]">
+        <p class="text-xl font-black tracking-[0.14em] sm:text-[28px]">
+          {{ formattedTimer }}
+        </p>
       </div>
-    </header>
+    </div>
 
     <NSpin :show="testStore.isLoading">
-      <div class="mx-auto max-w-6xl px-6 py-10 space-y-12">
+      <div class="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div
           v-if="resolvedErrorMessage"
-          class="rounded-none border-2 border-black bg-white p-5"
+          class="mx-auto max-w-3xl rounded-[28px] border border-black/10 bg-white p-5 shadow-sm"
         >
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-sm font-medium text-black">
@@ -226,106 +342,146 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else-if="currentTest" class="space-y-12">
-          <div
-            v-for="question in renderedQuestions"
-            :key="question.id"
-            class="question-block"
-          >
-            <div v-if="question.groupTitle" class="mb-4 ml-6 border-l-2 border-black pl-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-black/50">
-                {{ t('testPage.groupedTask') }}
-              </p>
-              <p class="mt-2 text-base font-semibold leading-7 text-black">
-                {{ question.groupTitle }}
-              </p>
-            </div>
+        <div
+          v-else-if="currentTest"
+          class="mx-auto max-w-5xl rounded-[34px] border border-black/8 bg-white px-6 pb-20 pt-10 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:px-10 sm:pt-14"
+        >
+          <div class="border-b border-black/10 pb-10">
+            <h1 class="text-3xl font-bold tracking-tight text-black sm:text-5xl">
+              {{ currentTest.title || t('testPage.title') }}
+            </h1>
+            <p class="mt-5 text-xs font-normal uppercase tracking-[0.28em] text-black/40 sm:text-sm">
+              {{ totalDurationMinutes }} {{ t('testPage.minutes') }} &bull; {{ totalQuestions }} {{ t('testPage.questionsLabel') }}
+            </p>
+          </div>
 
-            <h2 class="mb-4 text-[17px] font-bold leading-relaxed text-black">
-              {{ question.displayIndex }}. {{ question.text }}
-            </h2>
+          <div class="my-12 flex items-center gap-5">
+            <div class="h-px flex-1 bg-black/12"></div>
+            <p class="text-[11px] font-normal uppercase tracking-[0.32em] text-black/35 sm:text-xs">
+              {{ t('testPage.sectionTitle') }}
+            </p>
+            <div class="h-px flex-1 bg-black/12"></div>
+          </div>
 
-            <div v-if="question.imageUrl" class="mb-5 ml-6">
-              <img
-                :src="question.imageUrl"
-                :alt="t('testPage.imageAlt')"
-                class="max-w-[400px] border-2 border-black"
-              />
-            </div>
-
-            <div v-if="question.type === 'FreeAnswer'" class="ml-6 max-w-3xl space-y-3">
-              <button
-                type="button"
-                @click="activeFreeAnswerId = question.id"
-                class="w-full rounded-2xl border-2 border-black bg-white px-4 py-4 text-left transition hover:bg-black/5"
-              >
-                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                  {{ t('testPage.freeAnswerLabel') }}
-                </span>
-                <span
-                  class="mt-2 block text-base"
-                  :class="answers[question.id] ? 'text-black' : 'text-black/35'"
-                >
-                  {{
-                    activeFreeAnswerId === question.id
-                      ? t('testPage.mathInputOpen')
-                      : answers[question.id]
-                        ? t('testPage.answerSaved')
-                        : t('testPage.freeAnswerPlaceholder')
-                  }}
-                </span>
-              </button>
-
-              <MathAnswerInput
-                v-if="activeFreeAnswerId === question.id"
-                v-model="answers[question.id]"
-                :placeholder="t('testPage.freeAnswerPlaceholder')"
-                :preview-label="t('testPage.preview')"
-              />
-            </div>
-
-            <NRadioGroup
-              v-else
-              v-model:value="answers[question.id]"
-              class="ml-6 block"
+          <div class="space-y-16 pb-20">
+            <div
+              v-for="question in renderedQuestions"
+              :key="question.id"
+              class="question-block"
             >
-              <div class="grid gap-3 md:grid-cols-2">
-                <label
-                  v-for="option in question.options"
-                  :key="option.id"
-                  class="group flex cursor-pointer items-center gap-3"
-                >
-                  <span
-                    class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-2 border-black text-[13px] font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white"
-                    :class="
-                      answers[question.id] === option.id
-                        ? 'bg-black text-white'
-                        : 'bg-white text-black'
-                    "
-                  >
-                    {{ option.letter }}
-                  </span>
-
-                  <NRadio :value="option.id" class="test-radio">
-                    <span class="text-[16px] font-medium text-black">
-                      {{ option.text }}
-                    </span>
-                  </NRadio>
-                </label>
+              <div v-if="question.groupTitle" class="mb-6 border-l-4 border-black/70 pl-5">
+                <p class="text-[11px] font-normal uppercase tracking-[0.2em] text-black/45">
+                  {{ t('testPage.groupedTask') }}
+                </p>
+                <p class="mt-2 text-base font-normal leading-7 text-black sm:text-lg">
+                  {{ question.groupTitle }}
+                </p>
               </div>
-            </NRadioGroup>
-          </div>
 
-          <div class="flex justify-end pt-2">
-            <NButton
-              color="#000000"
-              text-color="#ffffff"
-              size="large"
-              class="!rounded-none !border-2 !border-black !px-8 !font-bold hover:!bg-white hover:!text-black transition-colors duration-200"
-            >
-              {{ t('testPage.submit') }}
-            </NButton>
+              <div class="flex items-start gap-4 sm:gap-6">
+                <span class="shrink-0 text-2xl font-semibold leading-none text-black sm:text-3xl">
+                  {{ question.displayIndex }}.
+                </span>
+
+                <div class="min-w-0 flex-1 space-y-6">
+                  <h2 class="text-lg font-normal leading-[1.8] text-black sm:text-[21px]">
+                    {{ question.text }}
+                  </h2>
+
+                  <div v-if="question.imageUrl" class="rounded-[28px] border border-black/10 bg-[#faf8f4] p-4">
+                    <img
+                      :src="question.imageUrl"
+                      :alt="t('testPage.imageAlt')"
+                      class="max-h-[420px] w-full object-contain"
+                    />
+                  </div>
+
+                  <div v-if="question.type === 'FreeAnswer'" class="max-w-3xl space-y-3">
+                    <button
+                      type="button"
+                      @click="activeFreeAnswerId = question.id"
+                      class="w-full rounded-[24px] border border-black/15 bg-[#faf8f4] px-5 py-5 text-left transition hover:border-black hover:bg-[#f6f2ea]"
+                    >
+                      <span class="block text-[11px] font-normal uppercase tracking-[0.16em] text-black/45">
+                        {{ t('testPage.freeAnswerLabel') }}
+                      </span>
+                      <span
+                        class="mt-3 block text-sm font-normal leading-7 sm:text-base"
+                        :class="answers[question.id] ? 'text-black' : 'text-black/35'"
+                      >
+                        {{
+                          activeFreeAnswerId === question.id
+                            ? t('testPage.mathInputOpen')
+                            : answers[question.id]
+                              ? t('testPage.answerSaved')
+                              : t('testPage.freeAnswerPlaceholder')
+                        }}
+                      </span>
+                    </button>
+
+                    <MathAnswerInput
+                      v-if="activeFreeAnswerId === question.id"
+                      v-model="answers[question.id]"
+                      :placeholder="t('testPage.freeAnswerPlaceholder')"
+                      :preview-label="t('testPage.preview')"
+                    />
+                  </div>
+
+                  <NRadioGroup
+                    v-else
+                    v-model:value="answers[question.id]"
+                    class="block"
+                  >
+                    <div class="space-y-4">
+                      <label
+                        v-for="option in question.options"
+                        :key="option.id"
+                        class="group flex cursor-pointer items-center gap-4"
+                      >
+                        <span
+                          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-black text-lg font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white"
+                          :class="
+                            answers[question.id] === option.id
+                              ? 'bg-black text-white'
+                              : 'bg-white text-black'
+                          "
+                        >
+                          {{ option.letter }}
+                        </span>
+
+                        <NRadio :value="option.id" class="test-radio">
+                          <span class="text-base font-normal leading-8 text-black sm:text-[20px]">
+                            {{ option.text }}
+                          </span>
+                        </NRadio>
+                      </label>
+                    </div>
+                  </NRadioGroup>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div v-else class="h-24"></div>
+      </div>
+
+      <div
+        v-if="currentTest"
+        class="fixed bottom-0 left-0 right-0 z-30 border-t border-black/10 bg-[#f3efe8]/95 backdrop-blur"
+      >
+        <div class="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <p class="text-xs font-normal uppercase tracking-[0.22em] text-black/50 sm:text-sm">
+            {{ answeredCount }} / {{ totalQuestions }} {{ t('testPage.answered') }}
+          </p>
+
+          <button
+            type="button"
+            @click="handleSubmitTest"
+            class="rounded-[22px] bg-black px-8 py-4 text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] transition hover:bg-neutral-900 sm:px-10"
+          >
+            {{ t('testPage.submit') }}
+          </button>
         </div>
       </div>
     </NSpin>

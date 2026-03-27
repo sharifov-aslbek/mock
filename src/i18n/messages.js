@@ -3,7 +3,7 @@ const messages = {
     navbar: {
       pricing: 'Pricing',
       resources: 'Resources',
-      bookDemo: 'Book a Demo',
+      bookDemo: 'Login',
       languages: {
         en: 'EN',
         uz: 'UZ',
@@ -202,6 +202,7 @@ const messages = {
       subjectValue: 'Mathematics',
       tabs: {
         all: 'All tests',
+        started: 'Started',
         notStarted: 'Not started',
         attempted: 'Attempted'
       },
@@ -214,6 +215,7 @@ const messages = {
       loading: 'Loading tests...',
       errorConfig: 'API base URL is missing.',
       errorFetch: 'Could not load tests from the API.',
+      emptyStarted: 'No started tests yet.',
       empty: 'No tests found in this section yet.',
       tests: [
         { title: 'Math Test #74', subject: 'Mathematics', amount: '40 questions', peopleTook: '2811', lastScore: 'Not taken', type: 'Practice test', status: 'New test', isFree: true, isNew: true, inProgress: false, completed: false, order: 74 },
@@ -233,6 +235,11 @@ const messages = {
       start: 'Start Test',
       starting: 'Opening...',
       startError: 'The test could not be opened.',
+      continue: 'Continue',
+      continuing: 'Opening...',
+      remainingQuestions: 'Questions left',
+      remainingTime: 'Time left',
+      answeredQuestions: 'Answered',
       confirmTitle: 'Do you really want to start the test?',
       confirmYes: 'Yes',
       confirmNo: 'No',
@@ -242,6 +249,10 @@ const messages = {
       title: 'Mathematics Test',
       submit: 'SUBMIT TEST',
       timer: 'Time Left',
+      minutes: 'minutes',
+      questionsLabel: 'questions',
+      sectionTitle: 'Part A',
+      answered: 'answered',
       back: 'Back to tests',
       login: 'Go to login',
       retry: 'Retry',
@@ -269,7 +280,7 @@ const messages = {
     navbar: {
       pricing: 'Narxlar',
       resources: 'Resurslar',
-      bookDemo: 'Demo Buyurtma',
+      bookDemo: 'Login',
       languages: {
         en: 'EN',
         uz: 'UZ',
@@ -450,6 +461,7 @@ const messages = {
       subjectValue: 'Matematika',
       tabs: {
         all: 'Barcha testlar',
+        started: 'Boshlangan',
         notStarted: 'Boshlanmagan',
         attempted: 'Urinish qilingan'
       },
@@ -462,6 +474,7 @@ const messages = {
       loading: 'Testlar yuklanmoqda...',
       errorConfig: 'API manzili topilmadi.',
       errorFetch: 'API dan testlarni yuklab bo‘lmadi.',
+      emptyStarted: 'Boshlangan testlar hozircha yo‘q.',
       empty: 'Bu bo‘limda hozircha test topilmadi.',
       tests: [
         { title: 'Matematika testi #74', subject: 'Matematika', amount: '40 ta savol', peopleTook: '2811', lastScore: 'Ishlanmagan', type: 'Amaliy test', status: 'Yangi test', isFree: true, isNew: true, inProgress: false, completed: false, order: 74 },
@@ -481,6 +494,11 @@ const messages = {
       start: 'Testni boshlash',
       starting: 'Ochilmoqda...',
       startError: 'Testni ochib bo‘lmadi.',
+      continue: 'Davom ettirish',
+      continuing: 'Ochilmoqda...',
+      remainingQuestions: 'Qolgan savollar',
+      remainingTime: 'Qolgan vaqt',
+      answeredQuestions: 'Tanlangan javoblar',
       confirmTitle: 'Haqiqatdan ham testni boshlamoqchimisiz?',
       confirmYes: 'Ha',
       confirmNo: 'Yo‘q',
@@ -490,6 +508,10 @@ const messages = {
       title: 'Matematika testi',
       submit: 'TESTNI YAKUNLASH',
       timer: 'Qolgan vaqt',
+      minutes: 'daqiqa',
+      questionsLabel: 'savol',
+      sectionTitle: 'A qism',
+      answered: 'javob berildi',
       back: 'Testlarga qaytish',
       login: 'Login sahifasiga o‘tish',
       retry: 'Qayta urinish',
@@ -517,7 +539,7 @@ const messages = {
     navbar: {
       pricing: 'Тарифы',
       resources: 'Ресурсы',
-      bookDemo: 'Заказать демо',
+      bookDemo: 'Login',
       languages: {
         en: 'EN',
         uz: 'UZ',
@@ -698,6 +720,7 @@ const messages = {
       subjectValue: 'Математика',
       tabs: {
         all: 'Все тесты',
+        started: 'Начатые',
         notStarted: 'Не начаты',
         attempted: 'С попытками'
       },
@@ -710,6 +733,7 @@ const messages = {
       loading: 'Тесты загружаются...',
       errorConfig: 'Не найден базовый URL API.',
       errorFetch: 'Не удалось загрузить тесты из API.',
+      emptyStarted: 'Пока нет начатых тестов.',
       empty: 'В этом разделе пока нет тестов.',
       tests: [
         { title: 'Тест по математике #74', subject: 'Математика', amount: '40 вопросов', peopleTook: '2811', lastScore: 'Не пройден', type: 'Практический тест', status: 'Новый тест', isFree: true, isNew: true, inProgress: false, completed: false, order: 74 },
@@ -729,6 +753,11 @@ const messages = {
       start: 'Начать тест',
       starting: 'Открывается...',
       startError: 'Не удалось открыть тест.',
+      continue: 'Продолжить',
+      continuing: 'Открывается...',
+      remainingQuestions: 'Осталось вопросов',
+      remainingTime: 'Осталось времени',
+      answeredQuestions: 'Выбрано ответов',
       confirmTitle: 'Вы действительно хотите начать тест?',
       confirmYes: 'Да',
       confirmNo: 'Нет',
@@ -738,6 +767,10 @@ const messages = {
       title: 'Тест по математике',
       submit: 'ОТПРАВИТЬ ТЕСТ',
       timer: 'Осталось времени',
+      minutes: 'минут',
+      questionsLabel: 'вопросов',
+      sectionTitle: 'Часть A',
+      answered: 'ответов дано',
       back: 'Назад к тестам',
       login: 'Перейти ко входу',
       retry: 'Повторить',

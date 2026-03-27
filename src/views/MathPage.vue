@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MathTestCard from '@/components/MathTestCard.vue'
+import { useTestProgressStore } from '@/stores/testProgress'
 
 const activeTab = ref('all')
 const selectedSort = ref('newest')
@@ -9,7 +10,21 @@ const isLoading = ref(true)
 const errorKey = ref('')
 const rawTests = ref([])
 const { t } = useI18n()
+const testProgressStore = useTestProgressStore()
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+
+const formatRemainingTime = (seconds) => {
+  const safeSeconds = Math.max(Number(seconds || 0), 0)
+  const hours = Math.floor(safeSeconds / 3600)
+  const minutes = Math.floor((safeSeconds % 3600) / 60)
+  const secs = safeSeconds % 60
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+}
 
 const fetchTests = async () => {
   isLoading.value = true
@@ -42,7 +57,10 @@ const fetchTests = async () => {
   }
 }
 
-onMounted(fetchTests)
+onMounted(() => {
+  testProgressStore.hydrate()
+  fetchTests()
+})
 
 const tests = computed(() =>
   rawTests.value.map((test) => ({
@@ -51,8 +69,28 @@ const tests = computed(() =>
   }))
 )
 
+const startedTests = computed(() =>
+  testProgressStore.inProgressTests.map((progress) => ({
+    id: progress.testId,
+    title: progress.title,
+    subject: progress.subject || t('math.subjectValue'),
+    questionCount: progress.questionCount,
+    answeredCount: progress.answeredCount,
+    remainingQuestions: Math.max(Number(progress.questionCount) - Number(progress.answeredCount), 0),
+    remainingSeconds: progress.remainingSeconds,
+    remainingTimeLabel: formatRemainingTime(progress.remainingSeconds),
+    updatedAt: progress.updatedAt,
+    isInProgressCard: true,
+  })),
+)
+
 const tabs = computed(() => [
   { id: 'all', name: t('math.tabs.all'), count: tests.value.length },
+  {
+    id: 'started',
+    name: t('math.tabs.started'),
+    count: startedTests.value.length
+  },
   {
     id: 'notStarted',
     name: t('math.tabs.notStarted'),
@@ -66,6 +104,12 @@ const tabs = computed(() => [
 ])
 
 const filteredTests = computed(() => {
+  if (activeTab.value === 'started') {
+    return [...startedTests.value].sort(
+      (firstTest, secondTest) => Number(secondTest.updatedAt) - Number(firstTest.updatedAt),
+    )
+  }
+
   let result = [...tests.value]
 
   if (activeTab.value === 'notStarted') {
@@ -84,6 +128,12 @@ const filteredTests = computed(() => {
 
   return result
 })
+
+const shouldShowLoading = computed(() => activeTab.value !== 'started' && isLoading.value)
+const shouldShowError = computed(() => activeTab.value !== 'started' && Boolean(errorKey.value))
+const emptyMessageKey = computed(() =>
+  activeTab.value === 'started' ? 'math.emptyStarted' : 'math.empty',
+)
 </script>
 
 <template>
@@ -143,7 +193,10 @@ const filteredTests = computed(() => {
         </div>
       </div>
 
-      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div
+        v-if="filteredTests.length > 0"
+        class="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+      >
         <MathTestCard
           v-for="test in filteredTests"
           :key="test.id"
@@ -152,14 +205,14 @@ const filteredTests = computed(() => {
       </div>
 
       <div
-        v-if="isLoading"
+        v-if="shouldShowLoading"
         class="rounded-[28px] border border-dashed border-black/15 bg-white px-6 py-12 text-center text-gray-500 shadow-sm"
       >
         {{ t('math.loading') }}
       </div>
 
       <div
-        v-else-if="errorKey"
+        v-else-if="shouldShowError"
         class="rounded-[28px] border border-dashed border-red-200 bg-red-50 px-6 py-12 text-center text-red-600 shadow-sm"
       >
         {{ t(errorKey) }}
@@ -169,7 +222,7 @@ const filteredTests = computed(() => {
         v-else-if="filteredTests.length === 0"
         class="rounded-[28px] border border-dashed border-black/15 bg-white px-6 py-12 text-center text-gray-500 shadow-sm"
       >
-        {{ t('math.empty') }}
+        {{ t(emptyMessageKey) }}
       </div>
     </div>
   </section>
