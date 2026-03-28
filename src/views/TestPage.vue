@@ -362,6 +362,8 @@ onBeforeUnmount(() => {
     <TestReferenceWindow
       v-if="currentTest && isReferenceOpen"
       :drag-label="t('testPage.dragHere')"
+      :shrink-label="t('testPage.referenceShrink')"
+      :grow-label="t('testPage.referenceGrow')"
       :close-label="t('testPage.referenceClose')"
       :sheet-alt-label="t('testPage.referenceSheetAlt')"
       :sheets="referenceSheets"
