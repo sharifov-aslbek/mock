@@ -3,7 +3,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { NRadio, NRadioGroup, NSpin } from 'naive-ui'
+import referenceImage1 from '@/assets/image1.png'
+import referenceImage2 from '@/assets/image2.png'
+import referenceImage3 from '@/assets/image3.png'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
+import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
@@ -18,8 +22,27 @@ const answers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const activeFreeAnswerId = ref(null)
+const isReferenceOpen = ref(false)
 const shouldPersistProgress = ref(true)
 let timerIntervalId = null
+
+const referenceSheets = [
+  {
+    id: 1,
+    title: 'Algebra',
+    src: referenceImage1,
+  },
+  {
+    id: 2,
+    title: 'Geometry',
+    src: referenceImage2,
+  },
+  {
+    id: 3,
+    title: 'Trigonometry',
+    src: referenceImage3,
+  },
+]
 
 const requestedTestId = computed(() => {
   if (typeof route.query.testId === 'string') {
@@ -131,6 +154,14 @@ const clearAnswers = () => {
   activeFreeAnswerId.value = null
 }
 
+const toggleReferenceWindow = () => {
+  isReferenceOpen.value = !isReferenceOpen.value
+}
+
+const closeReferenceWindow = () => {
+  isReferenceOpen.value = false
+}
+
 const stopTimer = () => {
   if (timerIntervalId) {
     clearInterval(timerIntervalId)
@@ -214,12 +245,14 @@ const loadTest = async (testId) => {
   pageErrorKey.value = ''
 
   if (!testId) {
+    closeReferenceWindow()
     testStore.clearCurrentTest()
     pageErrorKey.value = 'testPage.missingId'
     return
   }
 
   if (!authStore.isAuthenticated) {
+    closeReferenceWindow()
     testStore.clearCurrentTest()
     pageErrorKey.value = 'testPage.authRequired'
     return
@@ -252,6 +285,7 @@ watch(
   currentTest,
   async (test) => {
     if (!test) {
+      closeReferenceWindow()
       stopTimer()
       remainingSeconds.value = 0
       return
@@ -305,14 +339,34 @@ onBeforeUnmount(() => {
   <main class="min-h-screen bg-[#f3efe8] text-black font-sans selection:bg-black selection:text-white">
     <div
       v-if="currentTest"
-      class="fixed right-3 top-3 z-30 sm:right-6 sm:top-6"
+      class="fixed right-3 top-3 z-30 flex items-start gap-3 sm:right-6 sm:top-6"
     >
+      <button
+        type="button"
+        @click="toggleReferenceWindow"
+        class="flex min-w-[94px] flex-col items-center rounded-[18px] border border-black/10 bg-white px-3 py-2 text-center shadow-[0_10px_28px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
+      >
+        <span class="text-[26px] font-semibold leading-none text-black">x²</span>
+        <span class="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/85">
+          {{ t('testPage.reference') }}
+        </span>
+      </button>
+
       <div class="rounded-[22px] bg-black px-4 py-2.5 text-center text-white shadow-[0_14px_36px_rgba(15,23,42,0.2)]">
         <p class="text-lg font-bold tracking-[0.12em] sm:text-[22px]">
           {{ formattedTimer }}
         </p>
       </div>
     </div>
+
+    <TestReferenceWindow
+      v-if="currentTest && isReferenceOpen"
+      :drag-label="t('testPage.dragHere')"
+      :close-label="t('testPage.referenceClose')"
+      :sheet-alt-label="t('testPage.referenceSheetAlt')"
+      :sheets="referenceSheets"
+      @close="closeReferenceWindow"
+    />
 
     <NSpin :show="testStore.isLoading">
       <div class="mx-auto max-w-[1280px] px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-8">

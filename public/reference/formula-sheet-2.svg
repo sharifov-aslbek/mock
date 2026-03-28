@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
+  <rect width="1200" height="1600" fill="#fffdf8"/>
+  <rect x="28" y="28" width="1144" height="1544" rx="24" fill="#fff" stroke="#161616" stroke-width="8"/>
+  <text x="80" y="112" font-size="42" font-family="Georgia, serif" font-weight="700" fill="#111">Geometry Reference</text>
+  <text x="80" y="156" font-size="22" font-family="Arial, sans-serif" letter-spacing="6" fill="#6b665f">AREAS AND VOLUMES</text>
+
+  <rect x="72" y="212" width="510" height="328" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="262" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Plane Figures</text>
+  <text x="96" y="318" font-size="24" font-family="Courier New, monospace" fill="#222">Rectangle:   S = a * b</text>
+  <text x="96" y="362" font-size="24" font-family="Courier New, monospace" fill="#222">Square:      S = a^2</text>
+  <text x="96" y="406" font-size="24" font-family="Courier New, monospace" fill="#222">Triangle:    S = a * h / 2</text>
+  <text x="96" y="450" font-size="24" font-family="Courier New, monospace" fill="#222">Parallelogram: S = a * h</text>
+  <text x="96" y="494" font-size="24" font-family="Courier New, monospace" fill="#222">Trapezoid:   S = (a + b) * h / 2</text>
+
+  <rect x="618" y="212" width="510" height="328" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="642" y="262" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Circle</text>
+  <text x="642" y="318" font-size="24" font-family="Courier New, monospace" fill="#222">Length:   L = 2 * pi * r</text>
+  <text x="642" y="362" font-size="24" font-family="Courier New, monospace" fill="#222">Area:     S = pi * r^2</text>
+  <text x="642" y="406" font-size="24" font-family="Courier New, monospace" fill="#222">Sector:   S = pi * r^2 * a / 360</text>
+  <text x="642" y="450" font-size="24" font-family="Courier New, monospace" fill="#222">Arc:      l = 2 * pi * r * a / 360</text>
+
+  <rect x="72" y="576" width="1056" height="364" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="626" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">3D Bodies</text>
+  <text x="96" y="682" font-size="24" font-family="Courier New, monospace" fill="#222">Prism:         V = S_base * h</text>
+  <text x="96" y="726" font-size="24" font-family="Courier New, monospace" fill="#222">Cylinder:      V = pi * r^2 * h</text>
+  <text x="96" y="770" font-size="24" font-family="Courier New, monospace" fill="#222">Cone:          V = pi * r^2 * h / 3</text>
+  <text x="96" y="814" font-size="24" font-family="Courier New, monospace" fill="#222">Sphere:        V = 4 * pi * r^3 / 3</text>
+  <text x="96" y="858" font-size="24" font-family="Courier New, monospace" fill="#222">Surface sphere: S = 4 * pi * r^2</text>
+
+  <rect x="72" y="976" width="510" height="300" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="1026" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Pythagoras</text>
+  <text x="96" y="1080" font-size="24" font-family="Courier New, monospace" fill="#222">a^2 + b^2 = c^2</text>
+  <text x="96" y="1124" font-size="24" font-family="Courier New, monospace" fill="#222">c = sqrt(a^2 + b^2)</text>
+  <text x="96" y="1168" font-size="24" font-family="Courier New, monospace" fill="#222">a = sqrt(c^2 - b^2)</text>
+
+  <rect x="618" y="976" width="510" height="300" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="642" y="1026" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Coordinates</text>
+  <text x="642" y="1080" font-size="24" font-family="Courier New, monospace" fill="#222">Distance = sqrt((x2-x1)^2 + (y2-y1)^2)</text>
+  <text x="642" y="1124" font-size="24" font-family="Courier New, monospace" fill="#222">Midpoint = ((x1+x2)/2, (y1+y2)/2)</text>
+  <text x="642" y="1168" font-size="24" font-family="Courier New, monospace" fill="#222">Slope = (y2-y1) / (x2-x1)</text>
+
+  <rect x="72" y="1312" width="1056" height="188" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="1362" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Tip</text>
+  <text x="96" y="1416" font-size="22" font-family="Arial, sans-serif" fill="#222">When a solid is formed from another shape, first convert all units to one system, then compute base area and height.</text>
+</svg>

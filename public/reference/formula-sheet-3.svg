@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
+  <rect width="1200" height="1600" fill="#fffdf8"/>
+  <rect x="28" y="28" width="1144" height="1544" rx="24" fill="#fff" stroke="#161616" stroke-width="8"/>
+  <text x="80" y="112" font-size="42" font-family="Georgia, serif" font-weight="700" fill="#111">Trigonometry Reference</text>
+  <text x="80" y="156" font-size="22" font-family="Arial, sans-serif" letter-spacing="6" fill="#6b665f">IDENTITIES</text>
+
+  <rect x="72" y="212" width="1056" height="280" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="262" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Basic Definitions</text>
+  <text x="96" y="318" font-size="24" font-family="Courier New, monospace" fill="#222">tan x = sin x / cos x</text>
+  <text x="96" y="362" font-size="24" font-family="Courier New, monospace" fill="#222">cot x = cos x / sin x</text>
+  <text x="96" y="406" font-size="24" font-family="Courier New, monospace" fill="#222">1 + tan^2 x = 1 / cos^2 x</text>
+  <text x="96" y="450" font-size="24" font-family="Courier New, monospace" fill="#222">1 + cot^2 x = 1 / sin^2 x</text>
+
+  <rect x="72" y="528" width="510" height="328" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="578" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Main Identity</text>
+  <text x="96" y="640" font-size="26" font-family="Courier New, monospace" fill="#222">sin^2 x + cos^2 x = 1</text>
+  <text x="96" y="694" font-size="24" font-family="Courier New, monospace" fill="#222">sin(90° - x) = cos x</text>
+  <text x="96" y="738" font-size="24" font-family="Courier New, monospace" fill="#222">cos(90° - x) = sin x</text>
+  <text x="96" y="782" font-size="24" font-family="Courier New, monospace" fill="#222">tan(90° - x) = cot x</text>
+
+  <rect x="618" y="528" width="510" height="328" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="642" y="578" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Double Angle</text>
+  <text x="642" y="640" font-size="24" font-family="Courier New, monospace" fill="#222">sin 2x = 2 sin x cos x</text>
+  <text x="642" y="684" font-size="24" font-family="Courier New, monospace" fill="#222">cos 2x = cos^2 x - sin^2 x</text>
+  <text x="642" y="728" font-size="24" font-family="Courier New, monospace" fill="#222">cos 2x = 2 cos^2 x - 1</text>
+  <text x="642" y="772" font-size="24" font-family="Courier New, monospace" fill="#222">cos 2x = 1 - 2 sin^2 x</text>
+
+  <rect x="72" y="892" width="1056" height="340" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="942" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Sum and Difference</text>
+  <text x="96" y="998" font-size="24" font-family="Courier New, monospace" fill="#222">sin(a + b) = sin a cos b + cos a sin b</text>
+  <text x="96" y="1042" font-size="24" font-family="Courier New, monospace" fill="#222">sin(a - b) = sin a cos b - cos a sin b</text>
+  <text x="96" y="1086" font-size="24" font-family="Courier New, monospace" fill="#222">cos(a + b) = cos a cos b - sin a sin b</text>
+  <text x="96" y="1130" font-size="24" font-family="Courier New, monospace" fill="#222">cos(a - b) = cos a cos b + sin a sin b</text>
+  <text x="96" y="1174" font-size="24" font-family="Courier New, monospace" fill="#222">tan(a ± b) = (tan a ± tan b) / (1 ∓ tan a tan b)</text>
+
+  <rect x="72" y="1268" width="1056" height="232" rx="18" fill="#faf6ee" stroke="#1e1e1e" stroke-width="3"/>
+  <text x="96" y="1318" font-size="28" font-family="Arial, sans-serif" font-weight="700" fill="#111">Triangle Reminder</text>
+  <text x="96" y="1372" font-size="22" font-family="Arial, sans-serif" fill="#222">In a right triangle: sin x = opposite / hypotenuse, cos x = adjacent / hypotenuse.</text>
+  <text x="96" y="1416" font-size="22" font-family="Arial, sans-serif" fill="#222">Make sure the calculator mode matches the problem: degrees or radians.</text>
+</svg>
