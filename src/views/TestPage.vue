@@ -87,6 +87,10 @@ const totalQuestions = computed(() => renderedQuestions.value.length)
 
 const totalDurationMinutes = computed(() =>
   Math.max(totalQuestions.value * 2, 10),
+
+  // har bir savol uchun 2 daqiqa, lekin jami kamida 10 daqiqa beriladi
+
+  // 10 bu minimal uchun agar 2ta savol bolb 2*2=4 bolsa 10 boladi minimal
 )
 
 const answeredCount = computed(() =>
@@ -301,23 +305,23 @@ onBeforeUnmount(() => {
   <main class="min-h-screen bg-[#f3efe8] text-black font-sans selection:bg-black selection:text-white">
     <div
       v-if="currentTest"
-      class="fixed right-4 top-4 z-30 sm:right-8 sm:top-8"
+      class="fixed right-3 top-3 z-30 sm:right-6 sm:top-6"
     >
-      <div class="rounded-[26px] bg-black px-6 py-4 text-center text-white shadow-[0_18px_45px_rgba(15,23,42,0.22)]">
-        <p class="text-xl font-black tracking-[0.14em] sm:text-[28px]">
+      <div class="rounded-[22px] bg-black px-4 py-2.5 text-center text-white shadow-[0_14px_36px_rgba(15,23,42,0.2)]">
+        <p class="text-lg font-bold tracking-[0.12em] sm:text-[22px]">
           {{ formattedTimer }}
         </p>
       </div>
     </div>
 
     <NSpin :show="testStore.isLoading">
-      <div class="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+      <div class="mx-auto max-w-[1280px] px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
         <div
           v-if="resolvedErrorMessage"
-          class="mx-auto max-w-3xl rounded-[28px] border border-black/10 bg-white p-5 shadow-sm"
+          class="mx-auto max-w-3xl rounded-[22px] border border-black/10 bg-white p-4 shadow-sm"
         >
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-sm font-medium text-black">
+            <p class="text-sm font-normal text-black">
               {{ resolvedErrorMessage }}
             </p>
 
@@ -344,51 +348,51 @@ onBeforeUnmount(() => {
 
         <div
           v-else-if="currentTest"
-          class="mx-auto max-w-5xl rounded-[34px] border border-black/8 bg-white px-6 pb-20 pt-10 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:px-10 sm:pt-14"
+          class="mx-auto max-w-[1080px] rounded-[28px] border border-black/8 bg-white px-5 pb-16 pt-8 shadow-[0_20px_64px_rgba(15,23,42,0.07)] sm:px-8 sm:pt-10"
         >
-          <div class="border-b border-black/10 pb-10">
-            <h1 class="text-3xl font-bold tracking-tight text-black sm:text-5xl">
+          <div class="border-b border-black/10 pb-7">
+            <h1 class="text-2xl font-semibold tracking-tight text-black sm:text-[42px]">
               {{ currentTest.title || t('testPage.title') }}
             </h1>
-            <p class="mt-5 text-xs font-normal uppercase tracking-[0.28em] text-black/40 sm:text-sm">
+            <p class="mt-3 text-[10px] font-normal uppercase tracking-[0.24em] text-black/40 sm:text-xs">
               {{ totalDurationMinutes }} {{ t('testPage.minutes') }} &bull; {{ totalQuestions }} {{ t('testPage.questionsLabel') }}
             </p>
           </div>
 
-          <div class="my-12 flex items-center gap-5">
+          <div class="my-8 flex items-center gap-4">
             <div class="h-px flex-1 bg-black/12"></div>
-            <p class="text-[11px] font-normal uppercase tracking-[0.32em] text-black/35 sm:text-xs">
+            <p class="text-[10px] font-normal uppercase tracking-[0.28em] text-black/35 sm:text-[11px]">
               {{ t('testPage.sectionTitle') }}
             </p>
             <div class="h-px flex-1 bg-black/12"></div>
           </div>
 
-          <div class="space-y-16 pb-20">
+          <div class="space-y-12 pb-16">
             <div
               v-for="question in renderedQuestions"
               :key="question.id"
               class="question-block"
             >
-              <div v-if="question.groupTitle" class="mb-6 border-l-4 border-black/70 pl-5">
-                <p class="text-[11px] font-normal uppercase tracking-[0.2em] text-black/45">
+              <div v-if="question.groupTitle" class="mb-4 border-l-[3px] border-black/70 pl-4">
+                <p class="text-[10px] font-normal uppercase tracking-[0.16em] text-black/45">
                   {{ t('testPage.groupedTask') }}
                 </p>
-                <p class="mt-2 text-base font-normal leading-7 text-black sm:text-lg">
+                <p class="mt-1.5 text-sm font-normal leading-6 text-black sm:text-base">
                   {{ question.groupTitle }}
                 </p>
               </div>
 
-              <div class="flex items-start gap-4 sm:gap-6">
-                <span class="shrink-0 text-2xl font-semibold leading-none text-black sm:text-3xl">
+              <div class="flex items-start gap-3 sm:gap-4">
+                <span class="shrink-0 text-xl font-semibold leading-none text-black sm:text-2xl">
                   {{ question.displayIndex }}.
                 </span>
 
-                <div class="min-w-0 flex-1 space-y-6">
-                  <h2 class="text-lg font-normal leading-[1.8] text-black sm:text-[21px]">
+                <div class="min-w-0 flex-1 space-y-4">
+                  <h2 class="text-base font-normal leading-[1.75] text-black sm:text-[18px]">
                     {{ question.text }}
                   </h2>
 
-                  <div v-if="question.imageUrl" class="rounded-[28px] border border-black/10 bg-[#faf8f4] p-4">
+                  <div v-if="question.imageUrl" class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3">
                     <img
                       :src="question.imageUrl"
                       :alt="t('testPage.imageAlt')"
@@ -396,17 +400,17 @@ onBeforeUnmount(() => {
                     />
                   </div>
 
-                  <div v-if="question.type === 'FreeAnswer'" class="max-w-3xl space-y-3">
+                  <div v-if="question.type === 'FreeAnswer'" class="max-w-2xl space-y-2.5">
                     <button
                       type="button"
                       @click="activeFreeAnswerId = question.id"
-                      class="w-full rounded-[24px] border border-black/15 bg-[#faf8f4] px-5 py-5 text-left transition hover:border-black hover:bg-[#f6f2ea]"
+                      class="w-full rounded-[18px] border border-black/15 bg-[#faf8f4] px-4 py-4 text-left transition hover:border-black hover:bg-[#f6f2ea]"
                     >
-                      <span class="block text-[11px] font-normal uppercase tracking-[0.16em] text-black/45">
+                      <span class="block text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
                         {{ t('testPage.freeAnswerLabel') }}
                       </span>
                       <span
-                        class="mt-3 block text-sm font-normal leading-7 sm:text-base"
+                        class="mt-2 block text-xs font-normal leading-6 sm:text-sm"
                         :class="answers[question.id] ? 'text-black' : 'text-black/35'"
                       >
                         {{
@@ -432,14 +436,14 @@ onBeforeUnmount(() => {
                     v-model:value="answers[question.id]"
                     class="block"
                   >
-                    <div class="space-y-4">
+                    <div class="space-y-2.5">
                       <label
                         v-for="option in question.options"
                         :key="option.id"
-                        class="group flex cursor-pointer items-center gap-4"
+                        class="group flex cursor-pointer items-center gap-2.5"
                       >
                         <span
-                          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-black text-lg font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-black text-xs font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white sm:h-9 sm:w-9 sm:text-sm"
                           :class="
                             answers[question.id] === option.id
                               ? 'bg-black text-white'
@@ -450,7 +454,7 @@ onBeforeUnmount(() => {
                         </span>
 
                         <NRadio :value="option.id" class="test-radio">
-                          <span class="text-base font-normal leading-8 text-black sm:text-[20px]">
+                          <span class="text-[13px] font-normal leading-6 text-black sm:text-sm">
                             {{ option.text }}
                           </span>
                         </NRadio>
@@ -470,15 +474,15 @@ onBeforeUnmount(() => {
         v-if="currentTest"
         class="fixed bottom-0 left-0 right-0 z-30 border-t border-black/10 bg-[#f3efe8]/95 backdrop-blur"
       >
-        <div class="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <p class="text-xs font-normal uppercase tracking-[0.22em] text-black/50 sm:text-sm">
+        <div class="mx-auto flex max-w-[1280px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <p class="text-[10px] font-normal uppercase tracking-[0.18em] text-black/50 sm:text-xs">
             {{ answeredCount }} / {{ totalQuestions }} {{ t('testPage.answered') }}
           </p>
 
           <button
             type="button"
             @click="handleSubmitTest"
-            class="rounded-[22px] bg-black px-8 py-4 text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] transition hover:bg-neutral-900 sm:px-10"
+            class="rounded-[18px] bg-black px-6 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)] transition hover:bg-neutral-900 sm:px-8 sm:text-xs"
           >
             {{ t('testPage.submit') }}
           </button>

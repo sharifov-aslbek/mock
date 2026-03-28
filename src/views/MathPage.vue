@@ -15,6 +15,9 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const formatRemainingTime = (seconds) => {
   const safeSeconds = Math.max(Number(seconds || 0), 0)
+
+  console.log('Formatting remaining time:', safeSeconds, 'seconds')
+
   const hours = Math.floor(safeSeconds / 3600)
   const minutes = Math.floor((safeSeconds % 3600) / 60)
   const secs = safeSeconds % 60
@@ -119,10 +122,15 @@ const filteredTests = computed(() => {
   }
 
   if (selectedSort.value === 'popular') {
+
+    // b ning attempt counti 12 for example
+    // a ning attempt counti 3 for example
     result.sort((a, b) => Number(b.attemptCount) - Number(a.attemptCount))
   } else if (selectedSort.value === 'score') {
+    // agar b 85 va a 90 bolsa shunda a birinci item boladi b keyingisi musbat chiqsa oldinga
     result.sort((a, b) => Number(b.questionCount) - Number(a.questionCount))
   } else {
+    // id bo'yicha kamayish tartibida saralash (eng yangi testlar birinchi bo'ladi)
     result.sort((a, b) => Number(b.id) - Number(a.id))
   }
 

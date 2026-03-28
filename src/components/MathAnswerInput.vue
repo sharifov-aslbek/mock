@@ -290,16 +290,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="rounded-2xl border-2 border-black bg-white px-4 py-4">
-      <div ref="editorRef" class="math-answer-editor min-h-8 text-lg"></div>
+  <div class="space-y-3">
+    <div class="rounded-[18px] border-2 border-black bg-white px-3 py-3">
+      <div ref="editorRef" class="math-answer-editor min-h-7 text-base"></div>
     </div>
 
-    <div class="space-y-2 rounded-2xl border border-black/10 bg-[#fafafa] p-3">
+    <div class="space-y-1.5 rounded-[18px] border border-black/10 bg-[#fafafa] p-2.5">
       <div
         v-for="(row, rowIndex) in keyboardRows"
         :key="rowIndex"
-        class="grid gap-2"
+        class="grid gap-1.5"
         :class="row.length > 4 ? 'grid-cols-4 sm:grid-cols-7' : 'grid-cols-4'"
       >
         <button
@@ -307,11 +307,11 @@ onBeforeUnmount(() => {
           :key="key.key"
           type="button"
           @click="handleKeyboardPress(key)"
-          class="flex h-11 items-center justify-center px-3 text-sm font-semibold transition"
+          class="flex h-9 items-center justify-center px-2 text-xs font-medium transition sm:h-10"
           :class="
             key.action === 'clear'
-              ? 'rounded-2xl border border-red-200 bg-red-50 text-red-700 hover:border-red-500 hover:bg-red-100'
-              : 'rounded-2xl border border-black/10 bg-white text-black hover:border-black hover:bg-black hover:text-white'
+              ? 'rounded-[14px] border border-red-200 bg-red-50 text-red-700 hover:border-red-500 hover:bg-red-100'
+              : 'rounded-[14px] border border-black/10 bg-white text-black hover:border-black hover:bg-black hover:text-white'
           "
         >
           <span v-if="key.latex" class="math-key-label" v-html="key.displayLabel"></span>
@@ -320,11 +320,11 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-4">
-      <p class="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+    <div class="rounded-[18px] border border-black/10 bg-[#fafafa] px-3 py-3">
+      <p class="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">
         {{ previewLabel }}
       </p>
-      <div ref="previewRef" class="math-answer-preview min-h-12 overflow-x-auto text-black"></div>
+      <div ref="previewRef" class="math-answer-preview min-h-10 overflow-x-auto text-black"></div>
     </div>
   </div>
 </template>
@@ -334,8 +334,8 @@ onBeforeUnmount(() => {
 .math-answer-editor:deep(.mq-math-mode) {
   border: 0;
   box-shadow: none;
-  font-size: 1.125rem;
-  min-height: 2rem;
+  font-size: 1rem;
+  min-height: 1.75rem;
   padding: 0;
 }
 
@@ -344,11 +344,11 @@ onBeforeUnmount(() => {
 }
 
 .math-answer-editor:deep(.mq-root-block) {
-  min-height: 2rem;
+  min-height: 1.75rem;
 }
 
 .math-key-label .katex {
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .math-answer-preview:deep(.katex-display) {
@@ -358,6 +358,6 @@ onBeforeUnmount(() => {
 
 .math-answer-preview:deep(.math-answer-placeholder) {
   color: rgba(0, 0, 0, 0.35);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 </style>
