@@ -7,6 +7,7 @@ import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
+import MathAnswerPreview from '@/components/MathAnswerPreview.vue'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
@@ -19,6 +20,9 @@ const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
 const answers = reactive({})
+const textAnswers = reactive({})
+const mathAnswers = reactive({})
+const freeAnswerModes = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const activeFreeAnswerId = ref(null)
@@ -118,12 +122,11 @@ const totalDurationMinutes = computed(() =>
 
 const answeredCount = computed(() =>
   renderedQuestions.value.reduce((count, question) => {
-    const answer = answers[question.id]
-
     if (question.type === 'FreeAnswer') {
-      return count + (typeof answer === 'string' && answer.trim() ? 1 : 0)
+      return count + (getResolvedFreeAnswer(question.id).trim() ? 1 : 0)
     }
 
+    const answer = answers[question.id]
     return count + (answer ? 1 : 0)
   }, 0),
 )
@@ -131,7 +134,10 @@ const answeredCount = computed(() =>
 const serializedAnswers = computed(() =>
   JSON.stringify(
     renderedQuestions.value.reduce((result, question) => {
-      const answer = answers[question.id]
+      const answer =
+        question.type === 'FreeAnswer'
+          ? getResolvedFreeAnswer(question.id)
+          : answers[question.id]
 
       if (typeof answer === 'string') {
         if (answer.trim()) {
@@ -146,12 +152,63 @@ const serializedAnswers = computed(() =>
   ),
 )
 
+const getResolvedFreeAnswer = (questionId) => {
+  const mode = freeAnswerModes[questionId]
+  const textValue = typeof textAnswers[questionId] === 'string' ? textAnswers[questionId] : ''
+  const mathValue = typeof mathAnswers[questionId] === 'string' ? mathAnswers[questionId] : ''
+
+  if (mode === 'math') {
+    return mathValue
+  }
+
+  if (mode === 'text') {
+    return textValue
+  }
+
+  return textValue || mathValue
+}
+
 const clearAnswers = () => {
   for (const answerKey of Object.keys(answers)) {
     delete answers[answerKey]
   }
 
+  for (const answerKey of Object.keys(textAnswers)) {
+    delete textAnswers[answerKey]
+  }
+
+  for (const answerKey of Object.keys(mathAnswers)) {
+    delete mathAnswers[answerKey]
+  }
+
+  for (const answerKey of Object.keys(freeAnswerModes)) {
+    delete freeAnswerModes[answerKey]
+  }
+
   activeFreeAnswerId.value = null
+}
+
+const updateTextAnswer = (questionId, value) => {
+  textAnswers[questionId] = value
+  freeAnswerModes[questionId] = 'text'
+}
+
+const updateMathAnswer = (questionId, value) => {
+  mathAnswers[questionId] = value
+  freeAnswerModes[questionId] = 'math'
+}
+
+const toggleMathInput = (questionId) => {
+  if (activeFreeAnswerId.value === questionId) {
+    activeFreeAnswerId.value = null
+    return
+  }
+
+  activeFreeAnswerId.value = questionId
+
+  if (!freeAnswerModes[questionId]) {
+    freeAnswerModes[questionId] = 'math'
+  }
 }
 
 const toggleReferenceWindow = () => {
@@ -198,6 +255,37 @@ const restoreProgress = async (testId) => {
     answers[questionId] = answer
   })
 
+  Object.entries(savedProgress.textAnswers || {}).forEach(([questionId, answer]) => {
+    textAnswers[questionId] = answer
+  })
+
+  Object.entries(savedProgress.mathAnswers || {}).forEach(([questionId, answer]) => {
+    mathAnswers[questionId] = answer
+  })
+
+  Object.entries(savedProgress.freeAnswerModes || {}).forEach(([questionId, answerMode]) => {
+    freeAnswerModes[questionId] = answerMode
+  })
+
+  renderedQuestions.value.forEach((question) => {
+    if (question.type !== 'FreeAnswer') {
+      return
+    }
+
+    const questionId = String(question.id)
+    const savedAnswer = savedProgress.answers?.[questionId]
+
+    if (
+      typeof savedAnswer === 'string' &&
+      !textAnswers[questionId] &&
+      !mathAnswers[questionId] &&
+      !freeAnswerModes[questionId]
+    ) {
+      textAnswers[questionId] = savedAnswer
+      freeAnswerModes[questionId] = 'text'
+    }
+  })
+
   activeFreeAnswerId.value = savedProgress.activeFreeAnswerId || null
 
   await nextTick()
@@ -232,6 +320,9 @@ const persistCurrentProgress = () => {
     questionCount: totalQuestions.value,
     answeredCount: answeredCount.value,
     answers: savedAnswers,
+    textAnswers: { ...textAnswers },
+    mathAnswers: { ...mathAnswers },
+    freeAnswerModes: { ...freeAnswerModes },
     remainingSeconds: remainingSeconds.value,
     activeFreeAnswerId: activeFreeAnswerId.value,
     scrollY: window.scrollY,
@@ -456,34 +547,48 @@ onBeforeUnmount(() => {
                     />
                   </div>
 
-                  <div v-if="question.type === 'FreeAnswer'" class="max-w-2xl space-y-2.5">
-                    <button
-                      type="button"
-                      @click="activeFreeAnswerId = question.id"
-                      class="w-full rounded-[18px] border border-black/15 bg-[#faf8f4] px-4 py-4 text-left transition hover:border-black hover:bg-[#f6f2ea]"
-                    >
-                      <span class="block text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
-                        {{ t('testPage.freeAnswerLabel') }}
-                      </span>
-                      <span
-                        class="mt-2 block text-xs font-normal leading-6 sm:text-sm"
-                        :class="answers[question.id] ? 'text-black' : 'text-black/35'"
+                  <div v-if="question.type === 'FreeAnswer'" class="max-w-3xl space-y-3">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <div class="min-w-0 flex-1">
+                        <label class="block text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
+                          {{ t('testPage.freeAnswerLabel') }}
+                        </label>
+                        <input
+                          :value="textAnswers[question.id] || ''"
+                          type="text"
+                          :placeholder="t('testPage.freeAnswerPlaceholder')"
+                          @input="updateTextAnswer(question.id, $event.target.value)"
+                          class="mt-2 w-full border-0 border-b-2 border-black/70 bg-transparent px-0 pb-2 pt-1 text-sm font-normal text-black outline-none transition placeholder:text-black/28 focus:border-black sm:text-base"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        @click="toggleMathInput(question.id)"
+                        class="inline-flex h-10 items-center justify-center rounded-[14px] border border-black/15 bg-[#faf8f4] px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-black transition hover:border-black hover:bg-[#f2ede4] sm:whitespace-nowrap"
                       >
                         {{
                           activeFreeAnswerId === question.id
-                            ? t('testPage.mathInputOpen')
-                            : answers[question.id]
-                              ? t('testPage.answerSaved')
-                              : t('testPage.freeAnswerPlaceholder')
+                            ? t('testPage.closeMathInput')
+                            : t('testPage.openMathInput')
                         }}
-                      </span>
-                    </button>
+                      </button>
+                    </div>
+
+                    <div v-if="mathAnswers[question.id]" class="space-y-1.5">
+                      <p class="text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
+                        {{ t('testPage.mathAnswerLabel') }}
+                      </p>
+                      <MathAnswerPreview :model-value="mathAnswers[question.id]" />
+                    </div>
 
                     <MathAnswerInput
                       v-if="activeFreeAnswerId === question.id"
-                      v-model="answers[question.id]"
+                      :model-value="mathAnswers[question.id] || ''"
                       :placeholder="t('testPage.freeAnswerPlaceholder')"
-                      :preview-label="t('testPage.preview')"
+                      :done-label="t('testPage.mathDone')"
+                      @update:model-value="updateMathAnswer(question.id, $event)"
+                      @done="activeFreeAnswerId = null"
                     />
                   </div>
 
