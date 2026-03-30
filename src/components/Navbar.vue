@@ -56,6 +56,13 @@ const closeMenu = () => {
             {{ t('navbar.pricing') }}
           </router-link>
 
+          <router-link
+            :to="{ path: '/math', query: { tab: 'attempted' } }"
+            class="transition hover:text-blue-400"
+          >
+            {{ t('navbar.result') }}
+          </router-link>
+
           <div class="cursor-pointer items-center space-x-1 transition hover:text-blue-400 flex">
             <span>{{ t('navbar.resources') }}</span>
             <span class="text-xs">▼</span>
@@ -147,6 +154,14 @@ const closeMenu = () => {
               @click="closeMenu"
             >
               {{ t('navbar.pricing') }}
+            </router-link>
+
+            <router-link
+              :to="{ path: '/math', query: { tab: 'attempted' } }"
+              class="rounded-lg px-2 py-2 text-sm transition hover:bg-white/5 hover:text-blue-400"
+              @click="closeMenu"
+            >
+              {{ t('navbar.result') }}
             </router-link>
 
             <div

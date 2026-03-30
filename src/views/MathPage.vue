@@ -1,10 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { useTestProgressStore } from '@/stores/testProgress'
 
-const activeTab = ref('all')
+const route = useRoute()
+const router = useRouter()
 const selectedSort = ref('newest')
 const isLoading = ref(true)
 const errorKey = ref('')
@@ -12,6 +14,14 @@ const rawTests = ref([])
 const { t } = useI18n()
 const testProgressStore = useTestProgressStore()
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const VALID_TAB_IDS = ['all', 'started', 'notStarted', 'attempted']
+
+const normalizeTab = (tab) =>
+  VALID_TAB_IDS.includes(tab) ? tab : 'all'
+
+const activeTab = ref(
+  normalizeTab(typeof route.query.tab === 'string' ? route.query.tab : 'all'),
+)
 
 const formatRemainingTime = (seconds) => {
   const safeSeconds = Math.max(Number(seconds || 0), 0)
@@ -63,6 +73,29 @@ const fetchTests = async () => {
 onMounted(() => {
   testProgressStore.hydrate()
   fetchTests()
+})
+
+watch(
+  () => route.query.tab,
+  (tab) => {
+    activeTab.value = normalizeTab(typeof tab === 'string' ? tab : 'all')
+  },
+)
+
+watch(activeTab, (tab) => {
+  const normalizedTab = normalizeTab(tab)
+  const currentRouteTab = typeof route.query.tab === 'string' ? route.query.tab : 'all'
+
+  if (currentRouteTab === normalizedTab) {
+    return
+  }
+
+  router.replace({
+    query: {
+      ...route.query,
+      tab: normalizedTab,
+    },
+  })
 })
 
 const tests = computed(() =>

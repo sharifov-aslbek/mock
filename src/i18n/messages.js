@@ -2,6 +2,7 @@ const messages = {
   en: {
     navbar: {
       pricing: 'Pricing',
+      result: 'Result',
       resources: 'Resources',
       bookDemo: 'Login',
       languages: {
@@ -290,6 +291,7 @@ const messages = {
   uz: {
     navbar: {
       pricing: 'Narxlar',
+      result: 'Result',
       resources: 'Resurslar',
       bookDemo: 'Login',
       languages: {
@@ -560,6 +562,7 @@ const messages = {
   ru: {
     navbar: {
       pricing: 'Тарифы',
+      result: 'Result',
       resources: 'Ресурсы',
       bookDemo: 'Login',
       languages: {
