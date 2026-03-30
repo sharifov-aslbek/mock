@@ -667,19 +667,12 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div v-else class="flex items-start gap-3 sm:gap-4">
-                      <span class="shrink-0 text-xl font-semibold leading-none text-black sm:text-2xl">
+                      <span class="shrink-0 text-lg font-semibold leading-none text-black sm:text-xl">
                         {{ groupQuestion.displayIndex }}.
                       </span>
 
                       <div class="min-w-0 flex-1 space-y-4">
-                        <h2
-                          class="font-normal text-black"
-                          :class="
-                            groupQuestion.type === 'FreeAnswer'
-                              ? 'text-sm leading-[1.65] sm:text-base'
-                              : 'text-base leading-[1.75] sm:text-[18px]'
-                          "
-                        >
+                        <h2 class="text-sm font-normal leading-[1.65] text-black sm:text-base">
                           {{ groupQuestion.text }}
                         </h2>
 
@@ -776,19 +769,12 @@ onBeforeUnmount(() => {
               </div>
 
               <div v-else class="flex items-start gap-3 sm:gap-4">
-                <span class="shrink-0 text-xl font-semibold leading-none text-black sm:text-2xl">
+                <span class="shrink-0 text-lg font-semibold leading-none text-black sm:text-xl">
                   {{ question.displayIndex }}.
                 </span>
 
                 <div class="min-w-0 flex-1 space-y-4">
-                  <h2
-                    class="font-normal text-black"
-                    :class="
-                      question.type === 'FreeAnswer'
-                        ? 'text-sm leading-[1.65] sm:text-base'
-                        : 'text-base leading-[1.75] sm:text-[18px]'
-                    "
-                  >
+                  <h2 class="text-sm font-normal leading-[1.65] text-black sm:text-base">
                     {{ question.text }}
                   </h2>
 
