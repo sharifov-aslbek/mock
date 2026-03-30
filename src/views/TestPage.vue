@@ -2,12 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { NRadio, NRadioGroup, NSpin } from 'naive-ui'
+import { NSpin } from 'naive-ui'
 import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
-import MathAnswerPreview from '@/components/MathAnswerPreview.vue'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
@@ -20,12 +19,9 @@ const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
 const answers = reactive({})
-const textAnswers = reactive({})
-const mathAnswers = reactive({})
-const freeAnswerModes = reactive({})
+const freeAnswers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
-const activeFreeAnswerId = ref(null)
 const isReferenceOpen = ref(false)
 const shouldPersistProgress = ref(true)
 let timerIntervalId = null
@@ -124,10 +120,35 @@ const totalDurationMinutes = computed(() =>
   // 10 bu minimal uchun agar 2ta savol bolb 2*2=4 bolsa 10 boladi minimal
 )
 
+const hasFreeAnswerContent = (value) => {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  const normalizedValue = value.trim()
+
+  if (!normalizedValue) {
+    return false
+  }
+
+  if (/data-type=["']inline-math["']/i.test(normalizedValue)) {
+    return true
+  }
+
+  const textContent = normalizedValue
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim()
+
+  return Boolean(textContent)
+}
+
 const answeredCount = computed(() =>
   renderedQuestions.value.reduce((count, question) => {
     if (question.type === 'FreeAnswer') {
-      return count + (getResolvedFreeAnswer(question.id).trim() ? 1 : 0)
+      return count + (hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ? 1 : 0)
     }
 
     const answer = answers[question.id]
@@ -144,7 +165,7 @@ const serializedAnswers = computed(() =>
           : answers[question.id]
 
       if (typeof answer === 'string') {
-        if (answer.trim()) {
+        if (question.type === 'FreeAnswer' ? hasFreeAnswerContent(answer) : answer.trim()) {
           result[question.id] = answer
         }
       } else if (answer !== undefined && answer !== null && answer !== '') {
@@ -157,19 +178,7 @@ const serializedAnswers = computed(() =>
 )
 
 const getResolvedFreeAnswer = (questionId) => {
-  const mode = freeAnswerModes[questionId]
-  const textValue = typeof textAnswers[questionId] === 'string' ? textAnswers[questionId] : ''
-  const mathValue = typeof mathAnswers[questionId] === 'string' ? mathAnswers[questionId] : ''
-
-  if (mode === 'math') {
-    return mathValue
-  }
-
-  if (mode === 'text') {
-    return textValue
-  }
-
-  return textValue || mathValue
+  return typeof freeAnswers[questionId] === 'string' ? freeAnswers[questionId] : ''
 }
 
 const getGroupedQuestions = (groupId) => {
@@ -189,6 +198,22 @@ const getGroupedQuestions = (groupId) => {
       const renderedQuestion = renderedQuestionsById.value.get(Number(question.id))
       return renderedQuestion || question
     })
+}
+
+const shouldSeparateGroupedQuestion = (groupId, questionId) => {
+  const groupedQuestions = getGroupedQuestions(groupId)
+  const currentIndex = groupedQuestions.findIndex(
+    (question) => Number(question.id) === Number(questionId),
+  )
+
+  if (currentIndex <= 0) {
+    return false
+  }
+
+  const previousQuestion = groupedQuestions[currentIndex - 1]
+  const currentQuestion = groupedQuestions[currentIndex]
+
+  return previousQuestion?.type === 'Matching' && currentQuestion?.type !== 'Matching'
 }
 
 const getAvailableMatchingOptions = (groupId, currentQuestionId = null) => {
@@ -218,47 +243,22 @@ const updateMatchingAnswer = (questionId, value) => {
   answers[questionId] = value ? Number(value) : ''
 }
 
+const updateOptionAnswer = (questionId, value) => {
+  answers[questionId] = value
+}
+
 const clearAnswers = () => {
   for (const answerKey of Object.keys(answers)) {
     delete answers[answerKey]
   }
 
-  for (const answerKey of Object.keys(textAnswers)) {
-    delete textAnswers[answerKey]
+  for (const answerKey of Object.keys(freeAnswers)) {
+    delete freeAnswers[answerKey]
   }
-
-  for (const answerKey of Object.keys(mathAnswers)) {
-    delete mathAnswers[answerKey]
-  }
-
-  for (const answerKey of Object.keys(freeAnswerModes)) {
-    delete freeAnswerModes[answerKey]
-  }
-
-  activeFreeAnswerId.value = null
 }
 
-const updateTextAnswer = (questionId, value) => {
-  textAnswers[questionId] = value
-  freeAnswerModes[questionId] = 'text'
-}
-
-const updateMathAnswer = (questionId, value) => {
-  mathAnswers[questionId] = value
-  freeAnswerModes[questionId] = 'math'
-}
-
-const toggleMathInput = (questionId) => {
-  if (activeFreeAnswerId.value === questionId) {
-    activeFreeAnswerId.value = null
-    return
-  }
-
-  activeFreeAnswerId.value = questionId
-
-  if (!freeAnswerModes[questionId]) {
-    freeAnswerModes[questionId] = 'math'
-  }
+const updateFreeAnswer = (questionId, value) => {
+  freeAnswers[questionId] = value
 }
 
 const toggleReferenceWindow = () => {
@@ -301,42 +301,31 @@ const restoreProgress = async (testId) => {
     return
   }
 
-  Object.entries(savedProgress.answers || {}).forEach(([questionId, answer]) => {
-    answers[questionId] = answer
-  })
-
-  Object.entries(savedProgress.textAnswers || {}).forEach(([questionId, answer]) => {
-    textAnswers[questionId] = answer
-  })
-
-  Object.entries(savedProgress.mathAnswers || {}).forEach(([questionId, answer]) => {
-    mathAnswers[questionId] = answer
-  })
-
-  Object.entries(savedProgress.freeAnswerModes || {}).forEach(([questionId, answerMode]) => {
-    freeAnswerModes[questionId] = answerMode
-  })
-
   renderedQuestions.value.forEach((question) => {
-    if (question.type !== 'FreeAnswer') {
+    const questionId = String(question.id)
+
+    if (question.type === 'FreeAnswer') {
+      const savedFreeAnswer =
+        savedProgress.freeAnswers?.[questionId] ||
+        savedProgress.mathAnswers?.[questionId] ||
+        savedProgress.textAnswers?.[questionId] ||
+        (typeof savedProgress.answers?.[questionId] === 'string'
+          ? savedProgress.answers[questionId]
+          : '')
+
+      if (typeof savedFreeAnswer === 'string' && savedFreeAnswer.trim()) {
+        freeAnswers[questionId] = savedFreeAnswer
+      }
+
       return
     }
 
-    const questionId = String(question.id)
     const savedAnswer = savedProgress.answers?.[questionId]
 
-    if (
-      typeof savedAnswer === 'string' &&
-      !textAnswers[questionId] &&
-      !mathAnswers[questionId] &&
-      !freeAnswerModes[questionId]
-    ) {
-      textAnswers[questionId] = savedAnswer
-      freeAnswerModes[questionId] = 'text'
+    if (savedAnswer !== undefined && savedAnswer !== null && savedAnswer !== '') {
+      answers[questionId] = savedAnswer
     }
   })
-
-  activeFreeAnswerId.value = savedProgress.activeFreeAnswerId || null
 
   await nextTick()
 
@@ -370,11 +359,8 @@ const persistCurrentProgress = () => {
     questionCount: totalQuestions.value,
     answeredCount: answeredCount.value,
     answers: savedAnswers,
-    textAnswers: { ...textAnswers },
-    mathAnswers: { ...mathAnswers },
-    freeAnswerModes: { ...freeAnswerModes },
+    freeAnswers: { ...freeAnswers },
     remainingSeconds: remainingSeconds.value,
-    activeFreeAnswerId: activeFreeAnswerId.value,
     scrollY: window.scrollY,
     completed: false,
   })
@@ -442,7 +428,7 @@ watch(
 )
 
 watch(
-  [serializedAnswers, remainingSeconds, activeFreeAnswerId],
+  [serializedAnswers, remainingSeconds],
   () => {
     persistCurrentProgress()
   },
@@ -477,7 +463,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f3efe8] text-black font-sans selection:bg-black selection:text-white">
+  <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[220px] pt-8 text-black selection:bg-black selection:text-white sm:pt-14">
     <div
       v-if="currentTest"
       class="fixed right-3 top-3 z-30 flex items-start gap-3 sm:right-6 sm:top-6"
@@ -487,14 +473,14 @@ onBeforeUnmount(() => {
         @click="toggleReferenceWindow"
         class="flex min-w-[94px] flex-col items-center rounded-[18px] border border-black/10 bg-white px-3 py-2 text-center shadow-[0_10px_28px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
       >
-        <span class="text-[26px] font-semibold leading-none text-black">x²</span>
-        <span class="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/85">
+        <span class="font-serif-custom text-[26px] font-normal leading-none text-black">x²</span>
+        <span class="font-mono-custom mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/85">
           {{ t('testPage.reference') }}
         </span>
       </button>
 
       <div class="rounded-[22px] bg-black px-4 py-2.5 text-center text-white shadow-[0_14px_36px_rgba(15,23,42,0.2)]">
-        <p class="text-lg font-bold tracking-[0.12em] sm:text-[22px]">
+        <p class="font-mono-custom text-lg font-bold tracking-[0.12em] sm:text-[22px]">
           {{ formattedTimer }}
         </p>
       </div>
@@ -526,7 +512,7 @@ onBeforeUnmount(() => {
               <RouterLink
                 v-if="isLoginRequired"
                 :to="loginRoute"
-                class="inline-flex items-center justify-center border-2 border-black bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-black"
+                class="font-sans-custom inline-flex items-center justify-center border-2 border-black bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-white hover:text-black"
               >
                 {{ t('testPage.login') }}
               </RouterLink>
@@ -535,7 +521,7 @@ onBeforeUnmount(() => {
                 v-else
                 type="button"
                 @click="loadTest(requestedTestId)"
-                class="border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
+                class="font-sans-custom border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-black hover:text-white"
               >
                 {{ t('testPage.retry') }}
               </button>
@@ -545,26 +531,26 @@ onBeforeUnmount(() => {
 
         <div
           v-else-if="currentTest"
-          class="mx-auto max-w-[1080px] rounded-[28px] border border-black/8 bg-white px-5 pb-16 pt-8 shadow-[0_20px_64px_rgba(15,23,42,0.07)] sm:px-8 sm:pt-10"
+          class="mx-auto min-h-[1056px] max-w-[760px] border border-[#e0ddd7] bg-white px-6 pb-20 pt-12 shadow-md ring-1 ring-[#ebe7e0] sm:px-14 sm:py-14"
         >
-          <div class="border-b border-black/10 pb-7">
-            <h1 class="text-2xl font-semibold tracking-tight text-black sm:text-[42px]">
+          <div class="border-b border-[#e0ddd7] pb-8">
+            <h1 class="font-serif-custom text-4xl font-normal tracking-[0.02em] text-[#1a1814]">
               {{ currentTest.title || t('testPage.title') }}
             </h1>
-            <p class="mt-3 text-[10px] font-normal uppercase tracking-[0.24em] text-black/40 sm:text-xs">
+            <p class="font-mono-custom mt-3 text-sm font-normal uppercase tracking-[0.18em] text-[#8a857c]">
               {{ totalDurationMinutes }} {{ t('testPage.minutes') }} &bull; {{ totalQuestions }} {{ t('testPage.questionsLabel') }}
             </p>
           </div>
 
-          <div class="my-8 flex items-center gap-4">
-            <div class="h-px flex-1 bg-black/12"></div>
-            <p class="text-[10px] font-normal uppercase tracking-[0.28em] text-black/35 sm:text-[11px]">
+          <div class="my-10 flex items-center gap-4">
+            <div class="h-px flex-1 bg-[#e0ddd7]"></div>
+            <p class="font-mono-custom text-xs font-normal uppercase tracking-[0.2em] text-[#8a857c]">
               {{ t('testPage.sectionTitle') }}
             </p>
-            <div class="h-px flex-1 bg-black/12"></div>
+            <div class="h-px flex-1 bg-[#e0ddd7]"></div>
           </div>
 
-          <div class="space-y-12 pb-16">
+          <div class="space-y-10 pb-4">
             <div
               v-for="question in renderedQuestions"
               :key="question.id"
@@ -577,22 +563,19 @@ onBeforeUnmount(() => {
 
               <div
                 v-else-if="question.questionGroupId && question.groupTitle"
-                class="space-y-4"
+                class="rounded-[20px] border border-[#e5ded3] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(26,24,20,0.04)] sm:p-6"
               >
-                <div class="border-l-[3px] border-black/70 pl-4">
-                  <p class="text-[10px] font-normal uppercase tracking-[0.16em] text-black/45">
-                    {{ t('testPage.groupedTask') }}
-                  </p>
-                  <p class="mt-1.5 text-sm font-normal leading-6 text-black sm:text-base">
+                <div class="border-l-[3px] border-[#5b5750] pl-4">
+                  <p class="text-[15px] font-normal leading-[1.85] text-[#1a1814] sm:text-[16px]">
                     {{ question.groupTitle }}
                   </p>
                 </div>
 
                 <div
                   v-if="getAvailableMatchingOptions(question.questionGroupId).length"
-                  class="space-y-2"
+                  class="mt-5 space-y-2"
                 >
-                  <p class="text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
+                  <p class="font-mono-custom text-[11px] font-normal uppercase tracking-[0.18em] text-[#8a857c]">
                     {{ t('testPage.optionBank') }}
                   </p>
 
@@ -600,29 +583,35 @@ onBeforeUnmount(() => {
                     <div
                       v-for="option in getAvailableMatchingOptions(question.questionGroupId)"
                       :key="option.id"
-                      class="flex items-center gap-3 rounded-[12px] bg-[#f7f3ed] px-3.5 py-2.5"
+                      class="flex items-center gap-4 rounded-[4px] bg-[#f5f3ef] px-4 py-2.5"
                     >
-                      <span class="shrink-0 text-base font-semibold text-black sm:text-[20px]">
+                      <span class="font-serif-custom min-w-[24px] shrink-0 text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
                         {{ option.letter }}.
                       </span>
-                      <span class="text-sm font-normal text-black sm:text-base">
+                      <span class="font-mono-custom text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
                         {{ option.text }}
                       </span>
                     </div>
                   </div>
+
                 </div>
 
-                <div class="space-y-5">
+                <div class="mt-6 space-y-6">
                   <div
                     v-for="groupQuestion in getGroupedQuestions(question.questionGroupId)"
                     :key="groupQuestion.id"
-                    class="space-y-2.5"
+                    class="space-y-3"
+                    :class="
+                      shouldSeparateGroupedQuestion(question.questionGroupId, groupQuestion.id)
+                        ? 'pt-6'
+                        : ''
+                    "
                   >
                     <div
                       v-if="groupQuestion.type === 'Matching'"
                       class="flex items-start gap-2.5 sm:gap-3"
                     >
-                      <span class="shrink-0 pt-2.5 text-lg font-semibold leading-none text-black sm:text-xl">
+                      <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 pt-2.5 text-[17px] font-semibold leading-none text-[#1a1814]">
                         {{ groupQuestion.displayIndex }}.
                       </span>
 
@@ -630,7 +619,7 @@ onBeforeUnmount(() => {
                         <select
                           :value="answers[groupQuestion.id] || ''"
                           @change="updateMatchingAnswer(groupQuestion.id, $event.target.value)"
-                          class="h-11 min-w-[96px] appearance-none rounded-[12px] border border-black/15 bg-white px-3 pr-8 text-sm font-normal text-black outline-none transition focus:border-black sm:min-w-[104px]"
+                          class="font-mono-custom h-[40px] min-w-[78px] appearance-none rounded-[4px] border border-[#d1cec7] bg-white px-4 pr-9 text-[14px] font-normal text-[#1a1814] outline-none transition hover:border-[#b8b4ad] focus:border-[#1a1814]"
                         >
                           <option value="">
                             {{ t('testPage.selectOption') }}
@@ -643,13 +632,13 @@ onBeforeUnmount(() => {
                             {{ option.letter }}. {{ option.text }}
                           </option>
                         </select>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-black/45">
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-[#8a857c]">
                           ⌄
                         </span>
                       </div>
 
-                      <div class="min-w-0 flex-1 space-y-2.5 pt-1.5">
-                        <p class="text-sm font-normal leading-[1.65] text-black sm:text-base">
+                      <div class="min-w-0 flex-1 space-y-2 pt-1.5">
+                        <p class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
                           {{ groupQuestion.text }}
                         </p>
 
@@ -667,12 +656,12 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div v-else class="flex items-start gap-3 sm:gap-4">
-                      <span class="shrink-0 text-lg font-semibold leading-none text-black sm:text-xl">
+                      <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 text-[17px] font-semibold leading-none text-[#1a1814]">
                         {{ groupQuestion.displayIndex }}.
                       </span>
 
                       <div class="min-w-0 flex-1 space-y-4">
-                        <h2 class="text-sm font-normal leading-[1.65] text-black sm:text-base">
+                        <h2 class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
                           {{ groupQuestion.text }}
                         </h2>
 
@@ -687,81 +676,47 @@ onBeforeUnmount(() => {
                           />
                         </div>
 
-                        <div v-if="groupQuestion.type === 'FreeAnswer'" class="max-w-3xl space-y-2.5">
-                          <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-                            <div class="min-w-0 flex-1">
-                              <label class="block text-[9px] font-normal uppercase tracking-[0.12em] text-black/45">
-                                {{ t('testPage.freeAnswerLabel') }}
-                              </label>
-                              <input
-                                :value="textAnswers[groupQuestion.id] || ''"
-                                type="text"
-                                :placeholder="t('testPage.freeAnswerPlaceholder')"
-                                @input="updateTextAnswer(groupQuestion.id, $event.target.value)"
-                                class="mt-1.5 w-full border-0 border-b-2 border-black/70 bg-transparent px-0 pb-1.5 pt-0.5 text-[13px] font-normal text-black outline-none transition placeholder:text-black/28 focus:border-black sm:text-sm"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              @click="toggleMathInput(groupQuestion.id)"
-                              class="inline-flex h-9 items-center justify-center rounded-[12px] border border-black/15 bg-[#faf8f4] px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-black transition hover:border-black hover:bg-[#f2ede4] sm:whitespace-nowrap"
-                            >
-                              {{
-                                activeFreeAnswerId === groupQuestion.id
-                                  ? t('testPage.closeMathInput')
-                                  : t('testPage.openMathInput')
-                              }}
-                            </button>
-                          </div>
-
-                          <div v-if="mathAnswers[groupQuestion.id]" class="space-y-1.5">
-                            <p class="text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
-                              {{ t('testPage.mathAnswerLabel') }}
-                            </p>
-                            <MathAnswerPreview :model-value="mathAnswers[groupQuestion.id]" />
-                          </div>
+                        <div v-if="groupQuestion.type === 'FreeAnswer'" class="max-w-[620px] space-y-3">
+                          <label class="font-mono-custom block text-[11px] font-normal uppercase tracking-[0.16em] text-[#8a857c]">
+                            {{ t('testPage.freeAnswerLabel') }}
+                          </label>
 
                           <MathAnswerInput
-                            v-if="activeFreeAnswerId === groupQuestion.id"
-                            :model-value="mathAnswers[groupQuestion.id] || ''"
+                            :model-value="getResolvedFreeAnswer(groupQuestion.id)"
                             :placeholder="t('testPage.freeAnswerPlaceholder')"
-                            :done-label="t('testPage.mathDone')"
-                            @update:model-value="updateMathAnswer(groupQuestion.id, $event)"
-                            @done="activeFreeAnswerId = null"
+                            :open-label="t('testPage.openMathInput')"
+                            :close-label="t('testPage.closeMathInput')"
+                            @update:model-value="updateFreeAnswer(groupQuestion.id, $event)"
                           />
                         </div>
 
-                        <NRadioGroup
-                          v-else
-                          v-model:value="answers[groupQuestion.id]"
-                          class="block"
-                        >
-                          <div class="space-y-2.5">
-                            <label
-                              v-for="option in groupQuestion.options"
-                              :key="option.id"
-                              class="group flex cursor-pointer items-center gap-2.5"
+                        <div v-else class="space-y-2.5">
+                          <button
+                            v-for="option in groupQuestion.options"
+                            :key="option.id"
+                            type="button"
+                            @click="updateOptionAnswer(groupQuestion.id, option.id)"
+                            class="group flex w-full max-w-[420px] items-center gap-4 text-left"
+                          >
+                            <span
+                              class="font-mono-custom flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-black text-[15px] font-medium transition-all duration-200 sm:h-10 sm:w-10 sm:text-base"
+                              :class="
+                                answers[groupQuestion.id] === option.id
+                                  ? 'bg-black text-white'
+                                  : 'bg-white text-black group-hover:bg-black group-hover:text-white'
+                              "
                             >
-                              <span
-                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-black text-xs font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white sm:h-9 sm:w-9 sm:text-sm"
-                                :class="
-                                  answers[groupQuestion.id] === option.id
-                                    ? 'bg-black text-white'
-                                    : 'bg-white text-black'
-                                "
-                              >
-                                {{ option.letter }}
-                              </span>
+                              {{ option.letter }}
+                            </span>
 
-                              <NRadio :value="option.id" class="test-radio">
-                                <span class="text-[13px] font-normal leading-6 text-black sm:text-sm">
-                                  {{ option.text }}
-                                </span>
-                              </NRadio>
-                            </label>
-                          </div>
-                        </NRadioGroup>
+                            <span
+                              class="text-[15px] font-medium leading-[1.7] text-[#1a1814] sm:text-[16px]"
+                              :class="answers[groupQuestion.id] === option.id ? 'text-black' : ''"
+                            >
+                              {{ option.text }}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -769,12 +724,12 @@ onBeforeUnmount(() => {
               </div>
 
               <div v-else class="flex items-start gap-3 sm:gap-4">
-                <span class="shrink-0 text-lg font-semibold leading-none text-black sm:text-xl">
+                <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 text-[17px] font-semibold leading-none text-[#1a1814]">
                   {{ question.displayIndex }}.
                 </span>
 
                 <div class="min-w-0 flex-1 space-y-4">
-                  <h2 class="text-sm font-normal leading-[1.65] text-black sm:text-base">
+                  <h2 class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
                     {{ question.text }}
                   </h2>
 
@@ -786,81 +741,47 @@ onBeforeUnmount(() => {
                     />
                   </div>
 
-                  <div v-if="question.type === 'FreeAnswer'" class="max-w-3xl space-y-2.5">
-                    <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-                      <div class="min-w-0 flex-1">
-                        <label class="block text-[9px] font-normal uppercase tracking-[0.12em] text-black/45">
-                          {{ t('testPage.freeAnswerLabel') }}
-                        </label>
-                        <input
-                          :value="textAnswers[question.id] || ''"
-                          type="text"
-                          :placeholder="t('testPage.freeAnswerPlaceholder')"
-                          @input="updateTextAnswer(question.id, $event.target.value)"
-                          class="mt-1.5 w-full border-0 border-b-2 border-black/70 bg-transparent px-0 pb-1.5 pt-0.5 text-[13px] font-normal text-black outline-none transition placeholder:text-black/28 focus:border-black sm:text-sm"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        @click="toggleMathInput(question.id)"
-                        class="inline-flex h-9 items-center justify-center rounded-[12px] border border-black/15 bg-[#faf8f4] px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-black transition hover:border-black hover:bg-[#f2ede4] sm:whitespace-nowrap"
-                      >
-                        {{
-                          activeFreeAnswerId === question.id
-                            ? t('testPage.closeMathInput')
-                            : t('testPage.openMathInput')
-                        }}
-                      </button>
-                    </div>
-
-                    <div v-if="mathAnswers[question.id]" class="space-y-1.5">
-                      <p class="text-[10px] font-normal uppercase tracking-[0.14em] text-black/45">
-                        {{ t('testPage.mathAnswerLabel') }}
-                      </p>
-                      <MathAnswerPreview :model-value="mathAnswers[question.id]" />
-                    </div>
+                  <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-3">
+                    <label class="font-mono-custom block text-[11px] font-normal uppercase tracking-[0.16em] text-[#8a857c]">
+                      {{ t('testPage.freeAnswerLabel') }}
+                    </label>
 
                     <MathAnswerInput
-                      v-if="activeFreeAnswerId === question.id"
-                      :model-value="mathAnswers[question.id] || ''"
+                      :model-value="getResolvedFreeAnswer(question.id)"
                       :placeholder="t('testPage.freeAnswerPlaceholder')"
-                      :done-label="t('testPage.mathDone')"
-                      @update:model-value="updateMathAnswer(question.id, $event)"
-                      @done="activeFreeAnswerId = null"
+                      :open-label="t('testPage.openMathInput')"
+                      :close-label="t('testPage.closeMathInput')"
+                      @update:model-value="updateFreeAnswer(question.id, $event)"
                     />
                   </div>
 
-                  <NRadioGroup
-                    v-else
-                    v-model:value="answers[question.id]"
-                    class="block"
-                  >
-                    <div class="space-y-2.5">
-                      <label
-                        v-for="option in question.options"
-                        :key="option.id"
-                        class="group flex cursor-pointer items-center gap-2.5"
+                  <div v-else class="space-y-2.5">
+                    <button
+                      v-for="option in question.options"
+                      :key="option.id"
+                      type="button"
+                      @click="updateOptionAnswer(question.id, option.id)"
+                      class="group flex w-full max-w-[420px] items-center gap-4 text-left"
+                    >
+                      <span
+                        class="font-mono-custom flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-black text-[15px] font-medium transition-all duration-200 sm:h-7 sm:w-7 sm:text-base"
+                        :class="
+                          answers[question.id] === option.id
+                            ? 'bg-black text-white'
+                            : 'bg-white text-black group-hover:bg-black group-hover:text-white'
+                        "
                       >
-                        <span
-                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-black text-xs font-bold transition-all duration-200 group-hover:bg-black group-hover:text-white sm:h-9 sm:w-9 sm:text-sm"
-                          :class="
-                            answers[question.id] === option.id
-                              ? 'bg-black text-white'
-                              : 'bg-white text-black'
-                          "
-                        >
-                          {{ option.letter }}
-                        </span>
+                        {{ option.letter }}
+                      </span>
 
-                        <NRadio :value="option.id" class="test-radio">
-                          <span class="text-[13px] font-normal leading-6 text-black sm:text-sm">
-                            {{ option.text }}
-                          </span>
-                        </NRadio>
-                      </label>
-                    </div>
-                  </NRadioGroup>
+                      <span
+                        class="text-[15px] font-medium leading-[1.7] text-[#1a1814] sm:text-[16px]"
+                        :class="answers[question.id] === option.id ? 'text-black' : ''"
+                      >
+                        {{ option.text }}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -872,17 +793,17 @@ onBeforeUnmount(() => {
 
       <div
         v-if="currentTest"
-        class="fixed bottom-0 left-0 right-0 z-30 border-t border-black/10 bg-[#f3efe8]/95 backdrop-blur"
+        class="fixed bottom-0 left-0 right-0 z-30 border-t border-[#e0ddd7] bg-[#f5f3ef]/95 backdrop-blur"
       >
-        <div class="mx-auto flex max-w-[1280px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <p class="text-[10px] font-normal uppercase tracking-[0.18em] text-black/50 sm:text-xs">
+        <div class="mx-auto flex max-w-[1280px] items-center justify-between gap-4 px-6 py-4 sm:px-12">
+          <p class="font-mono-custom text-sm font-normal uppercase tracking-[0.18em] text-[#8a857c]">
             {{ answeredCount }} / {{ totalQuestions }} {{ t('testPage.answered') }}
           </p>
 
           <button
             type="button"
             @click="handleSubmitTest"
-            class="rounded-[18px] bg-black px-6 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)] transition hover:bg-neutral-900 sm:px-8 sm:text-xs"
+            class="font-mono-custom rounded-[4px] bg-[#1a1814] px-8 py-3 text-sm font-medium uppercase tracking-[0.18em] text-white transition hover:bg-black"
           >
             {{ t('testPage.submit') }}
           </button>
@@ -892,17 +813,4 @@ onBeforeUnmount(() => {
   </main>
 </template>
 
-<style scoped>
-:deep(.n-radio) {
-  align-items: center;
-}
-
-:deep(.test-radio .n-radio__dot-wrapper) {
-  display: none !important;
-}
-
-:deep(.test-radio .n-radio__label) {
-  padding-left: 0 !important;
-}
-</style>
   

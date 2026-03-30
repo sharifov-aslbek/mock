@@ -145,19 +145,19 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="windowRef"
-    class="reference-window fixed left-0 top-0 z-40 overflow-hidden rounded-[22px] border-[3px] border-black bg-white shadow-[0_26px_70px_rgba(15,23,42,0.22)]"
+    class="reference-window fixed left-0 top-0 z-40 overflow-hidden rounded-[4px] border-2 border-[#1a1814] bg-white shadow-2xl"
     :style="windowStyle"
   >
-    <div class="flex items-center justify-between gap-3 border-b border-black/10 bg-[#f8f4ec] px-4 py-3 sm:px-5">
-      <div class="drag-handle flex flex-1 cursor-grab items-center gap-3 text-black/55 active:cursor-grabbing">
+    <div class="flex items-center justify-between gap-3 border-b border-[#e0ddd7] bg-[#f5f3ef] px-3 py-2 sm:px-4">
+      <div class="drag-handle flex flex-1 cursor-grab items-center gap-2 text-[#1a1814]/60 active:cursor-grabbing">
         <span class="grid grid-cols-3 gap-1">
           <span
             v-for="dot in 9"
             :key="dot"
-            class="h-1.5 w-1.5 rounded-full bg-black/35"
+            class="h-1.5 w-1.5 rounded-full bg-[#1a1814]/35"
           ></span>
         </span>
-        <span class="text-[11px] font-medium uppercase tracking-[0.24em] sm:text-xs">
+        <span class="font-mono-custom text-xs font-semibold uppercase tracking-[0.18em]">
           {{ dragLabel }}
         </span>
       </div>
@@ -169,7 +169,7 @@ onBeforeUnmount(() => {
           :aria-label="shrinkLabel"
           :disabled="!canShrink"
           @click="resizeWindow('smaller')"
-          class="flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-white text-lg font-semibold text-black transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          class="font-mono-custom flex h-8 w-8 items-center justify-center rounded-[4px] border border-[#e0ddd7] bg-white text-base font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#e0ddd7] disabled:cursor-not-allowed disabled:opacity-35"
         >
           −
         </button>
@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
           :aria-label="growLabel"
           :disabled="!canGrow"
           @click="resizeWindow('larger')"
-          class="flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-white text-lg font-semibold text-black transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          class="font-mono-custom flex h-8 w-8 items-center justify-center rounded-[4px] border border-[#e0ddd7] bg-white text-base font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#e0ddd7] disabled:cursor-not-allowed disabled:opacity-35"
         >
           +
         </button>
@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           @click="closeWindow"
-          class="text-sm font-semibold text-black transition hover:opacity-70 sm:text-base"
+          class="font-mono-custom text-sm font-medium text-[#1a1814] transition hover:bg-[#e0ddd7] hover:px-2 hover:py-1 hover:rounded-[4px]"
         >
           {{ closeLabel }}
           <span class="ml-1 text-lg leading-none">×</span>
@@ -196,12 +196,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="max-h-[72vh] overflow-y-auto bg-[#f8f4ec] p-3 sm:p-4">
+    <div class="max-h-[72vh] overflow-y-auto bg-white p-4">
       <div class="space-y-4">
         <figure
           v-for="sheet in sheets"
           :key="sheet.id"
-          class="overflow-hidden rounded-[18px] border border-black/10 bg-white"
+          class="overflow-hidden rounded-[4px] border border-[#e0ddd7] bg-white"
         >
           <img
             :src="sheet.src"
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
             class="block w-full bg-white"
             loading="lazy"
           />
-          <figcaption class="border-t border-black/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-black/45">
+          <figcaption class="font-mono-custom border-t border-[#e0ddd7] px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-[#8a857c]">
             {{ sheet.title }}
           </figcaption>
         </figure>

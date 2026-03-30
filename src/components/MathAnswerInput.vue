@@ -1,7 +1,10 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import jquery from 'jquery'
-import 'mathquill/build/mathquill.css'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { EditorContent, useEditor } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import { Mathematics } from '@tiptap/extension-mathematics'
+import 'katex/dist/katex.min.css'
 
 const props = defineProps({
   modelValue: {
@@ -12,226 +15,364 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  doneLabel: {
+  openLabel: {
+    type: String,
+    default: '',
+  },
+  closeLabel: {
     type: String,
     default: '',
   },
 })
 
-const emit = defineEmits(['update:modelValue', 'done'])
+const emit = defineEmits(['update:modelValue'])
 
-const editorRef = ref(null)
-let mathField = null
-let mathQuillPromise
+const formulaInput = ref('')
+const isFormulaPanelOpen = ref(false)
+const activeFormulaPos = ref(null)
 
 const keyboardRows = [
   [
-    { key: '1', label: '1', action: 'text', value: '1' },
-    { key: '2', label: '2', action: 'text', value: '2' },
-    { key: '3', label: '3', action: 'text', value: '3' },
-    { key: 'plus', label: '+', action: 'text', value: '+' },
-    { key: 'minus', label: '-', action: 'text', value: '-' },
+    { label: '1', value: '1' },
+    { label: '2', value: '2' },
+    { label: '3', value: '3' },
+    { label: '+', value: '+' },
+    { label: '-', value: '-' },
   ],
   [
-    { key: '4', label: '4', action: 'text', value: '4' },
-    { key: '5', label: '5', action: 'text', value: '5' },
-    { key: '6', label: '6', action: 'text', value: '6' },
-    { key: 'times', label: '*', action: 'text', value: '*' },
-    { key: 'divide', label: '/', action: 'text', value: '/' },
+    { label: '4', value: '4' },
+    { label: '5', value: '5' },
+    { label: '6', value: '6' },
+    { label: '×', value: '*' },
+    { label: '÷', value: '/' },
   ],
   [
-    { key: '7', label: '7', action: 'text', value: '7' },
-    { key: '8', label: '8', action: 'text', value: '8' },
-    { key: '9', label: '9', action: 'text', value: '9' },
-    { key: 'left-paren', label: '(', action: 'text', value: '(' },
-    { key: 'right-paren', label: ')', action: 'text', value: ')' },
+    { label: '7', value: '7' },
+    { label: '8', value: '8' },
+    { label: '9', value: '9' },
+    { label: '(', value: '(' },
+    { label: ')', value: ')' },
   ],
   [
-    { key: '0', label: '0', action: 'text', value: '0', span: 2 },
-    { key: 'comma', label: ',', action: 'text', value: ',' },
-    { key: 'sqrt', label: '√', action: 'cmd', value: '\\sqrt' },
-    { key: 'power', label: '^', action: 'write', value: '^{}', after: ['Left'] },
+    { label: '0', value: '0', span: 2 },
+    { label: '.', value: '.' },
+    { label: '√', value: 'sqrt(x)' },
+    { label: '^', value: '^' },
   ],
   [
-    { key: 'x', label: 'x', action: 'text', value: 'x' },
-    { key: 'y', label: 'y', action: 'text', value: 'y' },
-    { key: 'pi', label: 'π', action: 'latex', value: '\\pi' },
-    { key: 'equal', label: '=', action: 'text', value: '=' },
-    { key: 'delete', label: 'DEL', action: 'keystroke', value: 'Backspace', variant: 'danger' },
+    { label: 'x', value: 'x' },
+    { label: 'y', value: 'y' },
+    { label: 'π', value: 'π' },
+    { label: '=', value: '=' },
+    { label: '⌫', value: '__backspace__', variant: 'danger' },
+  ],
+  [
+    { label: 'sin', value: 'sin(x)' },
+    { label: 'log', value: 'log(x)' },
+    { label: 'frac', value: 'frac(a,b)' },
+    { label: 'C', value: '__clear__', variant: 'danger' },
   ],
 ]
 
-const focusEditor = () => {
-  if (mathField) {
-    mathField.focus()
+const escapeHtml = (value) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const normalizeContent = (value) => {
+  const normalizedValue = typeof value === 'string' ? value.trim() : ''
+
+  if (!normalizedValue) {
+    return '<p></p>'
   }
+
+  if (normalizedValue.startsWith('<')) {
+    return value
+  }
+
+  return `<p>${escapeHtml(value)}</p>`
 }
 
-const syncValue = () => {
-  if (!mathField) {
-    return
+const latexToFriendlyMath = (value) => {
+  if (!value) {
+    return ''
   }
 
-  emit('update:modelValue', mathField.latex())
+  return value
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, 'frac($1,$2)')
+    .replace(/\\sqrt\{([^{}]+)\}/g, 'sqrt($1)')
+    .replace(/\\pi/g, 'π')
+    .replace(/\\(sin|cos|tan|log|ln)\s*/g, '$1')
 }
 
-const executeAfterKeys = (keys = []) => {
-  if (!mathField) {
-    return
+const friendlyMathToLatex = (value) => {
+  if (!value) {
+    return ''
   }
 
-  keys.forEach((key) => {
-    mathField.keystroke(key)
-  })
+  let nextValue = value
+
+  nextValue = nextValue.replace(/π/g, '\\pi')
+  nextValue = nextValue.replace(/\bfrac\s*\(([^,()]+)\s*,\s*([^()]+)\)/g, '\\frac{$1}{$2}')
+  nextValue = nextValue.replace(/\bsqrt\s*\(([^()]+)\)/g, '\\sqrt{$1}')
+  nextValue = nextValue.replace(/√\s*\(([^()]+)\)/g, '\\sqrt{$1}')
+  nextValue = nextValue.replace(/√([A-Za-z0-9]+)/g, '\\sqrt{$1}')
+  nextValue = nextValue.replace(/\b(sin|cos|tan|log|ln)\s*\(/g, '\\$1(')
+
+  return nextValue
 }
 
-const handleKeyboardPress = (key) => {
-  if (!mathField) {
-    return
-  }
-
-  if (key.action === 'cmd') {
-    mathField.cmd(key.value)
-  } else if (key.action === 'keystroke') {
-    mathField.keystroke(key.value)
-  } else if (key.action === 'latex') {
-    mathField.write(key.value)
-  } else if (key.action === 'text') {
-    mathField.typedText(key.value)
-  } else {
-    mathField.write(key.value)
-  }
-
-  executeAfterKeys(key.after)
-  focusEditor()
-  syncValue()
+const openFormulaEditor = (latex = '', pos = null) => {
+  formulaInput.value = latexToFriendlyMath(latex || '')
+  activeFormulaPos.value = typeof pos === 'number' ? pos : null
+  isFormulaPanelOpen.value = true
 }
 
-const handleDone = () => {
-  emit('done')
+const closeFormulaEditor = () => {
+  formulaInput.value = ''
+  activeFormulaPos.value = null
+  isFormulaPanelOpen.value = false
+  editor.value?.setEditable(true)
+  editor.value?.chain().focus().run()
 }
 
-const loadMathQuill = async () => {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  if (window.MathQuill) {
-    return window.MathQuill.getInterface(2)
-  }
-
-  if (!mathQuillPromise) {
-    window.jQuery = jquery
-    window.$ = jquery
-
-    mathQuillPromise = import('mathquill/build/mathquill.js').then(() =>
-      window.MathQuill.getInterface(2),
-    )
-  }
-
-  return mathQuillPromise
-}
-
-onMounted(async () => {
-  const MQ = await loadMathQuill()
-
-  if (!MQ || !editorRef.value) {
-    return
-  }
-
-  mathField = MQ.MathField(editorRef.value, {
-    spaceBehavesLikeTab: true,
-    handlers: {
-      edit: syncValue,
+const editor = useEditor({
+  content: normalizeContent(props.modelValue),
+  extensions: [
+    StarterKit.configure({
+      blockquote: false,
+      bulletList: false,
+      codeBlock: false,
+      code: false,
+      heading: false,
+      horizontalRule: false,
+      listItem: false,
+      orderedList: false,
+    }),
+    Placeholder.configure({
+      placeholder: props.placeholder,
+    }),
+    Mathematics.configure({
+      inlineOptions: {
+        onClick: (node, pos) => {
+          openFormulaEditor(node.attrs.latex, pos)
+        },
+      },
+      katexOptions: {
+        throwOnError: false,
+        strict: 'ignore',
+      },
+    }),
+  ],
+  editorProps: {
+    attributes: {
+      class: 'answer-editor-content',
     },
-  })
+    handleKeyDown(_, event) {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        return true
+      }
 
-  if (props.modelValue) {
-    mathField.latex(props.modelValue)
+      return false
+    },
+  },
+  onUpdate: ({ editor: currentEditor }) => {
+    emit('update:modelValue', currentEditor.getHTML())
+  },
+})
+
+const toggleLabel = computed(() =>
+  isFormulaPanelOpen.value ? props.closeLabel : props.openLabel,
+)
+
+const handleFormulaToggle = () => {
+  if (isFormulaPanelOpen.value) {
+    closeFormulaEditor()
+    editor.value?.chain().focus().run()
+    return
   }
 
-  focusEditor()
-})
+  openFormulaEditor()
+  editor.value?.setEditable(false)
+  editor.value?.chain().focus().run()
+}
+
+const syncFormulaToEditor = () => {
+  const currentEditor = editor.value
+  const friendlyValue = formulaInput.value.trim()
+  const latex = friendlyMathToLatex(friendlyValue)
+
+  if (!currentEditor) {
+    return
+  }
+
+  if (!latex) {
+    if (activeFormulaPos.value !== null) {
+      currentEditor.chain().focus().deleteInlineMath({ pos: activeFormulaPos.value }).run()
+      activeFormulaPos.value = null
+    }
+    return
+  }
+
+  if (activeFormulaPos.value !== null) {
+    const updated = currentEditor
+      .chain()
+      .focus()
+      .updateInlineMath({ pos: activeFormulaPos.value, latex })
+      .run()
+
+    if (!updated) {
+      const insertionPos = currentEditor.state.selection.from
+      currentEditor.chain().focus().insertInlineMath({ latex }).run()
+      activeFormulaPos.value = insertionPos
+    }
+  } else {
+    const insertionPos = currentEditor.state.selection.from
+    currentEditor.chain().focus().insertInlineMath({ latex }).run()
+    activeFormulaPos.value = insertionPos
+  }
+}
+
+const appendQuickFormula = (value) => {
+  if (value === '__backspace__') {
+    formulaInput.value = formulaInput.value.trimEnd().slice(0, -1).trimEnd()
+    return
+  }
+
+  if (value === '__clear__') {
+    formulaInput.value = ''
+    return
+  }
+
+  formulaInput.value = formulaInput.value
+    ? `${formulaInput.value} ${value}`
+    : value
+}
 
 watch(
   () => props.modelValue,
   (value) => {
-    if (mathField && value !== mathField.latex()) {
-      mathField.latex(value || '')
+    const currentEditor = editor.value
+
+    if (!currentEditor) {
+      return
     }
-  },
-  {
-    immediate: true,
+
+    const normalizedContent = normalizeContent(value)
+
+    if (normalizedContent !== currentEditor.getHTML()) {
+      currentEditor.commands.setContent(normalizedContent, false)
+    }
   },
 )
 
-onBeforeUnmount(() => {
-  if (mathField?.revert) {
-    mathField.revert()
+watch(formulaInput, () => {
+  if (!isFormulaPanelOpen.value) {
+    return
   }
+
+  syncFormulaToEditor()
+})
+
+watch(isFormulaPanelOpen, (value) => {
+  if (!editor.value) {
+    return
+  }
+
+  editor.value.setEditable(!value)
+})
+
+onBeforeUnmount(() => {
+  editor.value?.destroy()
 })
 </script>
 
 <template>
-  <div class="w-full max-w-[420px] rounded-[18px] border border-black/10 bg-[#f8f4ec] p-3 shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
-    <div class="rounded-[14px] border border-black/12 bg-white px-4 py-3">
-      <div ref="editorRef" class="math-answer-editor min-h-7"></div>
-      <div v-if="!modelValue" class="math-placeholder mt-1 text-sm text-black/30">
-        {{ placeholder }}
-      </div>
+  <div class="space-y-3">
+    <div class="rounded-[16px] border border-[#e3dcd1] bg-[#fffdfa] px-4 py-3 shadow-[0_6px_18px_rgba(26,24,20,0.04)]">
+      <EditorContent v-if="editor" :editor="editor" />
     </div>
 
-    <div class="mt-3 space-y-2">
-      <div
-        v-for="(row, rowIndex) in keyboardRows"
-        :key="rowIndex"
-        class="grid grid-cols-5 gap-2"
+    <div class="flex justify-end">
+      <button
+        type="button"
+        @click="handleFormulaToggle"
+        class="inline-flex h-10 items-center justify-center rounded-[18px] border border-[#d1cec7] bg-[#faf8f4] px-5 text-[12px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:whitespace-nowrap"
       >
-        <button
-          v-for="key in row"
-          :key="key.key"
-          type="button"
-          @click="handleKeyboardPress(key)"
-          class="flex h-12 items-center justify-center rounded-[12px] border border-black/12 bg-white px-2 text-xl font-medium text-black transition hover:border-black hover:bg-black hover:text-white"
-          :class="[
-            key.span === 2 ? 'col-span-2' : '',
-            key.variant === 'danger' ? 'text-red-600 hover:border-red-600 hover:bg-red-600 hover:text-white' : '',
-          ]"
-        >
-          {{ key.label }}
-        </button>
-      </div>
+        {{ toggleLabel }}
+      </button>
     </div>
 
-    <button
-      type="button"
-      @click="handleDone"
-      class="mt-4 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#1f1b17] text-lg font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-black"
+    <div
+      v-if="isFormulaPanelOpen"
+      class="rounded-[16px] border border-[#e3dcd1] bg-[#faf8f4] p-4 shadow-[0_10px_24px_rgba(26,24,20,0.06)]"
     >
-      {{ doneLabel }}
-    </button>
+      <div class="space-y-2">
+        <div
+          v-for="(row, rowIndex) in keyboardRows"
+          :key="rowIndex"
+          class="grid grid-cols-5 gap-2"
+        >
+          <button
+            v-for="button in row"
+            :key="button.label"
+            type="button"
+            @click="appendQuickFormula(button.value)"
+            class="font-mono-custom flex h-10 items-center justify-center rounded-[12px] border border-[#d1cec7] bg-white px-2 text-[13px] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4]"
+            :class="[
+              button.span === 2 ? 'col-span-2' : '',
+              button.variant === 'danger' ? 'text-red-600 hover:border-red-600 hover:bg-red-600 hover:text-white' : '',
+            ]"
+          >
+            {{ button.label }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.math-answer-editor:deep(.mq-editable-field),
-.math-answer-editor:deep(.mq-math-mode) {
-  border: 0;
-  box-shadow: none;
-  font-size: 1.05rem;
-  min-height: 1.75rem;
-  padding: 0;
+:deep(.answer-editor-content) {
+  min-height: 2.6rem;
+  outline: none;
+  color: #1a1814;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
 }
 
-.math-answer-editor:deep(.mq-focused) {
-  box-shadow: none;
+:deep(.answer-editor-content p) {
+  margin: 0;
 }
 
-.math-answer-editor:deep(.mq-root-block) {
-  min-height: 1.75rem;
-}
-
-.math-placeholder {
+:deep(.answer-editor-content p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  color: rgba(138, 133, 124, 0.75);
   pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+:deep(.answer-editor-content .tiptap-mathematics-render) {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.15rem;
+  border-radius: 0.5rem;
+  background: rgba(26, 24, 20, 0.04);
+  padding: 0.08rem 0.35rem;
+  cursor: pointer;
+}
+
+:deep(.answer-editor-content .tiptap-mathematics-render--editable:hover) {
+  background: rgba(26, 24, 20, 0.08);
+}
+
+:deep(.answer-editor-content .inline-math-error) {
+  color: #b91c1c;
 }
 </style>
