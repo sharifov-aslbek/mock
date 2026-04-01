@@ -1,13 +1,17 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { NSpin } from 'naive-ui'
 import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
-import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
+import TestBottomBar from '@/components/test/TestBottomBar.vue'
+import TestErrorState from '@/components/test/TestErrorState.vue'
+import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
+import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
+import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
@@ -22,9 +26,16 @@ const answers = reactive({})
 const freeAnswers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
+const timerDurationMs = ref(0)
+const timerResetKey = ref(0)
 const isReferenceOpen = ref(false)
 const shouldPersistProgress = ref(true)
+const activeAttemptId = ref(null)
 let timerIntervalId = null
+let autosaveIntervalId = null
+let isSyncingAnswers = false
+let isStartingAttempt = false
+const dirtyQuestionIds = new Set()
 
 const referenceSheets = [
   {
@@ -65,6 +76,26 @@ const renderedQuestionsById = computed(
   () => new Map(renderedQuestions.value.map((question) => [Number(question.id), question])),
 )
 
+const groupRenderModels = computed(() => {
+  const models = new Map()
+
+  for (const group of currentTest.value?.questionGroups || []) {
+    const questions = getGroupedQuestions(group.id).map((question) => ({
+      ...question,
+      shouldSeparate: shouldSeparateGroupedQuestion(group.id, question.id),
+      matchingOptions:
+        question.type === 'Matching' ? getAvailableMatchingOptions(group.id, question.id) : [],
+    }))
+
+    models.set(group.id, {
+      optionBank: getAvailableMatchingOptions(group.id),
+      questions,
+    })
+  }
+
+  return models
+})
+
 const renderedQuestions = computed(() => {
   const shownGroups = new Set()
 
@@ -103,22 +134,9 @@ const loginRoute = computed(() => ({
 
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
 
-const formattedTimer = computed(() => {
-  const minutes = Math.floor(remainingSeconds.value / 60)
-  const seconds = remainingSeconds.value % 60
-
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-})
-
 const totalQuestions = computed(() => renderedQuestions.value.length)
 
-const totalDurationMinutes = computed(() =>
-  Math.max(totalQuestions.value * 2, 10),
-
-  // har bir savol uchun 2 daqiqa, lekin jami kamida 10 daqiqa beriladi
-
-  // 10 bu minimal uchun agar 2ta savol bolb 2*2=4 bolsa 10 boladi minimal
-)
+const totalDurationMinutes = computed(() => Number(totalQuestions.value || 0) * 2)
 
 const hasFreeAnswerContent = (value) => {
   if (typeof value !== 'string') {
@@ -181,6 +199,38 @@ const getResolvedFreeAnswer = (questionId) => {
   return typeof freeAnswers[questionId] === 'string' ? freeAnswers[questionId] : ''
 }
 
+const extractTextAnswer = (value) => {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const normalizedValue = value.trim()
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  if (!normalizedValue.includes('<') || typeof document === 'undefined') {
+    return normalizedValue
+  }
+
+  const container = document.createElement('div')
+  container.innerHTML = normalizedValue
+
+  container.querySelectorAll('[data-type="inline-math"]').forEach((node) => {
+    const latexValue =
+      node.getAttribute('data-latex') ||
+      node.getAttribute('data-math-latex') ||
+      node.getAttribute('data-math') ||
+      node.textContent ||
+      ''
+
+    node.replaceWith(document.createTextNode(` ${latexValue} `))
+  })
+
+  return (container.textContent || '').replace(/\s+/g, ' ').trim()
+}
+
 const getGroupedQuestions = (groupId) => {
   const group = questionGroupsById.value.get(groupId)
 
@@ -241,10 +291,12 @@ const getAvailableMatchingOptions = (groupId, currentQuestionId = null) => {
 
 const updateMatchingAnswer = (questionId, value) => {
   answers[questionId] = value ? Number(value) : ''
+  dirtyQuestionIds.add(String(questionId))
 }
 
 const updateOptionAnswer = (questionId, value) => {
   answers[questionId] = value
+  dirtyQuestionIds.add(String(questionId))
 }
 
 const clearAnswers = () => {
@@ -259,6 +311,7 @@ const clearAnswers = () => {
 
 const updateFreeAnswer = (questionId, value) => {
   freeAnswers[questionId] = value
+  dirtyQuestionIds.add(String(questionId))
 }
 
 const toggleReferenceWindow = () => {
@@ -279,19 +332,28 @@ const stopTimer = () => {
 const startTimer = (questionCount, initialRemainingSeconds = null) => {
   stopTimer()
 
+  const durationInMinutes = Number(questionCount || 0) * 2
   const durationInSeconds =
-    initialRemainingSeconds ?? Math.max(Number(questionCount || 0) * 120, 600)
-  remainingSeconds.value = durationInSeconds
+    initialRemainingSeconds ?? Math.max(Math.floor(durationInMinutes * 60), 0)
+  const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
+  const startedAt = Date.now()
+
+  remainingSeconds.value = Math.ceil(durationInMilliseconds / 1000)
+  timerDurationMs.value = durationInMilliseconds
+  timerResetKey.value += 1
 
   timerIntervalId = window.setInterval(() => {
-    if (remainingSeconds.value <= 1) {
-      remainingSeconds.value = 0
-      stopTimer()
-      return
-    }
+    const elapsedMilliseconds = Date.now() - startedAt
+    const nextDurationMs = Math.max(durationInMilliseconds - elapsedMilliseconds, 0)
 
-    remainingSeconds.value -= 1
+    remainingSeconds.value = Math.ceil(nextDurationMs / 1000)
+
+    if (nextDurationMs <= 0) {
+      stopTimer()
+    }
   }, 1000)
+
+  return durationInMilliseconds
 }
 
 const restoreProgress = async (testId) => {
@@ -343,9 +405,10 @@ const persistCurrentProgress = () => {
   }
 
   const savedAnswers = JSON.parse(serializedAnswers.value)
-  const fullDurationSeconds = Math.max(totalQuestions.value * 120, 600)
   const hasMeaningfulProgress =
-    Object.keys(savedAnswers).length > 0 || remainingSeconds.value < fullDurationSeconds
+    Boolean(activeAttemptId.value) ||
+    Object.keys(savedAnswers).length > 0 ||
+    remainingSeconds.value > 0
 
   if (!hasMeaningfulProgress) {
     testProgressStore.clearProgress(currentTest.value.id)
@@ -354,6 +417,7 @@ const persistCurrentProgress = () => {
 
   testProgressStore.saveProgress({
     testId: currentTest.value.id,
+    attemptId: activeAttemptId.value,
     title: currentTest.value.title,
     subject: t('math.subjectValue'),
     questionCount: totalQuestions.value,
@@ -361,17 +425,112 @@ const persistCurrentProgress = () => {
     answers: savedAnswers,
     freeAnswers: { ...freeAnswers },
     remainingSeconds: remainingSeconds.value,
-    scrollY: window.scrollY,
     completed: false,
   })
 }
 
+const buildAnswerPayload = (questionId) => {
+  const question = renderedQuestionsById.value.get(Number(questionId))
+
+  if (!question || !activeAttemptId.value) {
+    return null
+  }
+
+  if (question.type === 'FreeAnswer') {
+    return {
+      userTestAttemptId: Number(activeAttemptId.value),
+      questionId: Number(question.id),
+      selectedOptionId: null,
+      textAnswer: extractTextAnswer(getResolvedFreeAnswer(question.id)),
+    }
+  }
+
+  return {
+    userTestAttemptId: Number(activeAttemptId.value),
+    questionId: Number(question.id),
+    selectedOptionId: answers[question.id] ? Number(answers[question.id]) : null,
+    textAnswer: null,
+  }
+}
+
+const syncDirtyAnswers = async () => {
+  if (!activeAttemptId.value || !dirtyQuestionIds.size || isSyncingAnswers) {
+    return
+  }
+
+  isSyncingAnswers = true
+
+  const pendingQuestionIds = [...dirtyQuestionIds]
+  dirtyQuestionIds.clear()
+
+  try {
+    const payloads = pendingQuestionIds.map(buildAnswerPayload).filter(Boolean)
+
+    if (payloads.length) {
+      await Promise.all(payloads.map((payload) => testStore.saveUserAnswer(payload)))
+    }
+  } catch (error) {
+    pendingQuestionIds.forEach((questionId) => dirtyQuestionIds.add(String(questionId)))
+    console.error(error)
+  } finally {
+    isSyncingAnswers = false
+  }
+}
+
+const stopAutosaveLoop = () => {
+  if (autosaveIntervalId) {
+    clearInterval(autosaveIntervalId)
+    autosaveIntervalId = null
+  }
+}
+
+const startAutosaveLoop = () => {
+  stopAutosaveLoop()
+
+  autosaveIntervalId = window.setInterval(() => {
+    void syncDirtyAnswers()
+  }, 5000)
+}
+
+const ensureAttemptStarted = async (test) => {
+  if (!test?.id) {
+    activeAttemptId.value = null
+    return
+  }
+
+  if (isStartingAttempt || activeAttemptId.value) {
+    return
+  }
+
+  const savedProgress = testProgressStore.getProgress(test.id)
+
+  if (savedProgress?.attemptId) {
+    activeAttemptId.value = Number(savedProgress.attemptId)
+    persistCurrentProgress()
+    return
+  }
+
+  try {
+    isStartingAttempt = true
+    const attempt = await testStore.startTestAttempt(test.id)
+    activeAttemptId.value = Number(attempt.id)
+    persistCurrentProgress()
+  } catch (error) {
+    console.error(error)
+  } finally {
+    isStartingAttempt = false
+  }
+}
+
 const loadTest = async (testId) => {
   shouldPersistProgress.value = true
-  clearAnswers()
   pageErrorKey.value = ''
+  testStore.clearError()
 
   if (!testId) {
+    clearAnswers()
+    activeAttemptId.value = null
+    dirtyQuestionIds.clear()
     closeReferenceWindow()
     testStore.clearCurrentTest()
     pageErrorKey.value = 'testPage.missingId'
@@ -379,6 +538,9 @@ const loadTest = async (testId) => {
   }
 
   if (!authStore.isAuthenticated) {
+    clearAnswers()
+    activeAttemptId.value = null
+    dirtyQuestionIds.clear()
     closeReferenceWindow()
     testStore.clearCurrentTest()
     pageErrorKey.value = 'testPage.authRequired'
@@ -386,9 +548,15 @@ const loadTest = async (testId) => {
   }
 
   if (Number(currentTest.value?.id) === Number(testId)) {
+    if (!activeAttemptId.value && currentTest.value) {
+      await ensureAttemptStarted(currentTest.value)
+    }
     return
   }
 
+  clearAnswers()
+  activeAttemptId.value = null
+  dirtyQuestionIds.clear()
   testStore.clearCurrentTest()
 
   try {
@@ -414,32 +582,33 @@ watch(
     if (!test) {
       closeReferenceWindow()
       stopTimer()
+      stopAutosaveLoop()
       remainingSeconds.value = 0
+      timerDurationMs.value = 0
+      activeAttemptId.value = null
       return
     }
 
+    startAutosaveLoop()
     const savedProgress = testProgressStore.getProgress(test.id)
     startTimer(test.questions?.length, savedProgress?.remainingSeconds ?? null)
     await restoreProgress(test.id)
+    await ensureAttemptStarted(test)
   },
   {
     immediate: true,
   },
 )
 
-watch(
-  [serializedAnswers, remainingSeconds],
-  () => {
-    persistCurrentProgress()
-  },
-)
-
-const handlePageLeave = () => {
+watch([serializedAnswers, remainingSeconds, activeAttemptId], () => {
   persistCurrentProgress()
-}
+})
 
 const handleSubmitTest = async () => {
   shouldPersistProgress.value = false
+  await syncDirtyAnswers()
+  dirtyQuestionIds.clear()
+  activeAttemptId.value = null
 
   if (currentTest.value?.id) {
     testProgressStore.clearProgress(currentTest.value.id)
@@ -450,13 +619,12 @@ const handleSubmitTest = async () => {
 
 onMounted(() => {
   testProgressStore.hydrate()
-  window.addEventListener('beforeunload', handlePageLeave)
-  window.addEventListener('pagehide', handlePageLeave)
+  startAutosaveLoop()
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', handlePageLeave)
-  window.removeEventListener('pagehide', handlePageLeave)
+  stopAutosaveLoop()
+  void syncDirtyAnswers()
   persistCurrentProgress()
   stopTimer()
 })
@@ -464,27 +632,14 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[220px] pt-8 text-black selection:bg-black selection:text-white sm:pt-14">
-    <div
+    <TestFloatingTools
       v-if="currentTest"
-      class="fixed right-3 top-3 z-30 flex items-start gap-3 sm:right-6 sm:top-6"
-    >
-      <button
-        type="button"
-        @click="toggleReferenceWindow"
-        class="flex min-w-[94px] flex-col items-center rounded-[18px] border border-black/10 bg-white px-3 py-2 text-center shadow-[0_10px_28px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
-      >
-        <span class="font-serif-custom text-[26px] font-normal leading-none text-black">x²</span>
-        <span class="font-mono-custom mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/85">
-          {{ t('testPage.reference') }}
-        </span>
-      </button>
+      :reference-label="t('testPage.reference')"
+      :timer-duration-ms="timerDurationMs"
+      :timer-key="timerResetKey"
+      @toggle-reference="toggleReferenceWindow"
+    />
 
-      <div class="rounded-[22px] bg-black px-4 py-2.5 text-center text-white shadow-[0_14px_36px_rgba(15,23,42,0.2)]">
-        <p class="font-mono-custom text-lg font-bold tracking-[0.12em] sm:text-[22px]">
-          {{ formattedTimer }}
-        </p>
-      </div>
-    </div>
 
     <TestReferenceWindow
       v-if="currentTest && isReferenceOpen"
@@ -499,39 +654,19 @@ onBeforeUnmount(() => {
 
     <NSpin :show="testStore.isLoading">
       <div class="mx-auto max-w-[1280px] px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
-        <div
+        <TestErrorState
           v-if="resolvedErrorMessage"
-          class="mx-auto max-w-3xl rounded-[22px] border border-black/10 bg-white p-4 shadow-sm"
-        >
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-sm font-normal text-black">
-              {{ resolvedErrorMessage }}
-            </p>
-
-            <div class="flex gap-3">
-              <RouterLink
-                v-if="isLoginRequired"
-                :to="loginRoute"
-                class="font-sans-custom inline-flex items-center justify-center border-2 border-black bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-white hover:text-black"
-              >
-                {{ t('testPage.login') }}
-              </RouterLink>
-
-              <button
-                v-else
-                type="button"
-                @click="loadTest(requestedTestId)"
-                class="font-sans-custom border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-black hover:text-white"
-              >
-                {{ t('testPage.retry') }}
-              </button>
-            </div>
-          </div>
-        </div>
+          :message="resolvedErrorMessage"
+          :show-login="isLoginRequired"
+          :login-route="loginRoute"
+          :login-label="t('testPage.login')"
+          :retry-label="t('testPage.retry')"
+          @retry="loadTest(requestedTestId)"
+        />
 
         <div
           v-else-if="currentTest"
-          class="mx-auto min-h-[1056px] max-w-[760px] border border-[#e0ddd7] bg-white px-6 pb-20 pt-12 shadow-md ring-1 ring-[#ebe7e0] sm:px-14 sm:py-14"
+          class="mx-auto min-h-[1056px] max-w-[920px] border border-[#e0ddd7] bg-white px-6 pb-20 pt-12 shadow-md ring-1 ring-[#ebe7e0] sm:px-12 sm:py-14 lg:px-16"
         >
           <div class="border-b border-[#e0ddd7] pb-8">
             <h1 class="font-serif-custom text-4xl font-normal tracking-[0.02em] text-[#1a1814]">
@@ -556,234 +691,38 @@ onBeforeUnmount(() => {
               :key="question.id"
               class="question-block"
             >
-              <div
-                v-if="question.questionGroupId && !question.groupTitle"
-                class="hidden"
-              ></div>
+              <TestQuestionGroup
+                v-if="question.questionGroupId && question.groupTitle"
+                :title="question.groupTitle"
+                :option-bank="groupRenderModels.get(question.questionGroupId)?.optionBank || []"
+                :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
+                :selected-answers="answers"
+                :resolve-free-answer="getResolvedFreeAnswer"
+                :image-alt="t('testPage.imageAlt')"
+                :option-bank-label="t('testPage.optionBank')"
+                :select-option-label="t('testPage.selectOption')"
+                :free-answer-label="t('testPage.freeAnswerLabel')"
+                :free-answer-placeholder="t('testPage.freeAnswerPlaceholder')"
+                :open-math-label="t('testPage.openMathInput')"
+                :close-math-label="t('testPage.closeMathInput')"
+                @update-matching-answer="updateMatchingAnswer"
+                @update-option="updateOptionAnswer"
+                @update-free-answer="updateFreeAnswer"
+              />
 
-              <div
-                v-else-if="question.questionGroupId && question.groupTitle"
-                class="rounded-[20px] border border-[#e5ded3] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(26,24,20,0.04)] sm:p-6"
-              >
-                <div class="border-l-[3px] border-[#5b5750] pl-4">
-                  <p class="text-[15px] font-normal leading-[1.85] text-[#1a1814] sm:text-[16px]">
-                    {{ question.groupTitle }}
-                  </p>
-                </div>
-
-                <div
-                  v-if="getAvailableMatchingOptions(question.questionGroupId).length"
-                  class="mt-5 space-y-2"
-                >
-                  <p class="font-mono-custom text-[11px] font-normal uppercase tracking-[0.18em] text-[#8a857c]">
-                    {{ t('testPage.optionBank') }}
-                  </p>
-
-                  <div class="space-y-2">
-                    <div
-                      v-for="option in getAvailableMatchingOptions(question.questionGroupId)"
-                      :key="option.id"
-                      class="flex items-center gap-4 rounded-[4px] bg-[#f5f3ef] px-4 py-2.5"
-                    >
-                      <span class="font-serif-custom min-w-[24px] shrink-0 text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
-                        {{ option.letter }}.
-                      </span>
-                      <span class="font-mono-custom text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
-                        {{ option.text }}
-                      </span>
-                    </div>
-                  </div>
-
-                </div>
-
-                <div class="mt-6 space-y-6">
-                  <div
-                    v-for="groupQuestion in getGroupedQuestions(question.questionGroupId)"
-                    :key="groupQuestion.id"
-                    class="space-y-3"
-                    :class="
-                      shouldSeparateGroupedQuestion(question.questionGroupId, groupQuestion.id)
-                        ? 'pt-6'
-                        : ''
-                    "
-                  >
-                    <div
-                      v-if="groupQuestion.type === 'Matching'"
-                      class="flex items-start gap-2.5 sm:gap-3"
-                    >
-                      <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 pt-2.5 text-[17px] font-semibold leading-none text-[#1a1814]">
-                        {{ groupQuestion.displayIndex }}.
-                      </span>
-
-                      <div class="relative shrink-0">
-                        <select
-                          :value="answers[groupQuestion.id] || ''"
-                          @change="updateMatchingAnswer(groupQuestion.id, $event.target.value)"
-                          class="font-mono-custom h-[40px] min-w-[78px] appearance-none rounded-[4px] border border-[#d1cec7] bg-white px-4 pr-9 text-[14px] font-normal text-[#1a1814] outline-none transition hover:border-[#b8b4ad] focus:border-[#1a1814]"
-                        >
-                          <option value="">
-                            {{ t('testPage.selectOption') }}
-                          </option>
-                          <option
-                            v-for="option in getAvailableMatchingOptions(question.questionGroupId, groupQuestion.id)"
-                            :key="option.id"
-                            :value="option.id"
-                          >
-                            {{ option.letter }}. {{ option.text }}
-                          </option>
-                        </select>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-[#8a857c]">
-                          ⌄
-                        </span>
-                      </div>
-
-                      <div class="min-w-0 flex-1 space-y-2 pt-1.5">
-                        <p class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
-                          {{ groupQuestion.text }}
-                        </p>
-
-                        <div
-                          v-if="groupQuestion.imageUrl"
-                          class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3"
-                        >
-                          <img
-                            :src="groupQuestion.imageUrl"
-                            :alt="t('testPage.imageAlt')"
-                            class="max-h-[420px] w-full object-contain"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div v-else class="flex items-start gap-3 sm:gap-4">
-                      <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 text-[17px] font-semibold leading-none text-[#1a1814]">
-                        {{ groupQuestion.displayIndex }}.
-                      </span>
-
-                      <div class="min-w-0 flex-1 space-y-4">
-                        <h2 class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
-                          {{ groupQuestion.text }}
-                        </h2>
-
-                        <div
-                          v-if="groupQuestion.imageUrl"
-                          class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3"
-                        >
-                          <img
-                            :src="groupQuestion.imageUrl"
-                            :alt="t('testPage.imageAlt')"
-                            class="max-h-[420px] w-full object-contain"
-                          />
-                        </div>
-
-                        <div v-if="groupQuestion.type === 'FreeAnswer'" class="max-w-[620px] space-y-3">
-                          <label class="font-mono-custom block text-[11px] font-normal uppercase tracking-[0.16em] text-[#8a857c]">
-                            {{ t('testPage.freeAnswerLabel') }}
-                          </label>
-
-                          <MathAnswerInput
-                            :model-value="getResolvedFreeAnswer(groupQuestion.id)"
-                            :placeholder="t('testPage.freeAnswerPlaceholder')"
-                            :open-label="t('testPage.openMathInput')"
-                            :close-label="t('testPage.closeMathInput')"
-                            @update:model-value="updateFreeAnswer(groupQuestion.id, $event)"
-                          />
-                        </div>
-
-                        <div v-else class="space-y-2.5">
-                          <button
-                            v-for="option in groupQuestion.options"
-                            :key="option.id"
-                            type="button"
-                            @click="updateOptionAnswer(groupQuestion.id, option.id)"
-                            class="group flex w-full max-w-[420px] items-center gap-4 text-left"
-                          >
-                            <span
-                              class="font-mono-custom flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-black text-[15px] font-medium transition-all duration-200 sm:h-10 sm:w-10 sm:text-base"
-                              :class="
-                                answers[groupQuestion.id] === option.id
-                                  ? 'bg-black text-white'
-                                  : 'bg-white text-black group-hover:bg-black group-hover:text-white'
-                              "
-                            >
-                              {{ option.letter }}
-                            </span>
-
-                            <span
-                              class="text-[15px] font-medium leading-[1.7] text-[#1a1814] sm:text-[16px]"
-                              :class="answers[groupQuestion.id] === option.id ? 'text-black' : ''"
-                            >
-                              {{ option.text }}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-else class="flex items-start gap-3 sm:gap-4">
-                <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 text-[17px] font-semibold leading-none text-[#1a1814]">
-                  {{ question.displayIndex }}.
-                </span>
-
-                <div class="min-w-0 flex-1 space-y-4">
-                  <h2 class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
-                    {{ question.text }}
-                  </h2>
-
-                  <div v-if="question.imageUrl" class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3">
-                    <img
-                      :src="question.imageUrl"
-                      :alt="t('testPage.imageAlt')"
-                      class="max-h-[420px] w-full object-contain"
-                    />
-                  </div>
-
-                  <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-3">
-                    <label class="font-mono-custom block text-[11px] font-normal uppercase tracking-[0.16em] text-[#8a857c]">
-                      {{ t('testPage.freeAnswerLabel') }}
-                    </label>
-
-                    <MathAnswerInput
-                      :model-value="getResolvedFreeAnswer(question.id)"
-                      :placeholder="t('testPage.freeAnswerPlaceholder')"
-                      :open-label="t('testPage.openMathInput')"
-                      :close-label="t('testPage.closeMathInput')"
-                      @update:model-value="updateFreeAnswer(question.id, $event)"
-                    />
-                  </div>
-
-                  <div v-else class="space-y-2.5">
-                    <button
-                      v-for="option in question.options"
-                      :key="option.id"
-                      type="button"
-                      @click="updateOptionAnswer(question.id, option.id)"
-                      class="group flex w-full max-w-[420px] items-center gap-4 text-left"
-                    >
-                      <span
-                        class="font-mono-custom flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-black text-[15px] font-medium transition-all duration-200 sm:h-7 sm:w-7 sm:text-base"
-                        :class="
-                          answers[question.id] === option.id
-                            ? 'bg-black text-white'
-                            : 'bg-white text-black group-hover:bg-black group-hover:text-white'
-                        "
-                      >
-                        {{ option.letter }}
-                      </span>
-
-                      <span
-                        class="text-[15px] font-medium leading-[1.7] text-[#1a1814] sm:text-[16px]"
-                        :class="answers[question.id] === option.id ? 'text-black' : ''"
-                      >
-                        {{ option.text }}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <TestQuestionBlock
+                v-else-if="!question.questionGroupId"
+                :question="question"
+                :selected-answer="answers[question.id]"
+                :free-answer-value="getResolvedFreeAnswer(question.id)"
+                :image-alt="t('testPage.imageAlt')"
+                :free-answer-label="t('testPage.freeAnswerLabel')"
+                :free-answer-placeholder="t('testPage.freeAnswerPlaceholder')"
+                :open-math-label="t('testPage.openMathInput')"
+                :close-math-label="t('testPage.closeMathInput')"
+                @update-option="updateOptionAnswer"
+                @update-free-answer="updateFreeAnswer"
+              />
             </div>
           </div>
         </div>
@@ -791,24 +730,14 @@ onBeforeUnmount(() => {
         <div v-else class="h-24"></div>
       </div>
 
-      <div
+      <TestBottomBar
         v-if="currentTest"
-        class="fixed bottom-0 left-0 right-0 z-30 border-t border-[#e0ddd7] bg-[#f5f3ef]/95 backdrop-blur"
-      >
-        <div class="mx-auto flex max-w-[1280px] items-center justify-between gap-4 px-6 py-4 sm:px-12">
-          <p class="font-mono-custom text-sm font-normal uppercase tracking-[0.18em] text-[#8a857c]">
-            {{ answeredCount }} / {{ totalQuestions }} {{ t('testPage.answered') }}
-          </p>
-
-          <button
-            type="button"
-            @click="handleSubmitTest"
-            class="font-mono-custom rounded-[4px] bg-[#1a1814] px-8 py-3 text-sm font-medium uppercase tracking-[0.18em] text-white transition hover:bg-black"
-          >
-            {{ t('testPage.submit') }}
-          </button>
-        </div>
-      </div>
+        :answered-count="answeredCount"
+        :total-questions="totalQuestions"
+        :answered-label="t('testPage.answered')"
+        :submit-label="t('testPage.submit')"
+        @submit="handleSubmitTest"
+      />
     </NSpin>
   </main>
 </template>

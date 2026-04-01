@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
+import { getTestApiBaseUrl } from '@/utils/api'
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -85,11 +86,12 @@ function normalizeTest(test, apiBaseUrl) {
 
 export const useTestStore = defineStore('test', () => {
   const currentTest = ref(null)
+  const currentAttempt = ref(null)
   const isLoading = ref(false)
   const errorMessage = ref('')
 
   async function fetchTestById(testId) {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+    const apiBaseUrl = getTestApiBaseUrl()
     const authStore = useAuthStore()
 
     if (!apiBaseUrl) {
@@ -129,16 +131,98 @@ export const useTestStore = defineStore('test', () => {
     }
   }
 
+  async function startTestAttempt(testId) {
+    const apiBaseUrl = getTestApiBaseUrl()
+    const authStore = useAuthStore()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    if (!authStore.token) {
+      throw new Error('Authentication token is missing.')
+    }
+
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/user-test-attempt`, {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({
+          testId: Number(testId),
+        }),
+      })
+
+      const payload = await response.json()
+
+      if (!response.ok || payload?.code !== 200 || !payload?.data?.id) {
+        throw new Error(payload?.message || 'Could not start the test attempt.')
+      }
+
+      currentAttempt.value = payload.data
+      return payload.data
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Could not start the test attempt.'
+      throw error
+    }
+  }
+
+  async function saveUserAnswer(answerPayload) {
+    const apiBaseUrl = getTestApiBaseUrl()
+    const authStore = useAuthStore()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    if (!authStore.token) {
+      throw new Error('Authentication token is missing.')
+    }
+
+    const response = await fetch(`${apiBaseUrl}/user-answer`, {
+      method: 'POST',
+      headers: {
+        accept: '*/*',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authStore.token}`,
+      },
+      body: JSON.stringify(answerPayload),
+    })
+
+    const payload = await response.json()
+
+    if (!response.ok || payload?.code !== 200) {
+      throw new Error(payload?.message || 'Could not save the answer.')
+    }
+
+    return payload.data
+  }
+
   function clearCurrentTest() {
     currentTest.value = null
+    currentAttempt.value = null
+    errorMessage.value = ''
+  }
+
+  function clearError() {
     errorMessage.value = ''
   }
 
   return {
     currentTest,
+    currentAttempt,
     isLoading,
     errorMessage,
     fetchTestById,
+    startTestAttempt,
+    saveUserAnswer,
     clearCurrentTest,
+    clearError,
   }
 })

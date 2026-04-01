@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NButton, NCard, NModal } from 'naive-ui'
+import { NCard, NModal } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 
@@ -178,10 +178,11 @@ const confirmStartTest = async () => {
             </div>
 
             <div class="flex justify-center gap-3">
-              <NButton round @click="showStartModal = false">
+              <NButton class="cursor-pointer" round @click="showStartModal = false">
                 {{ t('mathCard.confirmNo') }}
               </NButton>
               <NButton
+              class="cursor-pointer"
                 round
                 color="#000000"
                 text-color="#ffffff"

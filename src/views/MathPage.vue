@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { useTestProgressStore } from '@/stores/testProgress'
+import { getTestApiBaseUrl } from '@/utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,7 @@ const errorKey = ref('')
 const rawTests = ref([])
 const { t } = useI18n()
 const testProgressStore = useTestProgressStore()
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+const apiBaseUrl = getTestApiBaseUrl()
 const VALID_TAB_IDS = ['all', 'started', 'notStarted', 'attempted']
 
 const normalizeTab = (tab) =>
@@ -25,8 +26,6 @@ const activeTab = ref(
 
 const formatRemainingTime = (seconds) => {
   const safeSeconds = Math.max(Number(seconds || 0), 0)
-
-  console.log('Formatting remaining time:', safeSeconds, 'seconds')
 
   const hours = Math.floor(safeSeconds / 3600)
   const minutes = Math.floor((safeSeconds % 3600) / 60)
@@ -179,7 +178,7 @@ const emptyMessageKey = computed(() =>
 
 <template>
   <section class="min-h-screen bg-[#f7f7f5] px-4 py-10 sm:px-6 lg:px-8">
-    <div class="mx-auto max-w-7xl">
+    <div class="mx-auto max-w-[1400px]">
       <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div class="max-w-3xl">
           <p class="text-sm font-semibold uppercase tracking-[0.24em] text-gray-500">{{ t('math.eyebrow') }}</p>

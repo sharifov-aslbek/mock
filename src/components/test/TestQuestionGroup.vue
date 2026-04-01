@@ -1,0 +1,189 @@
+<script setup>
+import MathAnswerInput from '@/components/MathAnswerInput.vue'
+import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
+
+defineProps({
+  title: {
+    type: String,
+    default: '',
+  },
+  optionBank: {
+    type: Array,
+    default: () => [],
+  },
+  questions: {
+    type: Array,
+    default: () => [],
+  },
+  selectedAnswers: {
+    type: Object,
+    default: () => ({}),
+  },
+  resolveFreeAnswer: {
+    type: Function,
+    default: () => '',
+  },
+  imageAlt: {
+    type: String,
+    default: '',
+  },
+  optionBankLabel: {
+    type: String,
+    default: '',
+  },
+  selectOptionLabel: {
+    type: String,
+    default: '',
+  },
+  freeAnswerLabel: {
+    type: String,
+    default: '',
+  },
+  freeAnswerPlaceholder: {
+    type: String,
+    default: '',
+  },
+  openMathLabel: {
+    type: String,
+    default: '',
+  },
+  closeMathLabel: {
+    type: String,
+    default: '',
+  },
+})
+
+defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
+</script>
+
+<template>
+  <div class="rounded-[20px] border border-[#e5ded3] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(26,24,20,0.04)] sm:p-6">
+    <div class="border-l-[3px] border-[#5b5750] pl-4">
+      <p class="text-[15px] font-normal leading-[1.85] text-[#1a1814] sm:text-[16px]">
+        {{ title }}
+      </p>
+    </div>
+
+    <div v-if="optionBank.length" class="mt-5 space-y-2">
+      <p class="font-mono-custom text-[11px] font-normal uppercase tracking-[0.18em] text-[#8a857c]">
+        {{ optionBankLabel }}
+      </p>
+
+      <div class="space-y-2">
+        <div
+          v-for="option in optionBank"
+          :key="option.id"
+          class="flex items-center gap-4 rounded-[4px] bg-[#f5f3ef] px-4 py-2.5"
+        >
+          <span class="font-serif-custom min-w-[24px] shrink-0 text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
+            {{ option.letter }}.
+          </span>
+          <span class="font-mono-custom text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
+            {{ option.text }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 space-y-6">
+      <div
+        v-for="question in questions"
+        :key="question.id"
+        class="space-y-3"
+        :class="question.shouldSeparate ? 'pt-6' : ''"
+      >
+        <div
+          v-if="question.type === 'Matching'"
+          class="flex items-start gap-2.5 sm:gap-3"
+        >
+          <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 pt-2.5 text-[17px] font-semibold leading-none text-[#1a1814]">
+            {{ question.displayIndex }}.
+          </span>
+
+          <div class="relative shrink-0">
+            <select
+              :value="selectedAnswers[question.id] || ''"
+              @change="$emit('update-matching-answer', question.id, $event.target.value)"
+              class="font-mono-custom h-[40px] min-w-[78px] appearance-none rounded-[4px] border border-[#d1cec7] bg-white px-4 pr-9 text-[14px] font-normal text-[#1a1814] outline-none transition hover:border-[#b8b4ad] focus:border-[#1a1814]"
+            >
+              <option value="">
+                {{ selectOptionLabel }}
+              </option>
+              <option
+                v-for="option in question.matchingOptions"
+                :key="option.id"
+                :value="option.id"
+              >
+                {{ option.letter }}. {{ option.text }}
+              </option>
+            </select>
+            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-[#8a857c]">
+              ⌄
+            </span>
+          </div>
+
+          <div class="min-w-0 flex-1 space-y-2 pt-1.5">
+            <p class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
+              {{ question.text }}
+            </p>
+
+            <div
+              v-if="question.imageUrl"
+              class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3"
+            >
+              <img
+                :src="question.imageUrl"
+                :alt="imageAlt"
+                class="max-h-[420px] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="flex items-start gap-3 sm:gap-4">
+          <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 text-[17px] font-semibold leading-none text-[#1a1814]">
+            {{ question.displayIndex }}.
+          </span>
+
+          <div class="min-w-0 flex-1 space-y-4">
+            <h2 class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
+              {{ question.text }}
+            </h2>
+
+            <div
+              v-if="question.imageUrl"
+              class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3"
+            >
+              <img
+                :src="question.imageUrl"
+                :alt="imageAlt"
+                class="max-h-[420px] w-full object-contain"
+              />
+            </div>
+
+            <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-3">
+              <label class="font-mono-custom block text-[11px] font-normal uppercase tracking-[0.16em] text-[#8a857c]">
+                {{ freeAnswerLabel }}
+              </label>
+
+              <MathAnswerInput
+                :model-value="resolveFreeAnswer(question.id)"
+                :placeholder="freeAnswerPlaceholder"
+                :open-label="openMathLabel"
+                :close-label="closeMathLabel"
+                @update:model-value="$emit('update-free-answer', question.id, $event)"
+              />
+            </div>
+
+            <TestOptionButtons
+              v-else
+              :options="question.options"
+              :model-value="selectedAnswers[question.id]"
+              @update:model-value="$emit('update-option', question.id, $event)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { getTestApiBaseUrl } from '@/utils/api'
 
 const TOKEN_KEY = 'milliymock_token'
 
@@ -11,7 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => Boolean(token.value))
 
   async function login(email, password) {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+    const apiBaseUrl = getTestApiBaseUrl()
 
     if (!apiBaseUrl) {
       throw new Error('API base URL is missing.')
