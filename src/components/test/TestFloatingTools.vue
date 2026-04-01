@@ -1,44 +1,73 @@
 <script setup>
-import { NCountdown } from 'naive-ui'
+import { computed } from 'vue'
 
-defineProps({
-  timerDurationMs: {
-    type: Number,
-    default: 0,
-  },
-  timerKey: {
+const props = defineProps({
+  remainingSeconds: {
     type: Number,
     default: 0,
   },
 })
 
-const renderCountdown = ({ hours, minutes, seconds }) => {
-  const normalizedHours = Number(hours || 0)
-  const normalizedMinutes = String(minutes || 0).padStart(2, '0')
-  const normalizedSeconds = String(seconds || 0).padStart(2, '0')
+const formattedTime = computed(() => {
+  const totalSeconds = Math.max(Math.floor(Number(props.remainingSeconds || 0)), 0)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
 
-  if (normalizedHours > 0) {
-    return `${String(normalizedHours).padStart(2, '0')}:${normalizedMinutes}:${normalizedSeconds}`
+  const normalizedMinutes = String(minutes).padStart(2, '0')
+  const normalizedSeconds = String(seconds).padStart(2, '0')
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${normalizedMinutes}:${normalizedSeconds}`
   }
 
   return `${normalizedMinutes}:${normalizedSeconds}`
-}
+})
 </script>
 
 <template>
   <div class="fixed right-3 top-3 z-30 sm:right-6 sm:top-6">
-    <div class="min-w-[108px] rounded-[22px] bg-black px-4 py-2.5 text-center text-white shadow-[0_14px_36px_rgba(15,23,42,0.2)] sm:min-w-[124px]">
-      <n-countdown
-        :key="timerKey"
-        :duration="Math.max(timerDurationMs, 0)"
-        :active="true"
+    <div
+      class="floating-timer flex items-center gap-3 rounded-[20px] border border-white/10 bg-black/90 px-4 py-3 text-white shadow-[0_18px_45px_rgba(0,0,0,0.28)] backdrop-blur-md"
+    >
+      <div
+        class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"
       >
-        <template #default="{ hours, minutes, seconds }">
-          <span class="font-mono-custom text-[17px] font-bold tracking-[0.12em] text-white tabular-nums sm:text-[21px]">
-            {{ renderCountdown({ hours, minutes, seconds }) }}
-          </span>
-        </template>
-      </n-countdown>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          class="h-5 w-5"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 7v5l3 3"
+          />
+        </svg>
+      </div>
+
+      <span class="countdown-text">
+        {{ formattedTime }}
+      </span>
     </div>
   </div>
 </template>
+
+<style scoped>
+.countdown-text {
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.floating-timer {
+  min-width: 170px;
+}
+</style>

@@ -26,8 +26,6 @@ const answers = reactive({})
 const freeAnswers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
-const timerDurationMs = ref(0)
-const timerResetKey = ref(0)
 const isReferenceOpen = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
@@ -339,9 +337,6 @@ const startTimer = (questionCount, initialRemainingSeconds = null) => {
   const startedAt = Date.now()
 
   remainingSeconds.value = Math.ceil(durationInMilliseconds / 1000)
-  timerDurationMs.value = durationInMilliseconds
-  timerResetKey.value += 1
-
   timerIntervalId = window.setInterval(() => {
     const elapsedMilliseconds = Date.now() - startedAt
     const nextDurationMs = Math.max(durationInMilliseconds - elapsedMilliseconds, 0)
@@ -584,7 +579,6 @@ watch(
       stopTimer()
       stopAutosaveLoop()
       remainingSeconds.value = 0
-      timerDurationMs.value = 0
       activeAttemptId.value = null
       return
     }
@@ -634,8 +628,7 @@ onBeforeUnmount(() => {
   <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[220px] pt-3 text-black selection:bg-black selection:text-white sm:pt-6">
     <TestFloatingTools
       v-if="currentTest"
-      :timer-duration-ms="timerDurationMs"
-      :timer-key="timerResetKey"
+      :remaining-seconds="remainingSeconds"
     />
 
 
