@@ -59,7 +59,7 @@ const formattedTime = computed(() => {
 
 <style scoped>
 .countdown-text {
-  font-size: 32px;
+  font-size: 26px;
   line-height: 1;
   font-weight: 600;
   letter-spacing: 0.08em;

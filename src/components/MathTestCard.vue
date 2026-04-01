@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NCard, NModal } from 'naive-ui'
+import { NCard, NModal, NButton } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 
@@ -139,7 +139,7 @@ const confirmStartTest = async () => {
           type="button"
           @click="showStartModal = true"
           :disabled="isStarting"
-          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
+          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.752 11.168-4.586-2.65A1 1 0 0 0 8.667 9.39v5.22a1 1 0 0 0 1.499.872l4.586-2.65a1 1 0 0 0 0-1.664Z" />
@@ -153,7 +153,7 @@ const confirmStartTest = async () => {
           type="button"
           @click="handleContinueTest"
           :disabled="isStarting"
-          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
+          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6v12m0 0 7-6m-7 6-7-6" />
@@ -177,20 +177,23 @@ const confirmStartTest = async () => {
               </h4>
             </div>
 
-            <div class="flex justify-center gap-3">
-              <NButton class="cursor-pointer" round @click="showStartModal = false">
-                {{ t('mathCard.confirmNo') }}
-              </NButton>
-              <NButton
-              class="cursor-pointer"
-                round
-                color="#000000"
-                text-color="#ffffff"
-                @click="confirmStartTest"
-              >
-                {{ t('mathCard.confirmYes') }}
-              </NButton>
-            </div>
+          <div class="flex justify-center gap-3">
+  <button
+    type="button"
+    @click="showStartModal = false"
+    class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+  >
+    {{ t('mathCard.confirmNo') }}
+  </button>
+
+  <button
+    type="button"
+    @click="confirmStartTest"
+    class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+  >
+    {{ t('mathCard.confirmYes') }}
+  </button>
+</div>
           </div>
         </NCard>
       </div>

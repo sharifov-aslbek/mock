@@ -173,7 +173,7 @@ export const useTestStore = defineStore('test', () => {
     }
   }
 
-  async function saveUserAnswer(answerPayload) {
+  async function requestUserAnswer(method, answerPayload) {
     const apiBaseUrl = getTestApiBaseUrl()
     const authStore = useAuthStore()
 
@@ -186,7 +186,7 @@ export const useTestStore = defineStore('test', () => {
     }
 
     const response = await fetch(`${apiBaseUrl}/user-answer`, {
-      method: 'POST',
+      method,
       headers: {
         accept: '*/*',
         'Content-Type': 'application/json',
@@ -202,6 +202,14 @@ export const useTestStore = defineStore('test', () => {
     }
 
     return payload.data
+  }
+
+  async function createUserAnswer(answerPayload) {
+    return requestUserAnswer('POST', answerPayload)
+  }
+
+  async function updateUserAnswer(answerPayload) {
+    return requestUserAnswer('PUT', answerPayload)
   }
 
   function clearCurrentTest() {
@@ -221,7 +229,8 @@ export const useTestStore = defineStore('test', () => {
     errorMessage,
     fetchTestById,
     startTestAttempt,
-    saveUserAnswer,
+    createUserAnswer,
+    updateUserAnswer,
     clearCurrentTest,
     clearError,
   }

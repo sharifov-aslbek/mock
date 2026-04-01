@@ -34,6 +34,8 @@ let autosaveIntervalId = null
 let isSyncingAnswers = false
 let isStartingAttempt = false
 const dirtyQuestionIds = new Set()
+const ANSWER_ACTIONS_STORAGE_KEY = 'test_answer_actions'
+const answerActions = ref([])
 
 const referenceSheets = [
   {
@@ -287,14 +289,189 @@ const getAvailableMatchingOptions = (groupId, currentQuestionId = null) => {
   )
 }
 
+const normalizeStoredAnswerAction = (action) => {
+  const testId = Number(action?.testId)
+  const questionId = Number(action?.questionId)
+
+  if (!testId || !questionId) {
+    return null
+  }
+
+  return {
+    testId,
+    attemptId: action?.attemptId ? Number(action.attemptId) : null,
+    questionId,
+    selectedOptionId: Number(action?.selectedOptionId || 0),
+    textAnswer: typeof action?.textAnswer === 'string' ? action.textAnswer : null,
+    requestMethod: action?.requestMethod === 'PUT' ? 'PUT' : 'POST',
+    hasCreatedRemoteRecord: Boolean(action?.hasCreatedRemoteRecord),
+    isPending: action?.isPending !== false,
+    createdAt: Number(action?.createdAt || Date.now()),
+    updatedAt: Number(action?.updatedAt || Date.now()),
+  }
+}
+
+const persistAnswerActions = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(ANSWER_ACTIONS_STORAGE_KEY, JSON.stringify(answerActions.value))
+}
+
+const setAnswerActions = (nextActions) => {
+  answerActions.value = nextActions
+  persistAnswerActions()
+}
+
+const hydrateAnswerActions = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(ANSWER_ACTIONS_STORAGE_KEY)
+
+    if (!storedValue) {
+      answerActions.value = []
+      return
+    }
+
+    const parsedValue = JSON.parse(storedValue)
+
+    if (!Array.isArray(parsedValue)) {
+      setAnswerActions([])
+      return
+    }
+
+    answerActions.value = parsedValue.map(normalizeStoredAnswerAction).filter(Boolean)
+  } catch (error) {
+    console.error(error)
+    setAnswerActions([])
+  }
+}
+
+const buildAnswerActionDraft = (questionId) => {
+  const question = renderedQuestionsById.value.get(Number(questionId))
+
+  if (!question || !currentTest.value?.id) {
+    return null
+  }
+
+  if (question.type === 'FreeAnswer') {
+    return {
+      testId: Number(currentTest.value.id),
+      attemptId: activeAttemptId.value ? Number(activeAttemptId.value) : null,
+      questionId: Number(question.id),
+      selectedOptionId: 0,
+      textAnswer: extractTextAnswer(getResolvedFreeAnswer(question.id)),
+    }
+  }
+
+  return {
+    testId: Number(currentTest.value.id),
+    attemptId: activeAttemptId.value ? Number(activeAttemptId.value) : null,
+    questionId: Number(question.id),
+    selectedOptionId: answers[question.id] ? Number(answers[question.id]) : 0,
+    textAnswer: null,
+  }
+}
+
+const upsertAnswerAction = (questionId) => {
+  const draft = buildAnswerActionDraft(questionId)
+
+  if (!draft) {
+    return
+  }
+
+  const nextActions = [...answerActions.value]
+  const existingActionIndex = nextActions.findIndex(
+    (action) =>
+      Number(action.testId) === Number(draft.testId) &&
+      Number(action.questionId) === Number(draft.questionId),
+  )
+  const timestamp = Date.now()
+
+  if (existingActionIndex < 0) {
+    nextActions.push({
+      ...draft,
+      requestMethod: 'POST',
+      hasCreatedRemoteRecord: false,
+      isPending: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    })
+    setAnswerActions(nextActions)
+    return
+  }
+
+  const existingAction = nextActions[existingActionIndex]
+
+  nextActions[existingActionIndex] = {
+    ...existingAction,
+    ...draft,
+    attemptId: draft.attemptId ?? existingAction.attemptId ?? null,
+    requestMethod: existingAction.hasCreatedRemoteRecord ? 'PUT' : 'POST',
+    isPending: true,
+    updatedAt: timestamp,
+  }
+
+  setAnswerActions(nextActions)
+}
+
+const syncAnswerActionAttemptIds = () => {
+  if (!currentTest.value?.id || !activeAttemptId.value) {
+    return
+  }
+
+  const normalizedTestId = Number(currentTest.value.id)
+  const normalizedAttemptId = Number(activeAttemptId.value)
+  let hasChanges = false
+
+  const nextActions = answerActions.value.map((action) => {
+    if (Number(action.testId) !== normalizedTestId) {
+      return action
+    }
+
+    if (Number(action.attemptId || 0) === normalizedAttemptId) {
+      return action
+    }
+
+    hasChanges = true
+
+    return {
+      ...action,
+      attemptId: normalizedAttemptId,
+    }
+  })
+
+  if (hasChanges) {
+    setAnswerActions(nextActions)
+  }
+}
+
+const clearAnswerActionsForTest = (testId) => {
+  if (!testId) {
+    return
+  }
+
+  const normalizedTestId = Number(testId)
+
+  setAnswerActions(
+    answerActions.value.filter((action) => Number(action.testId) !== normalizedTestId),
+  )
+}
+
 const updateMatchingAnswer = (questionId, value) => {
   answers[questionId] = value ? Number(value) : ''
   dirtyQuestionIds.add(String(questionId))
+  upsertAnswerAction(questionId)
 }
 
 const updateOptionAnswer = (questionId, value) => {
   answers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
+  upsertAnswerAction(questionId)
 }
 
 const clearAnswers = () => {
@@ -310,6 +487,7 @@ const clearAnswers = () => {
 const updateFreeAnswer = (questionId, value) => {
   freeAnswers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
+  upsertAnswerAction(questionId)
 }
 
 const toggleReferenceWindow = () => {
@@ -424,48 +602,105 @@ const persistCurrentProgress = () => {
   })
 }
 
-const buildAnswerPayload = (questionId) => {
-  const question = renderedQuestionsById.value.get(Number(questionId))
-
-  if (!question || !activeAttemptId.value) {
+const buildCreateAnswerPayload = (action) => {
+  if (!action?.attemptId) {
     return null
   }
 
-  if (question.type === 'FreeAnswer') {
-    return {
-      userTestAttemptId: Number(activeAttemptId.value),
-      questionId: Number(question.id),
-      selectedOptionId: null,
-      textAnswer: extractTextAnswer(getResolvedFreeAnswer(question.id)),
-    }
-  }
-
   return {
-    userTestAttemptId: Number(activeAttemptId.value),
-    questionId: Number(question.id),
-    selectedOptionId: answers[question.id] ? Number(answers[question.id]) : null,
-    textAnswer: null,
+    userTestAttemptId: Number(action.attemptId),
+    questionId: Number(action.questionId),
+    selectedOptionId: Number(action.selectedOptionId || 0),
+    textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
+  }
+}
+
+const buildUpdateAnswerPayload = (action) => {
+  return {
+    questionId: Number(action.questionId),
+    selectedOptionId: Number(action.selectedOptionId || 0),
+    textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
+  }
+}
+
+const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
+  const nextActions = answerActions.value.map((action) => {
+    if (
+      Number(action.testId) !== Number(syncedAction.testId) ||
+      Number(action.questionId) !== Number(syncedAction.questionId)
+    ) {
+      return action
+    }
+
+    const wasEditedDuringSync = Number(action.updatedAt) !== Number(syncedUpdatedAt)
+
+    return {
+      ...action,
+      attemptId: syncedAction.attemptId ?? action.attemptId ?? null,
+      hasCreatedRemoteRecord: true,
+      requestMethod: 'PUT',
+      isPending: wasEditedDuringSync,
+    }
+  })
+
+  setAnswerActions(nextActions)
+
+  const latestAction = nextActions.find(
+    (action) =>
+      Number(action.testId) === Number(syncedAction.testId) &&
+      Number(action.questionId) === Number(syncedAction.questionId),
+  )
+
+  if (latestAction && !latestAction.isPending) {
+    dirtyQuestionIds.delete(String(syncedAction.questionId))
   }
 }
 
 const syncDirtyAnswers = async () => {
-  if (!activeAttemptId.value || !dirtyQuestionIds.size || isSyncingAnswers) {
+  if (!activeAttemptId.value || !currentTest.value?.id || isSyncingAnswers) {
+    return
+  }
+
+  syncAnswerActionAttemptIds()
+
+  const pendingActions = answerActions.value.filter(
+    (action) => Number(action.testId) === Number(currentTest.value.id) && action.isPending,
+  )
+
+  if (!pendingActions.length) {
     return
   }
 
   isSyncingAnswers = true
 
-  const pendingQuestionIds = [...dirtyQuestionIds]
-  dirtyQuestionIds.clear()
-
   try {
-    const payloads = pendingQuestionIds.map(buildAnswerPayload).filter(Boolean)
+    for (const action of pendingActions) {
+      try {
+        const syncedUpdatedAt = action.updatedAt
+        const requestMethod =
+          action.hasCreatedRemoteRecord || action.requestMethod === 'PUT' ? 'PUT' : 'POST'
+        const payload =
+          requestMethod === 'PUT'
+            ? buildUpdateAnswerPayload(action)
+            : buildCreateAnswerPayload(action)
 
-    if (payloads.length) {
-      await Promise.all(payloads.map((payload) => testStore.saveUserAnswer(payload)))
+        if (!payload) {
+          continue
+        }
+
+        if (requestMethod === 'PUT') {
+          await testStore.updateUserAnswer(payload)
+        } else {
+          await testStore.createUserAnswer(payload)
+        }
+
+        markAnswerActionAsSynced(action, syncedUpdatedAt)
+      } catch (error) {
+        dirtyQuestionIds.add(String(action.questionId))
+        console.error(error)
+      }
     }
   } catch (error) {
-    pendingQuestionIds.forEach((questionId) => dirtyQuestionIds.add(String(questionId)))
     console.error(error)
   } finally {
     isSyncingAnswers = false
@@ -501,6 +736,7 @@ const ensureAttemptStarted = async (test) => {
 
   if (savedProgress?.attemptId) {
     activeAttemptId.value = Number(savedProgress.attemptId)
+    syncAnswerActionAttemptIds()
     persistCurrentProgress()
     return
   }
@@ -509,6 +745,7 @@ const ensureAttemptStarted = async (test) => {
     isStartingAttempt = true
     const attempt = await testStore.startTestAttempt(test.id)
     activeAttemptId.value = Number(attempt.id)
+    syncAnswerActionAttemptIds()
     persistCurrentProgress()
   } catch (error) {
     console.error(error)
@@ -606,6 +843,7 @@ const handleSubmitTest = async () => {
 
   if (currentTest.value?.id) {
     testProgressStore.clearProgress(currentTest.value.id)
+    clearAnswerActionsForTest(currentTest.value.id)
   }
 
   await router.push('/math')
@@ -613,6 +851,7 @@ const handleSubmitTest = async () => {
 
 onMounted(() => {
   testProgressStore.hydrate()
+  hydrateAnswerActions()
   startAutosaveLoop()
 })
 
