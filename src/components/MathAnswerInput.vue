@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="space-y-3">
-    <div class="rounded-[16px] border border-[#e3dcd1] bg-[#fffdfa] px-4 py-3 shadow-[0_6px_18px_rgba(26,24,20,0.04)]">
+    <div class="rounded-[14px] border border-[#e3dcd1] bg-[#fffdfa] px-3 py-2.5 shadow-[0_6px_18px_rgba(26,24,20,0.04)] sm:rounded-[16px] sm:px-4 sm:py-3">
       <EditorContent v-if="editor" :editor="editor" />
     </div>
 
@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
       <button
         type="button"
         @click="handleFormulaToggle"
-        class="inline-flex h-10 items-center justify-center rounded-[18px] border border-[#d1cec7] bg-[#faf8f4] px-5 text-[12px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:whitespace-nowrap"
+        class="inline-flex h-10 w-full items-center justify-center rounded-[16px] border border-[#d1cec7] bg-[#faf8f4] px-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:w-auto sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:whitespace-nowrap"
       >
         {{ toggleLabel }}
       </button>
@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="isFormulaPanelOpen"
-      class="rounded-[16px] border border-[#e3dcd1] bg-[#faf8f4] p-4 shadow-[0_10px_24px_rgba(26,24,20,0.06)]"
+      class="rounded-[14px] border border-[#e3dcd1] bg-[#faf8f4] p-3 shadow-[0_10px_24px_rgba(26,24,20,0.06)] sm:rounded-[16px] sm:p-4"
     >
       <div class="space-y-2">
         <div
@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
             :key="button.label"
             type="button"
             @click="appendQuickFormula(button.value)"
-            class="font-mono-custom flex h-10 items-center justify-center rounded-[12px] border border-[#d1cec7] bg-white px-2 text-[13px] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4]"
+            class="font-mono-custom flex h-9 items-center justify-center rounded-[10px] border border-[#d1cec7] bg-white px-2 text-[12px] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:h-10 sm:rounded-[12px] sm:text-[13px]"
             :class="[
               button.span === 2 ? 'col-span-2' : '',
               button.variant === 'danger' ? 'text-red-600 hover:border-red-600 hover:bg-red-600 hover:text-white' : '',
@@ -342,8 +342,15 @@ onBeforeUnmount(() => {
   outline: none;
   color: #1a1814;
   font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+@media (min-width: 640px) {
+  :deep(.answer-editor-content) {
+    font-size: 15px;
+    line-height: 1.7;
+  }
 }
 
 :deep(.answer-editor-content p) {

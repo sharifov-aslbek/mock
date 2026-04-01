@@ -864,7 +864,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[220px] pt-3 text-black selection:bg-black selection:text-white sm:pt-6">
+  <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
     <TestFloatingTools
       v-if="currentTest"
       :remaining-seconds="remainingSeconds"
@@ -901,37 +901,37 @@ onBeforeUnmount(() => {
           <button
             type="button"
             @click="toggleReferenceWindow"
-            class="mb-5 flex h-[72px] w-[94px] flex-col items-center justify-center rounded-[20px] border border-[#e0ddd7] bg-white/95 text-center shadow-[0_6px_18px_rgba(15,23,42,0.06)] lg:fixed lg:left-2 lg:top-1/2 lg:z-20 lg:mb-0 lg:h-[168px] lg:w-[72px] lg:-translate-y-1/2 lg:justify-between lg:px-2.5 lg:py-4 xl:left-3"
+            class="mb-3 inline-flex h-11 items-center justify-center gap-2 self-start rounded-full border border-[#e0ddd7] bg-white/95 px-4 text-center shadow-[0_4px_14px_rgba(15,23,42,0.05)] lg:fixed lg:left-2 lg:top-1/2 lg:z-20 lg:mb-0 lg:h-[168px] lg:w-[72px] lg:-translate-y-1/2 lg:flex-col lg:justify-between lg:gap-0 lg:rounded-[20px] lg:px-2.5 lg:py-4 xl:left-3"
           >
-            <span class="font-serif-custom text-[24px] font-normal leading-none text-[#1a1814] lg:text-[28px]">
+            <span class="font-serif-custom text-[20px] font-normal leading-none text-[#1a1814] lg:text-[28px]">
               x²
             </span>
-            <span class="font-mono-custom mt-1.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#1a1814] lg:mt-0 lg:text-[9px] lg:[writing-mode:vertical-rl] lg:[text-orientation:mixed]">
+            <span class="font-mono-custom text-[9px] font-semibold uppercase tracking-[0.14em] text-[#1a1814] lg:text-[9px] lg:[writing-mode:vertical-rl] lg:[text-orientation:mixed]">
               {{ t('testPage.reference') }}
             </span>
           </button>
 
           <div
-            class="mx-auto min-h-[1056px] max-w-[920px] border border-[#e0ddd7] bg-white px-6 pb-20 pt-12 shadow-md ring-1 ring-[#ebe7e0] sm:px-12 sm:py-14 lg:px-16"
+            class="mx-auto min-h-[calc(100vh-11rem)] max-w-[920px] overflow-hidden rounded-[28px] border border-[#e0ddd7] bg-white px-4 pb-14 pt-5 shadow-[0_14px_40px_rgba(26,24,20,0.06)] ring-1 ring-[#ebe7e0] sm:min-h-[1056px] sm:rounded-[32px] sm:px-10 sm:py-10 lg:px-16 lg:pb-20 lg:pt-12"
           >
-            <div class="border-b border-[#e0ddd7] pb-8">
-              <h1 class="font-serif-custom text-4xl font-normal tracking-[0.02em] text-[#1a1814]">
+            <div class="border-b border-[#e0ddd7] pb-5 sm:pb-8">
+              <h1 class="font-serif-custom text-[2rem] font-normal leading-[0.96] tracking-[0.01em] text-[#1a1814] sm:text-[2.55rem] lg:text-4xl">
                 {{ currentTest.title || t('testPage.title') }}
               </h1>
-              <p class="font-mono-custom mt-3 text-sm font-normal uppercase tracking-[0.18em] text-[#8a857c]">
+              <p class="font-mono-custom mt-3 text-[11px] font-normal uppercase tracking-[0.18em] text-[#8a857c] sm:text-sm">
                 {{ totalDurationMinutes }} {{ t('testPage.minutes') }} &bull; {{ totalQuestions }} {{ t('testPage.questionsLabel') }}
               </p>
             </div>
 
-            <div class="my-10 flex items-center gap-4">
+            <div class="my-6 flex items-center gap-3 sm:my-10 sm:gap-4">
               <div class="h-px flex-1 bg-[#e0ddd7]"></div>
-              <p class="font-mono-custom text-xs font-normal uppercase tracking-[0.2em] text-[#8a857c]">
+              <p class="font-mono-custom text-[10px] font-normal uppercase tracking-[0.22em] text-[#8a857c] sm:text-xs">
                 {{ t('testPage.sectionTitle') }}
               </p>
               <div class="h-px flex-1 bg-[#e0ddd7]"></div>
             </div>
 
-            <div class="space-y-10 pb-4">
+            <div class="space-y-8 pb-3 sm:space-y-10 sm:pb-4">
               <div
                 v-for="question in renderedQuestions"
                 :key="question.id"

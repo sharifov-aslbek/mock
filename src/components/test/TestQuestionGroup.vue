@@ -57,15 +57,15 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
 </script>
 
 <template>
-  <div class="rounded-[20px] border border-[#e5ded3] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(26,24,20,0.04)] sm:p-6">
-    <div class="border-l-[3px] border-[#5b5750] pl-4">
-      <p class="text-[15px] font-normal leading-[1.85] text-[#1a1814] sm:text-[16px]">
+  <div class="rounded-[22px] border border-[#e5ded3] bg-[#fffdfa] p-4 shadow-[0_8px_22px_rgba(26,24,20,0.04)] sm:rounded-[20px] sm:p-6">
+    <div class="border-l-[3px] border-[#5b5750] pl-3.5 sm:pl-4">
+      <p class="text-[14px] font-normal leading-[1.7] text-[#1a1814] sm:text-[16px] sm:leading-[1.85]">
         {{ title }}
       </p>
     </div>
 
-    <div v-if="optionBank.length" class="mt-5 space-y-2">
-      <p class="font-mono-custom text-[11px] font-normal uppercase tracking-[0.18em] text-[#8a857c]">
+    <div v-if="optionBank.length" class="mt-4 space-y-2 sm:mt-5">
+      <p class="font-mono-custom text-[10px] font-normal uppercase tracking-[0.18em] text-[#8a857c] sm:text-[11px]">
         {{ optionBankLabel }}
       </p>
 
@@ -73,30 +73,30 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
         <div
           v-for="option in optionBank"
           :key="option.id"
-          class="flex items-center gap-4 rounded-[4px] bg-[#f5f3ef] px-4 py-2.5"
+          class="flex items-center gap-3 rounded-[14px] bg-[#f5f3ef] px-3 py-2.5 sm:gap-4 sm:rounded-[4px] sm:px-4"
         >
-          <span class="font-serif-custom min-w-[24px] shrink-0 text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
+          <span class="font-serif-custom min-w-[20px] shrink-0 text-[13px] font-normal text-[#1a1814] sm:min-w-[24px] sm:text-[15px]">
             {{ option.letter }}.
           </span>
-          <span class="font-mono-custom text-[14px] font-normal text-[#1a1814] sm:text-[15px]">
+          <span class="font-mono-custom text-[13px] font-normal text-[#1a1814] sm:text-[15px]">
             {{ option.text }}
           </span>
         </div>
       </div>
     </div>
 
-    <div class="mt-6 space-y-6">
+    <div class="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
       <div
         v-for="question in questions"
         :key="question.id"
         class="space-y-3"
-        :class="question.shouldSeparate ? 'pt-6' : ''"
+        :class="question.shouldSeparate ? 'pt-5 sm:pt-6' : ''"
       >
         <div
           v-if="question.type === 'Matching'"
           class="flex items-start gap-2.5 sm:gap-3"
         >
-          <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 pt-2.5 text-[17px] font-semibold leading-none text-[#1a1814]">
+          <span class="font-mono-custom mr-1 min-w-[22px] shrink-0 pt-2 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[24px] sm:pt-2.5 sm:text-[17px]">
             {{ question.displayIndex }}.
           </span>
 
@@ -104,7 +104,7 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
             <select
               :value="selectedAnswers[question.id] || ''"
               @change="$emit('update-matching-answer', question.id, $event.target.value)"
-              class="font-mono-custom h-[40px] min-w-[78px] appearance-none rounded-[4px] border border-[#d1cec7] bg-white px-4 pr-9 text-[14px] font-normal text-[#1a1814] outline-none transition hover:border-[#b8b4ad] focus:border-[#1a1814]"
+              class="font-mono-custom h-[38px] min-w-[72px] appearance-none rounded-[14px] border border-[#d1cec7] bg-white px-3.5 pr-8 text-[13px] font-normal text-[#1a1814] outline-none transition hover:border-[#b8b4ad] focus:border-[#1a1814] sm:h-[40px] sm:min-w-[78px] sm:rounded-[4px] sm:px-4 sm:pr-9 sm:text-[14px]"
             >
               <option value="">
                 {{ selectOptionLabel }}
@@ -117,19 +117,19 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
                 {{ option.letter }}. {{ option.text }}
               </option>
             </select>
-            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-[#8a857c]">
+            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#8a857c] sm:text-base">
               ⌄
             </span>
           </div>
 
-          <div class="min-w-0 flex-1 space-y-2 pt-1.5">
-            <p class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
+          <div class="min-w-0 flex-1 space-y-2 pt-1 sm:pt-1.5">
+            <p class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]">
               {{ question.text }}
             </p>
 
             <div
               v-if="question.imageUrl"
-              class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3"
+              class="rounded-[18px] border border-black/10 bg-[#faf8f4] p-2.5 sm:rounded-[22px] sm:p-3"
             >
               <img
                 :src="question.imageUrl"
@@ -141,18 +141,18 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
         </div>
 
         <div v-else class="flex items-start gap-3 sm:gap-4">
-          <span class="font-mono-custom mr-1 min-w-[24px] shrink-0 text-[17px] font-semibold leading-none text-[#1a1814]">
+          <span class="font-mono-custom mr-1 min-w-[22px] shrink-0 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[24px] sm:text-[17px]">
             {{ question.displayIndex }}.
           </span>
 
-          <div class="min-w-0 flex-1 space-y-4">
-            <h2 class="text-[15px] font-normal leading-[1.8] text-[#1a1814] sm:text-[16px]">
+          <div class="min-w-0 flex-1 space-y-3 sm:space-y-4">
+            <h2 class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]">
               {{ question.text }}
             </h2>
 
             <div
               v-if="question.imageUrl"
-              class="rounded-[22px] border border-black/10 bg-[#faf8f4] p-3"
+              class="rounded-[18px] border border-black/10 bg-[#faf8f4] p-2.5 sm:rounded-[22px] sm:p-3"
             >
               <img
                 :src="question.imageUrl"
@@ -161,8 +161,8 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
               />
             </div>
 
-            <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-3">
-              <label class="font-mono-custom block text-[11px] font-normal uppercase tracking-[0.16em] text-[#8a857c]">
+            <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-2.5 sm:space-y-3">
+              <label class="font-mono-custom block text-[10px] font-normal uppercase tracking-[0.16em] text-[#8a857c] sm:text-[11px]">
                 {{ freeAnswerLabel }}
               </label>
 
