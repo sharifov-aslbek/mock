@@ -148,71 +148,73 @@ onBeforeUnmount(() => {
     class="reference-window fixed left-0 top-0 z-40 overflow-hidden rounded-[4px] border-2 border-[#1a1814] bg-white shadow-2xl"
     :style="windowStyle"
   >
-    <div class="flex items-center justify-between gap-3 border-b border-[#e0ddd7] bg-[#f5f3ef] px-3 py-2 sm:px-4">
-      <div class="drag-handle flex flex-1 cursor-grab items-center gap-2 text-[#1a1814]/60 active:cursor-grabbing">
-        <span class="grid grid-cols-3 gap-1">
-          <span
-            v-for="dot in 9"
-            :key="dot"
-            class="h-1.5 w-1.5 rounded-full bg-[#1a1814]/35"
-          ></span>
-        </span>
-        <span class="font-mono-custom text-xs font-semibold uppercase tracking-[0.18em]">
-          {{ dragLabel }}
-        </span>
+    <div class="reference-window__shell">
+      <div class="flex items-center justify-between gap-3 border-b border-[#e0ddd7] bg-[#f5f3ef] px-3 py-2 sm:px-4">
+        <div class="drag-handle flex flex-1 cursor-grab items-center gap-2 text-[#1a1814]/60 active:cursor-grabbing">
+          <span class="grid grid-cols-3 gap-1">
+            <span
+              v-for="dot in 9"
+              :key="dot"
+              class="h-1.5 w-1.5 rounded-full bg-[#1a1814]/35"
+            ></span>
+          </span>
+          <span class="font-mono-custom text-xs font-semibold uppercase tracking-[0.18em]">
+            {{ dragLabel }}
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            :title="shrinkLabel"
+            :aria-label="shrinkLabel"
+            :disabled="!canShrink"
+            @click="resizeWindow('smaller')"
+            class="font-mono-custom flex h-8 w-8 items-center justify-center rounded-[4px] border border-[#e0ddd7] bg-white text-base font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#e0ddd7] disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            −
+          </button>
+
+          <button
+            type="button"
+            :title="growLabel"
+            :aria-label="growLabel"
+            :disabled="!canGrow"
+            @click="resizeWindow('larger')"
+            class="font-mono-custom flex h-8 w-8 items-center justify-center rounded-[4px] border border-[#e0ddd7] bg-white text-base font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#e0ddd7] disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            +
+          </button>
+
+          <button
+            type="button"
+            @click="closeWindow"
+            class="font-mono-custom text-sm font-medium text-[#1a1814] transition hover:bg-[#e0ddd7] hover:px-2 hover:py-1 hover:rounded-[4px]"
+          >
+            {{ closeLabel }}
+            <span class="ml-1 text-lg leading-none">×</span>
+          </button>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          :title="shrinkLabel"
-          :aria-label="shrinkLabel"
-          :disabled="!canShrink"
-          @click="resizeWindow('smaller')"
-          class="font-mono-custom flex h-8 w-8 items-center justify-center rounded-[4px] border border-[#e0ddd7] bg-white text-base font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#e0ddd7] disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          −
-        </button>
-
-        <button
-          type="button"
-          :title="growLabel"
-          :aria-label="growLabel"
-          :disabled="!canGrow"
-          @click="resizeWindow('larger')"
-          class="font-mono-custom flex h-8 w-8 items-center justify-center rounded-[4px] border border-[#e0ddd7] bg-white text-base font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#e0ddd7] disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          +
-        </button>
-
-        <button
-          type="button"
-          @click="closeWindow"
-          class="font-mono-custom text-sm font-medium text-[#1a1814] transition hover:bg-[#e0ddd7] hover:px-2 hover:py-1 hover:rounded-[4px]"
-        >
-          {{ closeLabel }}
-          <span class="ml-1 text-lg leading-none">×</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="max-h-[72vh] overflow-y-auto bg-white p-4">
-      <div class="space-y-4">
-        <figure
-          v-for="sheet in sheets"
-          :key="sheet.id"
-          class="overflow-hidden rounded-[4px] border border-[#e0ddd7] bg-white"
-        >
-          <img
-            :src="sheet.src"
-            :alt="`${sheetAltLabel} ${sheet.id}`"
-            class="block w-full bg-white"
-            loading="lazy"
-          />
-          <figcaption class="font-mono-custom border-t border-[#e0ddd7] px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-[#8a857c]">
-            {{ sheet.title }}
-          </figcaption>
-        </figure>
+      <div class="max-h-[72vh] overflow-y-auto bg-white p-4">
+        <div class="space-y-4">
+          <figure
+            v-for="sheet in sheets"
+            :key="sheet.id"
+            class="overflow-hidden rounded-[4px] border border-[#e0ddd7] bg-white"
+          >
+            <img
+              :src="sheet.src"
+              :alt="`${sheetAltLabel} ${sheet.id}`"
+              class="block w-full bg-white"
+              loading="lazy"
+            />
+            <figcaption class="font-mono-custom border-t border-[#e0ddd7] px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-[#8a857c]">
+              {{ sheet.title }}
+            </figcaption>
+          </figure>
+        </div>
       </div>
     </div>
   </div>
@@ -221,5 +223,28 @@ onBeforeUnmount(() => {
 <style scoped>
 .reference-window {
   touch-action: none;
+}
+
+.reference-window__shell {
+  animation: reference-window-enter 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top left;
+}
+
+@keyframes reference-window-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reference-window__shell {
+    animation: none;
+  }
 }
 </style>

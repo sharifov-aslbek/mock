@@ -631,13 +631,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[220px] pt-8 text-black selection:bg-black selection:text-white sm:pt-14">
+  <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[220px] pt-3 text-black selection:bg-black selection:text-white sm:pt-6">
     <TestFloatingTools
       v-if="currentTest"
-      :reference-label="t('testPage.reference')"
       :timer-duration-ms="timerDurationMs"
       :timer-key="timerResetKey"
-      @toggle-reference="toggleReferenceWindow"
     />
 
 
@@ -653,7 +651,7 @@ onBeforeUnmount(() => {
     />
 
     <NSpin :show="testStore.isLoading">
-      <div class="mx-auto max-w-[1280px] px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
+      <div class="mx-auto max-w-[1280px] px-3 py-2 sm:px-5 sm:py-4 lg:px-6 lg:py-5">
         <TestErrorState
           v-if="resolvedErrorMessage"
           :message="resolvedErrorMessage"
@@ -666,63 +664,80 @@ onBeforeUnmount(() => {
 
         <div
           v-else-if="currentTest"
-          class="mx-auto min-h-[1056px] max-w-[920px] border border-[#e0ddd7] bg-white px-6 pb-20 pt-12 shadow-md ring-1 ring-[#ebe7e0] sm:px-12 sm:py-14 lg:px-16"
+          class="mx-auto max-w-[1040px]"
         >
-          <div class="border-b border-[#e0ddd7] pb-8">
-            <h1 class="font-serif-custom text-4xl font-normal tracking-[0.02em] text-[#1a1814]">
-              {{ currentTest.title || t('testPage.title') }}
-            </h1>
-            <p class="font-mono-custom mt-3 text-sm font-normal uppercase tracking-[0.18em] text-[#8a857c]">
-              {{ totalDurationMinutes }} {{ t('testPage.minutes') }} &bull; {{ totalQuestions }} {{ t('testPage.questionsLabel') }}
-            </p>
-          </div>
+          <button
+            type="button"
+            @click="toggleReferenceWindow"
+            class="mb-5 flex h-[72px] w-[94px] flex-col items-center justify-center rounded-[20px] border border-[#e0ddd7] bg-white/95 text-center shadow-[0_6px_18px_rgba(15,23,42,0.06)] lg:fixed lg:left-2 lg:top-1/2 lg:z-20 lg:mb-0 lg:h-[168px] lg:w-[72px] lg:-translate-y-1/2 lg:justify-between lg:px-2.5 lg:py-4 xl:left-3"
+          >
+            <span class="font-serif-custom text-[24px] font-normal leading-none text-[#1a1814] lg:text-[28px]">
+              x²
+            </span>
+            <span class="font-mono-custom mt-1.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#1a1814] lg:mt-0 lg:text-[9px] lg:[writing-mode:vertical-rl] lg:[text-orientation:mixed]">
+              {{ t('testPage.reference') }}
+            </span>
+          </button>
 
-          <div class="my-10 flex items-center gap-4">
-            <div class="h-px flex-1 bg-[#e0ddd7]"></div>
-            <p class="font-mono-custom text-xs font-normal uppercase tracking-[0.2em] text-[#8a857c]">
-              {{ t('testPage.sectionTitle') }}
-            </p>
-            <div class="h-px flex-1 bg-[#e0ddd7]"></div>
-          </div>
+          <div
+            class="mx-auto min-h-[1056px] max-w-[920px] border border-[#e0ddd7] bg-white px-6 pb-20 pt-12 shadow-md ring-1 ring-[#ebe7e0] sm:px-12 sm:py-14 lg:px-16"
+          >
+            <div class="border-b border-[#e0ddd7] pb-8">
+              <h1 class="font-serif-custom text-4xl font-normal tracking-[0.02em] text-[#1a1814]">
+                {{ currentTest.title || t('testPage.title') }}
+              </h1>
+              <p class="font-mono-custom mt-3 text-sm font-normal uppercase tracking-[0.18em] text-[#8a857c]">
+                {{ totalDurationMinutes }} {{ t('testPage.minutes') }} &bull; {{ totalQuestions }} {{ t('testPage.questionsLabel') }}
+              </p>
+            </div>
 
-          <div class="space-y-10 pb-4">
-            <div
-              v-for="question in renderedQuestions"
-              :key="question.id"
-              class="question-block"
-            >
-              <TestQuestionGroup
-                v-if="question.questionGroupId && question.groupTitle"
-                :title="question.groupTitle"
-                :option-bank="groupRenderModels.get(question.questionGroupId)?.optionBank || []"
-                :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
-                :selected-answers="answers"
-                :resolve-free-answer="getResolvedFreeAnswer"
-                :image-alt="t('testPage.imageAlt')"
-                :option-bank-label="t('testPage.optionBank')"
-                :select-option-label="t('testPage.selectOption')"
-                :free-answer-label="t('testPage.freeAnswerLabel')"
-                :free-answer-placeholder="t('testPage.freeAnswerPlaceholder')"
-                :open-math-label="t('testPage.openMathInput')"
-                :close-math-label="t('testPage.closeMathInput')"
-                @update-matching-answer="updateMatchingAnswer"
-                @update-option="updateOptionAnswer"
-                @update-free-answer="updateFreeAnswer"
-              />
+            <div class="my-10 flex items-center gap-4">
+              <div class="h-px flex-1 bg-[#e0ddd7]"></div>
+              <p class="font-mono-custom text-xs font-normal uppercase tracking-[0.2em] text-[#8a857c]">
+                {{ t('testPage.sectionTitle') }}
+              </p>
+              <div class="h-px flex-1 bg-[#e0ddd7]"></div>
+            </div>
 
-              <TestQuestionBlock
-                v-else-if="!question.questionGroupId"
-                :question="question"
-                :selected-answer="answers[question.id]"
-                :free-answer-value="getResolvedFreeAnswer(question.id)"
-                :image-alt="t('testPage.imageAlt')"
-                :free-answer-label="t('testPage.freeAnswerLabel')"
-                :free-answer-placeholder="t('testPage.freeAnswerPlaceholder')"
-                :open-math-label="t('testPage.openMathInput')"
-                :close-math-label="t('testPage.closeMathInput')"
-                @update-option="updateOptionAnswer"
-                @update-free-answer="updateFreeAnswer"
-              />
+            <div class="space-y-10 pb-4">
+              <div
+                v-for="question in renderedQuestions"
+                :key="question.id"
+                class="question-block"
+              >
+                <TestQuestionGroup
+                  v-if="question.questionGroupId && question.groupTitle"
+                  :title="question.groupTitle"
+                  :option-bank="groupRenderModels.get(question.questionGroupId)?.optionBank || []"
+                  :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
+                  :selected-answers="answers"
+                  :resolve-free-answer="getResolvedFreeAnswer"
+                  :image-alt="t('testPage.imageAlt')"
+                  :option-bank-label="t('testPage.optionBank')"
+                  :select-option-label="t('testPage.selectOption')"
+                  :free-answer-label="t('testPage.freeAnswerLabel')"
+                  :free-answer-placeholder="t('testPage.freeAnswerPlaceholder')"
+                  :open-math-label="t('testPage.openMathInput')"
+                  :close-math-label="t('testPage.closeMathInput')"
+                  @update-matching-answer="updateMatchingAnswer"
+                  @update-option="updateOptionAnswer"
+                  @update-free-answer="updateFreeAnswer"
+                />
+
+                <TestQuestionBlock
+                  v-else-if="!question.questionGroupId"
+                  :question="question"
+                  :selected-answer="answers[question.id]"
+                  :free-answer-value="getResolvedFreeAnswer(question.id)"
+                  :image-alt="t('testPage.imageAlt')"
+                  :free-answer-label="t('testPage.freeAnswerLabel')"
+                  :free-answer-placeholder="t('testPage.freeAnswerPlaceholder')"
+                  :open-math-label="t('testPage.openMathInput')"
+                  :close-math-label="t('testPage.closeMathInput')"
+                  @update-option="updateOptionAnswer"
+                  @update-free-answer="updateFreeAnswer"
+                />
+              </div>
             </div>
           </div>
         </div>
