@@ -1,8 +1,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
-import { NSpin } from 'naive-ui'
+import { useRoute } from 'vue-router'
+import { NCard, NModal, NSpin } from 'naive-ui'
 import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
@@ -17,7 +17,6 @@ import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 
 const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
@@ -27,6 +26,7 @@ const freeAnswers = reactive({})
 const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
+const showSubmitModal = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
 let timerIntervalId = null
@@ -835,18 +835,16 @@ watch([serializedAnswers, remainingSeconds, activeAttemptId], () => {
   persistCurrentProgress()
 })
 
-const handleSubmitTest = async () => {
-  shouldPersistProgress.value = false
-  await syncDirtyAnswers()
-  dirtyQuestionIds.clear()
-  activeAttemptId.value = null
+const handleSubmitTest = () => {
+  showSubmitModal.value = true
+}
 
-  if (currentTest.value?.id) {
-    testProgressStore.clearProgress(currentTest.value.id)
-    clearAnswerActionsForTest(currentTest.value.id)
-  }
+const closeSubmitModal = () => {
+  showSubmitModal.value = false
+}
 
-  await router.push('/math')
+const confirmSubmitTest = () => {
+  showSubmitModal.value = false
 }
 
 onMounted(() => {
@@ -986,6 +984,38 @@ onBeforeUnmount(() => {
         @submit="handleSubmitTest"
       />
     </NSpin>
+
+    <NModal v-model:show="showSubmitModal">
+      <div class="w-[calc(100vw-2rem)] max-w-md">
+        <NCard :bordered="false" size="large" class="!rounded-[28px]">
+          <div class="space-y-6 text-center">
+            <div>
+              <h4 class="text-xl font-bold tracking-tight text-black">
+                {{ t('testPage.submitConfirmTitle') }}
+              </h4>
+            </div>
+
+            <div class="flex justify-center gap-3">
+              <button
+                type="button"
+                @click="closeSubmitModal"
+                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+              >
+                {{ t('testPage.submitConfirmNo') }}
+              </button>
+
+              <button
+                type="button"
+                @click="confirmSubmitTest"
+                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+              >
+                {{ t('testPage.submitConfirmYes') }}
+              </button>
+            </div>
+          </div>
+        </NCard>
+      </div>
+    </NModal>
   </main>
 </template>
 

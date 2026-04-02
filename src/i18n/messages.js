@@ -249,6 +249,9 @@ const messages = {
     testPage: {
       title: 'Mathematics Test',
       submit: 'SUBMIT TEST',
+      submitConfirmTitle: 'Do you really want to finish the test?',
+      submitConfirmNo: 'No',
+      submitConfirmYes: 'Yes',
       timer: 'Time Left',
       minutes: 'minutes',
       questionsLabel: 'questions',
@@ -520,6 +523,9 @@ const messages = {
     testPage: {
       title: 'Matematika testi',
       submit: 'TESTNI YAKUNLASH',
+      submitConfirmTitle: 'Testni rostan tugatishni xohlaysizmi?',
+      submitConfirmNo: "Yo'q",
+      submitConfirmYes: 'Ha',
       timer: 'Qolgan vaqt',
       minutes: 'daqiqa',
       questionsLabel: 'savol',
@@ -791,6 +797,9 @@ const messages = {
     testPage: {
       title: 'Тест по математике',
       submit: 'ОТПРАВИТЬ ТЕСТ',
+      submitConfirmTitle: 'Вы действительно хотите завершить тест?',
+      submitConfirmNo: 'Нет',
+      submitConfirmYes: 'Да',
       timer: 'Осталось времени',
       minutes: 'минут',
       questionsLabel: 'вопросов',
