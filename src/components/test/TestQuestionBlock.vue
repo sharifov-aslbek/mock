@@ -1,5 +1,6 @@
 <script setup>
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
+import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
 
 defineProps({
@@ -47,9 +48,11 @@ defineEmits(['update-option', 'update-free-answer'])
     </span>
 
     <div class="min-w-0 flex-1 space-y-3 sm:space-y-4">
-      <h2 class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]">
-        {{ question.text }}
-      </h2>
+      <TestInlineMathText
+        tag="h2"
+        :text="question.text"
+        wrapper-class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
+      />
 
       <div v-if="question.imageUrl" class="rounded-[18px] border border-black/10 bg-[#faf8f4] p-2.5 sm:rounded-[22px] sm:p-3">
         <img

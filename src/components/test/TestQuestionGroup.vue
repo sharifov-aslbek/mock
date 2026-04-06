@@ -1,5 +1,6 @@
 <script setup>
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
+import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
 
 defineProps({
@@ -59,9 +60,11 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
 <template>
   <div class="rounded-[22px] border border-[#e5ded3] bg-[#fffdfa] p-4 shadow-[0_8px_22px_rgba(26,24,20,0.04)] sm:rounded-[20px] sm:p-6">
     <div class="border-l-[3px] border-[#5b5750] pl-3.5 sm:pl-4">
-      <p class="text-[14px] font-normal leading-[1.7] text-[#1a1814] sm:text-[16px] sm:leading-[1.85]">
-        {{ title }}
-      </p>
+      <TestInlineMathText
+        tag="p"
+        :text="title"
+        wrapper-class="text-[14px] font-normal leading-[1.7] text-[#1a1814] sm:text-[16px] sm:leading-[1.85]"
+      />
     </div>
 
     <div v-if="optionBank.length" class="mt-4 space-y-2 sm:mt-5">
@@ -123,9 +126,11 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
           </div>
 
           <div class="min-w-0 flex-1 space-y-2 pt-1 sm:pt-1.5">
-            <p class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]">
-              {{ question.text }}
-            </p>
+            <TestInlineMathText
+              tag="p"
+              :text="question.text"
+              wrapper-class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
+            />
 
             <div
               v-if="question.imageUrl"
@@ -146,9 +151,11 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
           </span>
 
           <div class="min-w-0 flex-1 space-y-3 sm:space-y-4">
-            <h2 class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]">
-              {{ question.text }}
-            </h2>
+            <TestInlineMathText
+              tag="h2"
+              :text="question.text"
+              wrapper-class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
+            />
 
             <div
               v-if="question.imageUrl"
