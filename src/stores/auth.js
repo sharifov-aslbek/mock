@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '')
   const isLoading = ref(false)
   const errorMessage = ref('')
+  const userInfo = ref(null)
 
   const isAuthenticated = computed(() => Boolean(token.value))
 
@@ -53,6 +54,39 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+
+
+  async function getUserInfo() {
+    const apiBaseUrl = getTestApiBaseUrl()
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/user`, {
+        method: 'GET',
+        headers: {
+          accept: '*/*',
+          Authorization: `Bearer ${token.value}`,
+        },
+      })
+
+      const payload = await response.json()
+
+      userInfo.value = payload.data
+
+      if (!response.ok || payload?.code !== 200 || !payload?.data) {
+        throw new Error(payload?.message || 'Failed to fetch user info.')
+      }
+
+      return payload.data
+    } catch (error) {
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to fetch user info.')
+    }
+  }
+
   function logout() {
     token.value = ''
     errorMessage.value = ''
@@ -65,6 +99,8 @@ export const useAuthStore = defineStore('auth', () => {
     errorMessage,
     isAuthenticated,
     login,
+    getUserInfo,
+    userInfo,
     logout,
   }
 })

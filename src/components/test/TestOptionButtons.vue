@@ -1,4 +1,6 @@
 <script setup>
+import TestInlineMathText from './TestInlineMathText.vue';
+
 defineProps({
   options: {
     type: Array,
@@ -20,7 +22,7 @@ defineEmits(['update:modelValue'])
       :key="option.id"
       type="button"
       @click="$emit('update:modelValue', option.id)"
-      class="group flex w-full items-start gap-3 rounded-[16px] border px-3.5 py-3 text-left transition sm:max-w-[420px] sm:items-center sm:gap-4 sm:rounded-none sm:border-transparent sm:px-0 sm:py-0"
+      class="group flex w-full min-w-0 items-start gap-3 rounded-[16px] border px-3.5 py-3 text-left transition sm:items-center sm:gap-4 sm:rounded-none sm:border-transparent sm:px-0 sm:py-0"
       :class="
         modelValue === option.id
           ? 'border-black/90 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.06)] sm:bg-transparent sm:shadow-none'
@@ -38,12 +40,11 @@ defineEmits(['update:modelValue'])
         {{ option.letter }}
       </span>
 
-      <span
-        class="pt-0.5 text-[15px] font-medium leading-[1.55] text-[#1a1814] sm:pt-0 sm:text-[16px] sm:leading-[1.7]"
-        :class="modelValue === option.id ? 'text-black' : ''"
-      >
-        {{ option.text }}
-      </span>
+      <TestInlineMathText
+        tag="p"
+        :text="option.text"
+        wrapper-class="min-w-0 flex-1 pt-0.5 text-[15px] font-medium leading-[1.55] text-[#1a1814] sm:pt-0 sm:text-[16px] sm:leading-[1.7]"
+      />
     </button>
   </div>
 </template>

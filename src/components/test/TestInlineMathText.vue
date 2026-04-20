@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { normalizeTestText } from '@/utils/testText'
 
 const props = defineProps({
   text: {
@@ -26,50 +27,249 @@ const escapeHtml = (value) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 
+const escapeTextSegment = (value) => escapeHtml(value).replace(/\n/g, '<br>')
+
+const PLAIN_WORD_PATTERN = /^[A-Za-z\u00C0-\u024F\u0400-\u04FF'ʻ’`-]{2,}$/u
+const MATH_FUNCTION_NAMES = new Set(['sin', 'cos', 'tan', 'cot', 'log', 'ln', 'lim', 'max', 'min'])
+const KNOWN_LATEX_COMMANDS = new Set([
+  'alpha',
+  'approx',
+  'beta',
+  'cdot',
+  'cdots',
+  'cos',
+  'cot',
+  'div',
+  'dots',
+  'frac',
+  'gamma',
+  'ge',
+  'int',
+  'lambda',
+  'ldots',
+  'le',
+  'left',
+  'lim',
+  'ln',
+  'log',
+  'max',
+  'min',
+  'mu',
+  'neq',
+  'phi',
+  'pi',
+  'placeholder',
+  'pm',
+  'prod',
+  'quad',
+  'qquad',
+  'right',
+  'sin',
+  'sqrt',
+  'sum',
+  'tan',
+  'theta',
+  'times',
+])
+const LATEX_COMMAND_PATTERN = /\\[A-Za-z]+|\\[|()[\]{}]/
+
+const cleanupTextEscapes = (value) =>
+  String(value)
+    .replace(/\\\s+/g, ' ')
+    .replace(/\\([A-Za-z\u00C0-\u024F\u0400-\u04FF'ʻ’`-]{2,})\\?/gu, (_, word) =>
+      KNOWN_LATEX_COMMANDS.has(word.toLowerCase()) ? `\\${word}` : word,
+    )
+
 const normalizeLatex = (value) =>
   String(value)
     .replace(/\\placeholder\s*\{[^}]*\}/g, '\\square')
     .replace(/\\placeholder\b/g, '\\square')
 
-const renderInlineFormula = (value) => {
+const renderFormula = (value, displayMode = false) => {
   try {
     return katex.renderToString(normalizeLatex(value), {
-      throwOnError: false,
+      throwOnError: true,
       strict: 'ignore',
-      displayMode: false,
+      displayMode,
     })
   } catch {
     return escapeHtml(value)
   }
 }
 
-const renderedHtml = computed(() => {
-  const source = String(props.text || '')
-  const pattern = /\\\(([\s\S]*?)\\\)/g
+// 🔥 latex borligini aniqlash (auto-detect)
+const hasLatex = (text) => {
+  return /\\(frac|sqrt|cdot|le|ge|times|div)/.test(text)
+}
 
-  if (!pattern.test(source)) {
-    return escapeHtml(source).replace(/\n/g, '<br>')
+const isMathLikeToken = (token) => {
+  const trimmedToken = token.trim()
+
+  if (!trimmedToken) {
+    return false
   }
 
-  pattern.lastIndex = 0
-  const chunks = []
-  let lastIndex = 0
-  let match
+  const normalizedToken = trimmedToken.replace(/^\\+/, '').replace(/\\+$/, '')
+  const lowercaseToken = normalizedToken.toLowerCase()
 
-  while ((match = pattern.exec(source)) !== null) {
-    if (match.index > lastIndex) {
-      chunks.push(escapeHtml(source.slice(lastIndex, match.index)).replace(/\n/g, '<br>'))
+  if (MATH_FUNCTION_NAMES.has(lowercaseToken)) {
+    return true
+  }
+
+  if (PLAIN_WORD_PATTERN.test(normalizedToken)) {
+    return false
+  }
+
+  if (/^[A-Za-z]$/.test(normalizedToken)) {
+    return true
+  }
+
+  if (LATEX_COMMAND_PATTERN.test(trimmedToken) || hasLatex(trimmedToken)) {
+    return true
+  }
+
+  if (/^\d+(?:[.,]\d+)?$/.test(normalizedToken)) {
+    return false
+  }
+
+  if (/^(?:[A-Za-z]\(.*\)|\(?[A-Za-z](?:,[A-Za-z])+\)?=?)$/.test(trimmedToken)) {
+    return true
+  }
+
+  if (/[=<>^_()[\]{}|+\-*/]/.test(trimmedToken)) {
+    return true
+  }
+
+  if (/[0-9]/.test(trimmedToken) && /[A-Za-z]/.test(trimmedToken)) {
+    return true
+  }
+
+  return false
+}
+
+const renderMathSegment = (value) => {
+  const match = String(value).match(/^(\s*)([\s\S]*?)(\s*)$/)
+  const leadingWhitespace = match?.[1] || ''
+  const coreValue = match?.[2] || ''
+  const trailingWhitespace = match?.[3] || ''
+
+  if (!coreValue) {
+    return escapeTextSegment(value)
+  }
+
+  const renderedFormula = renderFormula(coreValue, false)
+  const isPlainFallback = renderedFormula === escapeHtml(coreValue)
+
+  if (isPlainFallback) {
+    return escapeTextSegment(cleanupTextEscapes(value))
+  }
+
+  return (
+    escapeTextSegment(leadingWhitespace) +
+    renderedFormula +
+    escapeTextSegment(trailingWhitespace)
+  )
+}
+
+const renderLooseContent = (source) => {
+  const tokens = String(source).split(/(\s+)/)
+  const segments = []
+  let currentType = null
+  let currentValue = ''
+
+  const flushSegment = () => {
+    if (!currentValue) {
+      return
     }
 
-    chunks.push(renderInlineFormula(match[1]))
-    lastIndex = pattern.lastIndex
+    segments.push({
+      type: currentType || 'text',
+      value: currentValue,
+    })
+
+    currentType = null
+    currentValue = ''
   }
 
-  if (lastIndex < source.length) {
-    chunks.push(escapeHtml(source.slice(lastIndex)).replace(/\n/g, '<br>'))
+  for (const token of tokens) {
+    if (!token) {
+      continue
+    }
+
+    if (/^\s+$/.test(token)) {
+      if (currentType === null) {
+        currentType = 'text'
+      }
+
+      currentValue += token
+      continue
+    }
+
+    const nextType = isMathLikeToken(token) ? 'math' : 'text'
+
+    if (currentType === null) {
+      currentType = nextType
+      currentValue = token
+      continue
+    }
+
+    if (currentType === nextType) {
+      currentValue += token
+      continue
+    }
+
+    flushSegment()
+    currentType = nextType
+    currentValue = token
   }
 
-  return chunks.join('')
+  flushSegment()
+
+  return segments
+    .map((segment) =>
+      segment.type === 'math'
+        ? renderMathSegment(segment.value)
+        : escapeTextSegment(cleanupTextEscapes(segment.value)),
+    )
+    .join('')
+}
+
+const renderMixedContent = (source) => {
+  const pattern = /\$\$([\s\S]*?)\$\$|\\\(([\s\S]*?)\\\)/g
+  let result = ''
+  let lastIndex = 0
+
+  for (const match of source.matchAll(pattern)) {
+    const matchIndex = match.index ?? 0
+    const matchedValue = match[0] || ''
+    const blockFormula = match[1]
+    const inlineFormula = match[2]
+
+    result += renderLooseContent(source.slice(lastIndex, matchIndex))
+    result += renderFormula(blockFormula ?? inlineFormula ?? '', Boolean(blockFormula))
+
+    lastIndex = matchIndex + matchedValue.length
+  }
+
+  result += renderLooseContent(source.slice(lastIndex))
+  return result
+}
+
+const renderedHtml = computed(() => {
+  const normalizedSource = normalizeTestText(props.text)
+
+  if (!normalizedSource) {
+    return ''
+  }
+
+  const hasWrappedLatex =
+    /\$\$[\s\S]*?\$\$/.test(normalizedSource) || /\\\([\s\S]*?\\\)/.test(normalizedSource)
+
+  if (hasWrappedLatex) {
+    return renderMixedContent(normalizedSource)
+  }
+
+  return renderLooseContent(normalizedSource)
 })
 </script>
 
@@ -82,9 +282,18 @@ const renderedHtml = computed(() => {
 <style scoped>
 .math-inline-text {
   white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .math-inline-text :deep(.katex) {
-  font-size: 1em;
+  font-size: 1.08em;
+  max-width: 100%;
+}
+
+.math-inline-text :deep(.katex-display) {
+  margin: 0.3em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 </style>

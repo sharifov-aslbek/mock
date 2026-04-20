@@ -2,6 +2,7 @@
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
+import { toPlainTestText } from '@/utils/testText'
 
 defineProps({
   title: {
@@ -81,9 +82,11 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
           <span class="font-serif-custom min-w-[20px] shrink-0 text-[13px] font-normal text-[#1a1814] sm:min-w-[24px] sm:text-[15px]">
             {{ option.letter }}.
           </span>
-          <span class="font-mono-custom text-[13px] font-normal text-[#1a1814] sm:text-[15px]">
-            {{ option.text }}
-          </span>
+          <TestInlineMathText
+            tag="p"
+            :text="option.text"
+            wrapper-class="min-w-0 flex-1 text-[13px] font-normal leading-[1.55] text-[#1a1814] sm:text-[15px] sm:leading-[1.7]"
+          />
         </div>
       </div>
     </div>
@@ -117,7 +120,7 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
                 :key="option.id"
                 :value="option.id"
               >
-                {{ option.letter }}. {{ option.text }}
+                {{ option.letter }}. {{ toPlainTestText(option.text) }}
               </option>
             </select>
             <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#8a857c] sm:text-base">
@@ -129,7 +132,7 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
             <TestInlineMathText
               tag="p"
               :text="question.text"
-              wrapper-class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
+              wrapper-class="max-w-full text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
             />
 
             <div
@@ -154,7 +157,7 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
             <TestInlineMathText
               tag="h2"
               :text="question.text"
-              wrapper-class="text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
+              wrapper-class="max-w-full text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
             />
 
             <div
