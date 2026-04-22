@@ -59,7 +59,7 @@ defineEmits(['update-option', 'update-free-answer'])
 
 <template>
   <div class="flex items-start gap-3 sm:gap-4">
-    <span class="font-mono-custom mr-1 min-w-[22px] shrink-0 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[24px] sm:text-[17px]">
+    <span class="font-mono-custom pt-[3.9px] mr-1 min-w-[22px] shrink-0 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[24px] sm:text-[17px]">
       {{ question.order }}.
     </span>
 

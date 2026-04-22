@@ -80,8 +80,15 @@ const cleanupTextEscapes = (value) =>
       KNOWN_LATEX_COMMANDS.has(word.toLowerCase()) ? `\\${word}` : word,
     )
 
+const normalizeMathWrappers = (value) =>
+  String(value)
+    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, '$1')
+    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, '$1')
+
 const normalizeLatex = (value) =>
   String(value)
+    .replace(/\\{2,}(?=(alpha|approx|beta|cdot|cdots|cos|cot|div|dots|frac|gamma|ge|int|lambda|ldots|le|left|lim|ln|log|max|min|mu|neq|phi|pi|placeholder|pm|prod|quad|qquad|right|sin|sqrt|sum|tan|theta|times)\b)/g, '\\')
+    .replace(/\\\s+/g, ' ')
     .replace(/\\placeholder\s*\{[^}]*\}/g, '\\square')
     .replace(/\\placeholder\b/g, '\\square')
 
@@ -171,68 +178,18 @@ const renderMathSegment = (value) => {
   )
 }
 
-const renderLooseContent = (source) => {
-  const tokens = String(source).split(/(\s+)/)
-  const segments = []
-  let currentType = null
-  let currentValue = ''
-
-  const flushSegment = () => {
-    if (!currentValue) {
-      return
-    }
-
-    segments.push({
-      type: currentType || 'text',
-      value: currentValue,
-    })
-
-    currentType = null
-    currentValue = ''
-  }
-
-  for (const token of tokens) {
-    if (!token) {
-      continue
-    }
-
-    if (/^\s+$/.test(token)) {
-      if (currentType === null) {
-        currentType = 'text'
+const renderLooseContent = (source) =>
+  (String(source).match(/\s+|[^\s]+/g) || [])
+    .map((token) => {
+      if (/^\s+$/.test(token)) {
+        return escapeTextSegment(token)
       }
 
-      currentValue += token
-      continue
-    }
-
-    const nextType = isMathLikeToken(token) ? 'math' : 'text'
-
-    if (currentType === null) {
-      currentType = nextType
-      currentValue = token
-      continue
-    }
-
-    if (currentType === nextType) {
-      currentValue += token
-      continue
-    }
-
-    flushSegment()
-    currentType = nextType
-    currentValue = token
-  }
-
-  flushSegment()
-
-  return segments
-    .map((segment) =>
-      segment.type === 'math'
-        ? renderMathSegment(segment.value)
-        : escapeTextSegment(cleanupTextEscapes(segment.value)),
-    )
+      return isMathLikeToken(token)
+        ? renderMathSegment(token)
+        : escapeTextSegment(cleanupTextEscapes(token))
+    })
     .join('')
-}
 
 const renderMixedContent = (source) => {
   const pattern = /\$\$([\s\S]*?)\$\$|\\\(([\s\S]*?)\\\)/g
@@ -256,14 +213,14 @@ const renderMixedContent = (source) => {
 }
 
 const renderedHtml = computed(() => {
-  const normalizedSource = normalizeTestText(props.text)
+  const normalizedSource = normalizeMathWrappers(normalizeTestText(props.text))
 
   if (!normalizedSource) {
     return ''
   }
 
   const hasWrappedLatex =
-    /\$\$[\s\S]*?\$\$/.test(normalizedSource) || /\\\([\s\S]*?\\\)/.test(normalizedSource)
+    /\$\$[\s\S]*?\$\$/.test(normalizedSource)
 
   if (hasWrappedLatex) {
     return renderMixedContent(normalizedSource)
