@@ -17,7 +17,7 @@ import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 
 const route = useRoute()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
@@ -65,10 +65,38 @@ const requestedTestId = computed(() => {
 
 const currentTest = computed(() => testStore.currentTest)
 
+const LANGUAGE_BY_LOCALE = {
+  uz: 'Uzbek',
+  ru: 'Russian',
+}
+
+const getLocalizedTranslation = (entity) => {
+  const translations = Array.isArray(entity?.translations) ? entity.translations : []
+
+  if (!translations.length) {
+    return null
+  }
+
+  const preferredLanguage = LANGUAGE_BY_LOCALE[locale.value] || LANGUAGE_BY_LOCALE.uz
+
+  return (
+    translations.find((item) => item?.language === preferredLanguage) ||
+    translations.find((item) => item?.language === LANGUAGE_BY_LOCALE.uz) ||
+    translations[0] ||
+    null
+  )
+}
+
+const getEntityText = (entity) => {
+  const translation = getLocalizedTranslation(entity)
+
+  return translation?.text || entity?.text || entity?.title || ''
+}
+
 const questionGroupsById = computed(
   () =>
     new Map(
-      (currentTest.value?.questionGroups || []).map((group) => [group.id, group]),
+      (currentTest.value?.questionGroups || []).map((group) => [Number(group.id), group]),
     ),
 )
 
@@ -80,15 +108,18 @@ const groupRenderModels = computed(() => {
   const models = new Map()
 
   for (const group of currentTest.value?.questionGroups || []) {
-    const questions = getGroupedQuestions(group.id).map((question) => ({
+    const normalizedGroupId = Number(group.id)
+    const questions = getGroupedQuestions(normalizedGroupId).map((question) => ({
       ...question,
-      shouldSeparate: shouldSeparateGroupedQuestion(group.id, question.id),
+      shouldSeparate: shouldSeparateGroupedQuestion(normalizedGroupId, question.id),
       matchingOptions:
-        question.type === 'Matching' ? getAvailableMatchingOptions(group.id, question.id) : [],
+        question.type === 'Matching'
+          ? getAvailableMatchingOptions(normalizedGroupId, question.id)
+          : [],
     }))
 
-    models.set(group.id, {
-      optionBank: getAvailableMatchingOptions(group.id),
+    models.set(normalizedGroupId, {
+      optionBank: getAvailableMatchingOptions(normalizedGroupId),
       questions,
     })
   }
@@ -101,18 +132,20 @@ const renderedQuestions = computed(() => {
 
   return (currentTest.value?.questions || []).map((question, index) => {
     const group = question.questionGroupId
-      ? questionGroupsById.value.get(question.questionGroupId)
+      ? questionGroupsById.value.get(Number(question.questionGroupId))
       : null
-    const showGroupTitle = Boolean(group && !shownGroups.has(group.id))
+    const showGroupBlock = Boolean(group && !shownGroups.has(Number(group.id)))
 
-    if (showGroupTitle) {
-      shownGroups.add(group.id)
+    if (showGroupBlock) {
+      shownGroups.add(Number(group.id))
     }
 
     return {
       ...question,
       displayIndex: index + 1,
-      groupTitle: showGroupTitle ? group.title : '',
+      showGroupBlock,
+      text: getEntityText(question),
+      groupTitle: getEntityText(group),
     }
   })
 })
@@ -232,13 +265,21 @@ const extractTextAnswer = (value) => {
 }
 
 const getGroupedQuestions = (groupId) => {
-  const group = questionGroupsById.value.get(groupId)
+  const normalizedGroupId = Number(groupId)
+  const group = questionGroupsById.value.get(normalizedGroupId)
 
   if (!group) {
     return []
   }
 
-  return [...(group.questions || [])]
+  const groupQuestions =
+    Array.isArray(group.questions) && group.questions.length
+      ? group.questions
+      : (currentTest.value?.questions || []).filter(
+          (question) => Number(question.questionGroupId) === normalizedGroupId,
+        )
+
+  return [...groupQuestions]
     .sort(
       (firstQuestion, secondQuestion) =>
         Number(firstQuestion.order) - Number(secondQuestion.order) ||
@@ -267,7 +308,7 @@ const shouldSeparateGroupedQuestion = (groupId, questionId) => {
 }
 
 const getAvailableMatchingOptions = (groupId, currentQuestionId = null) => {
-  const group = questionGroupsById.value.get(groupId)
+  const group = questionGroupsById.value.get(Number(groupId))
 
   if (!group) {
     return []
@@ -936,7 +977,7 @@ onBeforeUnmount(() => {
                 class="question-block"
               >
                 <TestQuestionGroup
-                  v-if="question.questionGroupId && question.groupTitle"
+                  v-if="question.questionGroupId && question.showGroupBlock"
                   :title="question.groupTitle"
                   :option-bank="groupRenderModels.get(question.questionGroupId)?.optionBank || []"
                   :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"

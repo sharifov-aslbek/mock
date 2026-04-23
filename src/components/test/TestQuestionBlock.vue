@@ -2,18 +2,23 @@
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
+import { useI18n } from 'vue-i18n'
 
-const currentlyLocale =
-  typeof localStorage !== 'undefined' ? localStorage.getItem('locale') : 'uz'
+const { locale } = useI18n()
+
+const LANGUAGE_BY_LOCALE = {
+  uz: 'Uzbek',
+  ru: 'Russian',
+}
 
 const getTranslation = (question) => {
-  const map = {
-    uz: 'Uzbek',
-    ru: 'Russian'
-  }
+  const translations = Array.isArray(question?.translations) ? question.translations : []
+  const preferredLanguage = LANGUAGE_BY_LOCALE[locale.value] || LANGUAGE_BY_LOCALE.uz
 
   return (
-    question?.translations?.find((item) => item.language === map[currentlyLocale])?.text ||
+    translations.find((item) => item?.language === preferredLanguage)?.text ||
+    translations.find((item) => item?.language === LANGUAGE_BY_LOCALE.uz)?.text ||
+    translations[0]?.text ||
     question?.text ||
     ''
   )

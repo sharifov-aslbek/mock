@@ -75,7 +75,11 @@ const LATEX_COMMAND_PATTERN = /\\[A-Za-z]+|\\[|()[\]{}]/
 
 const cleanupTextEscapes = (value) =>
   String(value)
+    .replace(/\\left\b/g, '')
+    .replace(/\\right\b/g, '')
+    .replace(/\\([()[\]])/g, '$1')
     .replace(/\\%/g, '%')
+    .replace(/\\(?=$|[.,;:!?])/g, '')
     .replace(/\\\s+/g, ' ')
     .replace(/\\([A-Za-z\u00C0-\u024F\u0400-\u04FF'ʻ’`-]{2,})\\?/gu, (_, word) =>
       KNOWN_LATEX_COMMANDS.has(word.toLowerCase()) ? `\\${word}` : word,
@@ -83,7 +87,17 @@ const cleanupTextEscapes = (value) =>
 
 const normalizeMixedSource = (value) =>
   String(value)
+    .replace(/\\left\b/g, '')
+    .replace(/\\right\b/g, '')
+    .replace(/\\([()[\]])/g, '$1')
     .replace(/\\%/g, '%')
+    .replace(/\\(?=$|[.,;:!?])/g, '')
+    .replace(/\u2212/g, '-')
+    .replace(/\bc\s+o\s+s\b/gi, 'cos')
+    .replace(/\bs\s+i\s+n\b/gi, 'sin')
+    .replace(/\bt\s+a\s+n\b/gi, 'tan')
+    .replace(/\bl\s+o\s+g\b/gi, 'log')
+    .replace(/\bl\s+n\b/gi, 'ln')
     .replace(/\\\s+/g, ' ')
 
 const normalizeMathWrappers = (value) =>
@@ -93,6 +107,7 @@ const normalizeMathWrappers = (value) =>
 
 const normalizeLatex = (value) =>
   String(value)
+    .replace(/\\aplha\b/g, '\\alpha')
     .replace(/\\{2,}(?=(alpha|approx|beta|cdot|cdots|cos|cot|div|dots|frac|gamma|ge|int|lambda|ldots|le|left|lim|ln|log|max|min|mu|neq|phi|pi|placeholder|pm|prod|quad|qquad|right|sin|sqrt|sum|tan|theta|times)\b)/g, '\\')
     .replace(/\\\s+/g, ' ')
     .replace(/\\placeholder\s*\{[^}]*\}/g, '\\square')
@@ -125,6 +140,10 @@ const isMathLikeToken = (token) => {
   const normalizedToken = trimmedToken.replace(/^\\+/, '').replace(/\\+$/, '')
   const lowercaseToken = normalizedToken.toLowerCase()
 
+  if (/^\\[A-Za-z]+/.test(trimmedToken) || KNOWN_LATEX_COMMANDS.has(lowercaseToken)) {
+    return true
+  }
+
   if (MATH_FUNCTION_NAMES.has(lowercaseToken)) {
     return true
   }
@@ -149,11 +168,19 @@ const isMathLikeToken = (token) => {
     return true
   }
 
-  if (/[=<>^_()[\]{}|+\-*/]/.test(trimmedToken)) {
+  if (/[=<>^_()[\]{}|+\-*/∠°]/.test(trimmedToken)) {
     return true
   }
 
   if (/[0-9]/.test(trimmedToken) && /[A-Za-z]/.test(trimmedToken)) {
+    return true
+  }
+
+  if (/[0-9]/.test(trimmedToken) && /[;,:]/.test(trimmedToken)) {
+    return true
+  }
+
+  if (/^[+\-<>=|∠°]+$/.test(trimmedToken)) {
     return true
   }
 
