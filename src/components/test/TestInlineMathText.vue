@@ -75,10 +75,16 @@ const LATEX_COMMAND_PATTERN = /\\[A-Za-z]+|\\[|()[\]{}]/
 
 const cleanupTextEscapes = (value) =>
   String(value)
+    .replace(/\\%/g, '%')
     .replace(/\\\s+/g, ' ')
     .replace(/\\([A-Za-z\u00C0-\u024F\u0400-\u04FF'ʻ’`-]{2,})\\?/gu, (_, word) =>
       KNOWN_LATEX_COMMANDS.has(word.toLowerCase()) ? `\\${word}` : word,
     )
+
+const normalizeMixedSource = (value) =>
+  String(value)
+    .replace(/\\%/g, '%')
+    .replace(/\\\s+/g, ' ')
 
 const normalizeMathWrappers = (value) =>
   String(value)
@@ -213,7 +219,7 @@ const renderMixedContent = (source) => {
 }
 
 const renderedHtml = computed(() => {
-  const normalizedSource = normalizeMathWrappers(normalizeTestText(props.text))
+  const normalizedSource = normalizeMathWrappers(normalizeMixedSource(normalizeTestText(props.text)))
 
   if (!normalizedSource) {
     return ''
