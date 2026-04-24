@@ -9,6 +9,10 @@ defineProps({
     type: String,
     default: '',
   },
+  imageUrl: {
+    type: String,
+    default: '',
+  },
   optionBank: {
     type: Array,
     default: () => [],
@@ -65,6 +69,17 @@ defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
         tag="p"
         :text="title"
         wrapper-class="text-[14px] font-normal leading-[1.7] text-[#1a1814] sm:text-[16px] sm:leading-[1.85]"
+      />
+    </div>
+
+    <div
+      v-if="imageUrl"
+      class="mt-4 rounded-[18px] border border-black/10 bg-[#faf8f4] p-2.5 sm:mt-5 sm:rounded-[22px] sm:p-3"
+    >
+      <img
+        :src="imageUrl"
+        :alt="imageAlt"
+        class="max-h-[420px] w-full object-contain"
       />
     </div>
 

@@ -2,27 +2,6 @@
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
-import { useI18n } from 'vue-i18n'
-
-const { locale } = useI18n()
-
-const LANGUAGE_BY_LOCALE = {
-  uz: 'Uzbek',
-  ru: 'Russian',
-}
-
-const getTranslation = (question) => {
-  const translations = Array.isArray(question?.translations) ? question.translations : []
-  const preferredLanguage = LANGUAGE_BY_LOCALE[locale.value] || LANGUAGE_BY_LOCALE.uz
-
-  return (
-    translations.find((item) => item?.language === preferredLanguage)?.text ||
-    translations.find((item) => item?.language === LANGUAGE_BY_LOCALE.uz)?.text ||
-    translations[0]?.text ||
-    question?.text ||
-    ''
-  )
-}
 
 defineProps({
   question: {
@@ -71,12 +50,14 @@ defineEmits(['update-option', 'update-free-answer'])
     <div class="min-w-0 flex-1 space-y-3 sm:space-y-4">
       <TestInlineMathText
         tag="h2"
-        :text="getTranslation(question)"
+        :text="question.text || ''"
         wrapper-class="max-w-full text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
       />
 
-
-      <div v-if="question.imageUrl" class="rounded-[18px] border border-black/10 bg-[#faf8f4] p-2.5 sm:rounded-[22px] sm:p-3">
+      <div
+        v-if="question.imageUrl"
+        class="rounded-[18px] border border-black/10 bg-[#faf8f4] p-2.5 sm:rounded-[22px] sm:p-3"
+      >
         <img
           :src="question.imageUrl"
           :alt="imageAlt"

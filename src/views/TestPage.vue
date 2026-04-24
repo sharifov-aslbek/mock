@@ -15,6 +15,7 @@ import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
+import { getTestApiBaseUrl } from '@/utils/api'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -64,6 +65,7 @@ const requestedTestId = computed(() => {
 })
 
 const currentTest = computed(() => testStore.currentTest)
+const testApiBaseUrl = getTestApiBaseUrl()
 
 const LANGUAGE_BY_LOCALE = {
   uz: 'Uzbek',
@@ -91,6 +93,33 @@ const getEntityText = (entity) => {
   const translation = getLocalizedTranslation(entity)
 
   return translation?.text || entity?.text || entity?.title || ''
+}
+
+const buildEntityImageUrl = (imagePath) => {
+  if (!imagePath) {
+    return null
+  }
+
+  if (/^https?:\/\//i.test(imagePath)) {
+    return imagePath
+  }
+
+  if (!testApiBaseUrl) {
+    return imagePath
+  }
+
+  try {
+    return `${new URL(testApiBaseUrl).origin}/${String(imagePath).replace(/^\/+/, '')}`
+  } catch {
+    return imagePath
+  }
+}
+
+const getEntityImageUrl = (entity) => {
+  const translation = getLocalizedTranslation(entity)
+  const imagePath = translation?.imagePath || entity?.imagePath || null
+
+  return entity?.imageUrl || buildEntityImageUrl(imagePath)
 }
 
 const questionGroupsById = computed(
@@ -145,7 +174,9 @@ const renderedQuestions = computed(() => {
       displayIndex: index + 1,
       showGroupBlock,
       text: getEntityText(question),
+      imageUrl: getEntityImageUrl(question),
       groupTitle: getEntityText(group),
+      groupImageUrl: getEntityImageUrl(group),
     }
   })
 })
@@ -979,6 +1010,7 @@ onBeforeUnmount(() => {
                 <TestQuestionGroup
                   v-if="question.questionGroupId && question.showGroupBlock"
                   :title="question.groupTitle"
+                  :image-url="question.groupImageUrl"
                   :option-bank="groupRenderModels.get(question.questionGroupId)?.optionBank || []"
                   :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
                   :selected-answers="answers"
