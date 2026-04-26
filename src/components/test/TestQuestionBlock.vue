@@ -44,7 +44,7 @@ defineEmits(['update-option', 'update-free-answer'])
 <template>
   <div class="flex items-start gap-3 sm:gap-4">
     <span class="font-mono-custom pt-[3.9px] mr-1 min-w-[22px] shrink-0 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[24px] sm:text-[17px]">
-      {{ question.order }}.
+      {{ question.showOrder ? `${question.displayOrder}.` : '' }}
     </span>
 
     <div class="min-w-0 flex-1 space-y-3 sm:space-y-4">

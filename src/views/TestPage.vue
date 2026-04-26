@@ -72,6 +72,8 @@ const LANGUAGE_BY_LOCALE = {
   ru: 'Russian',
 }
 
+const GROUP_SUBORDER_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('')
+
 const getLocalizedTranslation = (entity) => {
   const translations = Array.isArray(entity?.translations) ? entity.translations : []
 
@@ -138,8 +140,23 @@ const groupRenderModels = computed(() => {
 
   for (const group of currentTest.value?.questionGroups || []) {
     const normalizedGroupId = Number(group.id)
-    const questions = getGroupedQuestions(normalizedGroupId).map((question) => ({
+    const groupedQuestions = getGroupedQuestions(normalizedGroupId)
+    const distinctOrders = [
+      ...new Set(
+        groupedQuestions
+          .map((question) => String(question.displayOrder || question.order || '').trim())
+          .filter(Boolean),
+      ),
+    ]
+    const useSharedGroupOrder = groupedQuestions.length > 1 && distinctOrders.length === 1
+    const orderLabel = useSharedGroupOrder ? distinctOrders[0] : ''
+    const questions = groupedQuestions.map((question, index) => ({
       ...question,
+      groupSubLabel: useSharedGroupOrder
+        ? GROUP_SUBORDER_LETTERS[index] || String(index + 1)
+        : question.showOrder
+          ? String(question.displayOrder)
+          : '',
       shouldSeparate: shouldSeparateGroupedQuestion(normalizedGroupId, question.id),
       matchingOptions:
         question.type === 'Matching'
@@ -148,6 +165,7 @@ const groupRenderModels = computed(() => {
     }))
 
     models.set(normalizedGroupId, {
+      orderLabel,
       optionBank: getAvailableMatchingOptions(normalizedGroupId),
       questions,
     })
@@ -158,20 +176,29 @@ const groupRenderModels = computed(() => {
 
 const renderedQuestions = computed(() => {
   const shownGroups = new Set()
+  let previousOrderLabel = null
 
   return (currentTest.value?.questions || []).map((question, index) => {
     const group = question.questionGroupId
       ? questionGroupsById.value.get(Number(question.questionGroupId))
       : null
+    const normalizedOrder = Number(question.order)
+    const displayOrder =
+      Number.isFinite(normalizedOrder) && normalizedOrder > 0 ? normalizedOrder : index + 1
+    const orderLabel = String(displayOrder)
     const showGroupBlock = Boolean(group && !shownGroups.has(Number(group.id)))
+    const showOrder = orderLabel !== previousOrderLabel
 
     if (showGroupBlock) {
       shownGroups.add(Number(group.id))
     }
 
+    previousOrderLabel = orderLabel
+
     return {
       ...question,
-      displayIndex: index + 1,
+      displayOrder,
+      showOrder,
       showGroupBlock,
       text: getEntityText(question),
       imageUrl: getEntityImageUrl(question),
@@ -1011,6 +1038,7 @@ onBeforeUnmount(() => {
                   v-if="question.questionGroupId && question.showGroupBlock"
                   :title="question.groupTitle"
                   :image-url="question.groupImageUrl"
+                  :order-label="groupRenderModels.get(question.questionGroupId)?.orderLabel || ''"
                   :option-bank="groupRenderModels.get(question.questionGroupId)?.optionBank || []"
                   :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
                   :selected-answers="answers"
