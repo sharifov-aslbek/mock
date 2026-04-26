@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref , onMounted , computed } from 'vue'
 import { NPopover } from 'naive-ui'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
@@ -105,6 +105,21 @@ const clearMatchingOption = (questionId) => {
   emit('update-matching-answer', questionId, '')
   openMatchingQuestionId.value = null
 }
+
+
+const formattedQuestions = computed(() => {
+  const number = Number(props.orderLabel)
+
+  return props.questions.map((q, index) => {
+    if (q.type === "Matching") {
+      return {
+        ...q,
+        correctOrder: number + (index - 1) + 1
+      }
+    }
+    return q
+  })
+})
 </script>
 
 <template>
@@ -115,7 +130,7 @@ const clearMatchingOption = (questionId) => {
           v-if="orderLabel"
           class="font-mono-custom min-w-[40px] shrink-0 pt-0.5 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[46px] sm:text-[17px]"
         >
-          {{ orderLabel }}.
+          {{ orderLabel }}
         </span>
         <TestInlineMathText
           tag="p"
@@ -160,8 +175,9 @@ const clearMatchingOption = (questionId) => {
     </div>
 
     <div class="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
+      <!-- put formattedQuestions instead of questions -->
       <div
-        v-for="question in questions"
+        v-for="question in formattedQuestions"
         :key="question.id"
         class="space-y-3"
         :class="question.shouldSeparate ? 'pt-5 sm:pt-6' : ''"
@@ -171,7 +187,9 @@ const clearMatchingOption = (questionId) => {
           class="flex items-start gap-2.5 sm:gap-3"
         >
           <span class="font-mono-custom mr-1 min-w-[22px] shrink-0 pt-2 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[24px] sm:pt-2.5 sm:text-[17px]">
-            {{ question.groupSubLabel ? `${question.groupSubLabel}.` : '' }}
+             {{ question.correctOrder }}.
+
+             <!-- {{ question.groupSubLabel ? `${question.groupSubLabel}.` : '' }} -->
           </span>
 
           <NPopover
