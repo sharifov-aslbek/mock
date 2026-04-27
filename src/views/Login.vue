@@ -1,8 +1,57 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { onMounted, onUnmounted, ref } from 'vue'
+
+const telegramContainer = ref<HTMLElement | null>(null)
+
+interface TelegramUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
+
+declare global {
+  interface Window {
+    onTelegramAuth: (user: TelegramUser) => void;
+  }
+}
+
+onMounted(() => {
+  if (!telegramContainer.value) return
+
+  window.onTelegramAuth = async (user) => {
+    try {
+      await authStore.telegramLogin(user)
+      const redirectTarget =
+          typeof route.query.redirect === 'string'
+              ? route.query.redirect
+              : '/dashboard'
+      await router.push(redirectTarget)
+    } catch {
+      // authStore should set errorMessage
+    }
+  }
+
+  const script = document.createElement('script')
+  script.src = 'https://telegram.org/js/telegram-widget.js?22'
+  script.async = true
+  script.setAttribute('data-telegram-login', 'milliymock_bot')
+  script.setAttribute('data-size', 'large')
+  script.setAttribute('data-onauth', 'onTelegramAuth')
+  script.setAttribute('data-request-access', 'write')
+
+  telegramContainer.value.appendChild(script)
+})
+
+onUnmounted(() => {
+  delete window.onTelegramAuth
+})
 
 const email = ref('')
 const password = ref('')
@@ -11,6 +60,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
 
 const handleLogin = async () => {
   if (!email.value || !password.value) {
@@ -36,9 +86,6 @@ const handleGoogleLogin = () => {
   authStore.errorMessage = t('login.socialDisabled')
 }
 
-const handleTelegramLogin = () => {
-  authStore.errorMessage = t('login.socialDisabled')
-}
 </script>
 
 <template>
@@ -96,19 +143,11 @@ const handleTelegramLogin = () => {
               {{ t('login.google') }}
             </button>
 
-            <button
-              type="button"
-              @click="handleTelegramLogin"
-              class="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="authStore.isLoading"
-            >
-              <svg class="h-5 w-5 text-[#229ED9]" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M21.944 4.666c.16-.714-.53-1.306-1.187-1.02L2.927 10.38c-.77.296-.73 1.401.058 1.64l4.55 1.377 1.76 5.51c.236.737 1.185.89 1.64.264l2.54-3.497 4.983 3.66c.611.448 1.488.11 1.647-.635l1.839-8.633ZM9.025 12.995l9.132-5.761-7.096 6.865a.75.75 0 0 0-.196.347l-.965 3.897-.875-3.53a.75.75 0 0 0-.45-.51l-2.886-1.108 3.336-1.2Z"
-                />
-              </svg>
-              {{ t('login.telegram') }}
-            </button>
+            <div
+                ref="telegramContainer"
+                class="flex justify-center"
+            ></div>
+
           </div>
 
           <div class="my-6 flex items-center gap-3">
