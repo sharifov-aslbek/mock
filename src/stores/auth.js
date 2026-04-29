@@ -54,6 +54,27 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function telegramLogin(userInfo) {
+      const apiBaseUrl = getTestApiBaseUrl()
+
+      if (!apiBaseUrl) {
+          throw new Error('API base URL is missing.')
+      }
+
+      isLoading.value = true
+      errorMessage.value = ''
+
+      try {
+          console.log('Telegram user info:', userInfo)
+      } catch (error) {
+          errorMessage.value =
+              error instanceof Error ? error.message : 'Login failed.'
+          throw error
+      } finally {
+          isLoading.value = false
+      }
+  }
+
 
 
   async function getUserInfo() {
@@ -99,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     errorMessage,
     isAuthenticated,
     login,
+    telegramLogin,
     getUserInfo,
     userInfo,
     logout,
