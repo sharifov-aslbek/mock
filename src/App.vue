@@ -8,13 +8,14 @@ import { RouterView , useRoute } from 'vue-router'
 
 const route = useRoute()
 const layoutlessRoutes = ['/login', '/dashboard', '/test']
+const supportlessRoutes = ['/test', '/explanation']
 </script>
 
 <template>
   <main class="w-full">
      <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
     <RouterView />
-    <SupportButton v-if="route.path !== '/test'" />
+    <SupportButton v-if="!supportlessRoutes.includes(route.path)" />
     <FinalCTA v-if="!layoutlessRoutes.includes(route.path)" />
     <Footer v-if="!layoutlessRoutes.includes(route.path)" />
   </main>
