@@ -12,6 +12,7 @@ const supportlessRoutes = ['/test', '/explanation']
 </script>
 
 <template>
+<!--  11-->
   <main class="w-full">
      <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
     <RouterView />
