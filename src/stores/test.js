@@ -87,6 +87,7 @@ function normalizeTest(test, apiBaseUrl) {
 export const useTestStore = defineStore('test', () => {
   const currentTest = ref(null)
   const currentAttempt = ref(null)
+  const lastSubmission = ref(null)
   const isLoading = ref(false)
   const errorMessage = ref('')
 
@@ -173,6 +174,120 @@ export const useTestStore = defineStore('test', () => {
     }
   }
 
+  function resolveToken() {
+    const authStore = useAuthStore()
+
+    if (authStore.token) {
+      return authStore.token
+    }
+
+    if (typeof window === 'undefined') {
+      return ''
+    }
+
+    return (
+      window.localStorage.getItem('milliymock_token') ||
+      window.localStorage.getItem('milliymock-token') ||
+      ''
+    )
+  }
+
+  async function fetchTestProgress(testId) {
+    const apiBaseUrl = getTestApiBaseUrl()
+    const token = resolveToken()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    if (!token) {
+      throw new Error('Authentication token is missing.')
+    }
+
+    const response = await fetch(
+      `${apiBaseUrl}/user-test-attempt/get-progress?testId=${Number(testId)}`,
+      {
+        headers: {
+          accept: '*/*',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    )
+
+    const payload = await response.json()
+
+    if (!response.ok || payload?.code !== 200) {
+      throw new Error(payload?.message || 'Could not load test progress.')
+    }
+
+    return payload.data || null
+  }
+
+  async function submitTestAttempt(testId, testAttemptId) {
+    const apiBaseUrl = getTestApiBaseUrl()
+    const token = resolveToken()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    if (!token) {
+      throw new Error('Authentication token is missing.')
+    }
+
+    const response = await fetch(
+      `${apiBaseUrl}/user-test-attempt/submit?testId=${Number(testId)}&testAttemptId=${Number(testAttemptId)}`,
+      {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    )
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || (payload && payload.code !== 200)) {
+      throw new Error(payload?.message || 'Could not submit the test.')
+    }
+
+    lastSubmission.value = payload?.data ?? null
+
+    return lastSubmission.value
+  }
+
+  async function fetchQuestionExplanation(questionId) {
+    const apiBaseUrl = getTestApiBaseUrl()
+    const token = resolveToken()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    if (!token) {
+      throw new Error('Authentication token is missing.')
+    }
+
+    const response = await fetch(
+      `${apiBaseUrl}/question-explanation?questionId=${Number(questionId)}`,
+      {
+        headers: {
+          accept: '*/*',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    )
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || (payload && payload.code !== 200)) {
+      throw new Error(payload?.message || 'Could not load the explanation.')
+    }
+
+    return payload?.data ?? null
+  }
+
   async function requestUserAnswer(method, answerPayload) {
     const apiBaseUrl = getTestApiBaseUrl()
     const authStore = useAuthStore()
@@ -225,10 +340,14 @@ export const useTestStore = defineStore('test', () => {
   return {
     currentTest,
     currentAttempt,
+    lastSubmission,
     isLoading,
     errorMessage,
     fetchTestById,
+    fetchTestProgress,
     startTestAttempt,
+    submitTestAttempt,
+    fetchQuestionExplanation,
     createUserAnswer,
     updateUserAnswer,
     clearCurrentTest,

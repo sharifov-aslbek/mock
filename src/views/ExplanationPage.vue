@@ -1,53 +1,17 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
+import { useTestStore } from '@/stores/test'
+import { getTestApiBaseUrl } from '@/utils/api'
+import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 
-const questions = [
-  {
-    id: 1,
-    title: 'Reading Comprehension',
-    correctAnswer: 'A',
-    yourAnswer: 'A',
-    attemptedAnswer: 'A',
-    complexity: 'Easy',
-    status: 'correct',
-    answerOptions: [
-      { letter: 'A', text: 'The passage suggests a positive outcome' },
-      { letter: 'B', text: 'The author disagrees with the main point' },
-      { letter: 'C', text: 'The evidence contradicts the conclusion' },
-      { letter: 'D', text: 'The argument lacks sufficient support' }
-    ],
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4'
-  },
-  {
-    id: 2,
-    title: 'Grammar Rules',
-    correctAnswer: 'C',
-    yourAnswer: 'B',
-    attemptedAnswer: 'B',
-    complexity: 'Medium',
-    status: 'incorrect',
-    answerOptions: [
-      { letter: 'A', text: 'has been' },
-      { letter: 'B', text: 'have been' },
-      { letter: 'C', text: 'had been' },
-      { letter: 'D', text: 'was' }
-    ],
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4'
-  },
-  { id: 3, title: 'Vocabulary Context', correctAnswer: 'C', yourAnswer: '-', attemptedAnswer: '-', complexity: 'Hard', status: 'omitted', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 4, title: 'Sentence Structure', correctAnswer: 'A', yourAnswer: '-', attemptedAnswer: '-', complexity: 'Easy', status: 'omitted', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 5, title: 'Writing Analysis', correctAnswer: 'B', yourAnswer: 'B', attemptedAnswer: 'B', complexity: 'Medium', status: 'correct', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 6, title: 'Passage Interpretation', correctAnswer: 'D', yourAnswer: 'C', attemptedAnswer: 'C', complexity: 'Hard', status: 'incorrect', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 7, title: 'Algebra Basics', correctAnswer: 'B', yourAnswer: 'B', attemptedAnswer: 'B', complexity: 'Easy', status: 'correct', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 8, title: 'Geometry Problem', correctAnswer: 'A', yourAnswer: '-', attemptedAnswer: '-', complexity: 'Medium', status: 'omitted', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 9, title: 'Linear Equations', correctAnswer: 'C', yourAnswer: 'C', attemptedAnswer: 'C', complexity: 'Easy', status: 'correct', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 10, title: 'Word Problems', correctAnswer: 'D', yourAnswer: 'A', attemptedAnswer: 'A', complexity: 'Hard', status: 'incorrect', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 11, title: 'Fractions', correctAnswer: 'A', yourAnswer: 'A', attemptedAnswer: 'A', complexity: 'Easy', status: 'correct', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 12, title: 'Data Analysis', correctAnswer: 'B', yourAnswer: 'D', attemptedAnswer: 'D', complexity: 'Medium', status: 'incorrect', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 13, title: 'Critical Reading', correctAnswer: 'C', yourAnswer: 'C', attemptedAnswer: 'C', complexity: 'Medium', status: 'correct', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 14, title: 'Essay Analysis', correctAnswer: 'D', yourAnswer: '-', attemptedAnswer: '-', complexity: 'Hard', status: 'omitted', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 15, title: 'Statistics', correctAnswer: 'A', yourAnswer: 'B', attemptedAnswer: 'B', complexity: 'Hard', status: 'incorrect', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' }
-]
+const route = useRoute()
+const { locale } = useI18n()
+const testStore = useTestStore()
+
+const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+const LANGUAGE_BY_LOCALE = { uz: 'Uzbek', ru: 'Russian' }
 
 const reviewingQuestionId = ref(null)
 const reportingQuestionId = ref(null)
@@ -58,15 +22,191 @@ const reportFileName = ref('')
 const reportSubmitted = ref(false)
 const reportFileInput = ref(null)
 
+const isLoadingTest = ref(false)
+const testLoadError = ref('')
+const isLoadingExplanation = ref(false)
+const explanationError = ref('')
+const currentExplanation = ref(null)
+
 let reportCloseTimeout = null
 let previousBodyOverflow = ''
 
-const filteredQuestions = computed(() => questions)
+const apiBaseUrl = getTestApiBaseUrl()
+
+const apiOrigin = (() => {
+  try {
+    return apiBaseUrl ? new URL(apiBaseUrl).origin : ''
+  } catch {
+    return ''
+  }
+})()
+
+const buildAssetUrl = (imagePath) => {
+  if (!imagePath) {
+    return null
+  }
+
+  if (/^https?:\/\//i.test(imagePath)) {
+    return imagePath
+  }
+
+  if (!apiOrigin) {
+    return imagePath
+  }
+
+  return `${apiOrigin}/${String(imagePath).replace(/^\/+/, '')}`
+}
+
+const requestedTestId = computed(() => {
+  const queryValue = route.query.testId
+  const value = Array.isArray(queryValue) ? queryValue[0] : queryValue
+
+  return value ? String(value) : ''
+})
+
+const getLocalizedTranslation = (entity) => {
+  const translations = Array.isArray(entity?.translations) ? entity.translations : []
+
+  if (!translations.length) {
+    return null
+  }
+
+  const preferredLanguage = LANGUAGE_BY_LOCALE[locale.value] || LANGUAGE_BY_LOCALE.uz
+
+  return (
+    translations.find((item) => item?.language === preferredLanguage) ||
+    translations.find((item) => item?.language === LANGUAGE_BY_LOCALE.uz) ||
+    translations[0] ||
+    null
+  )
+}
+
+const getEntityText = (entity) => {
+  const translation = getLocalizedTranslation(entity)
+  return translation?.text || entity?.text || entity?.title || ''
+}
+
+const stripHtml = (value) => {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  if (typeof document === 'undefined') {
+    return value.replace(/<[^>]+>/g, '').trim()
+  }
+
+  const container = document.createElement('div')
+  container.innerHTML = value
+  return (container.textContent || '').replace(/\s+/g, ' ').trim()
+}
+
+const complexityFromScore = (score) => {
+  const numericScore = Number(score) || 0
+
+  if (numericScore < 1.5) {
+    return 'Easy'
+  }
+
+  if (numericScore < 2) {
+    return 'Medium'
+  }
+
+  return 'Hard'
+}
+
+const userAnswersByQuestionId = computed(() => {
+  const map = new Map()
+  const userAnswers = testStore.lastSubmission?.userAnswers
+
+  if (!Array.isArray(userAnswers)) {
+    return map
+  }
+
+  for (const userAnswer of userAnswers) {
+    const questionId = Number(userAnswer?.questionId)
+
+    if (questionId) {
+      map.set(questionId, userAnswer)
+    }
+  }
+
+  return map
+})
+
+const filteredQuestions = computed(() => {
+  const apiQuestions = testStore.currentTest?.questions
+
+  if (!Array.isArray(apiQuestions)) {
+    return []
+  }
+
+  return apiQuestions.map((apiQuestion, index) => {
+    const options = Array.isArray(apiQuestion.options)
+      ? apiQuestion.options.map((option, optionIndex) => ({
+          ...option,
+          letter: option.letter || OPTION_LETTERS[optionIndex] || String(optionIndex + 1),
+        }))
+      : []
+    const correctOption = options.find((option) => option.isCorrect)
+    const userAnswer = userAnswersByQuestionId.value.get(Number(apiQuestion.id))
+    const selectedOptionId = userAnswer?.selectedOptionId || 0
+    const selectedOption = selectedOptionId
+      ? options.find((option) => Number(option.id) === Number(selectedOptionId))
+      : null
+    const textAnswer = typeof userAnswer?.textAnswer === 'string' ? userAnswer.textAnswer.trim() : ''
+
+    let status = 'omitted'
+    let yourAnswer = '-'
+
+    if (selectedOption) {
+      yourAnswer = selectedOption.letter
+      status = selectedOption.isCorrect ? 'correct' : 'incorrect'
+    } else if (textAnswer) {
+      yourAnswer = textAnswer
+      status = 'incorrect'
+    }
+
+    const titleSource = stripHtml(getEntityText(apiQuestion)) || `Savol ${index + 1}`
+
+    return {
+      id: Number(apiQuestion.id),
+      displayIndex: index + 1,
+      title: titleSource,
+      questionText: getEntityText(apiQuestion),
+      imageUrl: apiQuestion.imageUrl || buildAssetUrl(apiQuestion.imagePath),
+      correctAnswer: correctOption?.letter || '-',
+      yourAnswer,
+      attemptedAnswer: yourAnswer,
+      complexity: complexityFromScore(apiQuestion.score),
+      status,
+      answerOptions: options.map((option) => ({
+        ...option,
+        text: option.text || '',
+      })),
+      type: apiQuestion.type,
+    }
+  })
+})
+
 const totalQuestions = computed(() => filteredQuestions.value.length)
-const correctCount = computed(() => filteredQuestions.value.filter((question) => question.status === 'correct').length)
-const incorrectCount = computed(() => filteredQuestions.value.filter((question) => question.status === 'incorrect').length)
-const omittedCount = computed(() => filteredQuestions.value.filter((question) => question.status === 'omitted').length)
-const scorePercent = computed(() => Math.round((correctCount.value / totalQuestions.value) * 100))
+const correctCount = computed(() =>
+  testStore.lastSubmission?.correctCount ??
+  filteredQuestions.value.filter((question) => question.status === 'correct').length,
+)
+const incorrectCount = computed(() =>
+  testStore.lastSubmission?.incorrectCount ??
+  filteredQuestions.value.filter((question) => question.status === 'incorrect').length,
+)
+const omittedCount = computed(() =>
+  filteredQuestions.value.filter((question) => question.status === 'omitted').length,
+)
+const scorePercent = computed(() => {
+  if (!totalQuestions.value) {
+    return 0
+  }
+
+  return Math.round((correctCount.value / totalQuestions.value) * 100)
+})
 
 const scoreRingRadius = 42
 const scoreRingCircumference = 2 * Math.PI * scoreRingRadius
@@ -75,6 +215,40 @@ const scoreRingOffset = computed(() => scoreRingCircumference - (scorePercent.va
 const currentQuestion = computed(() =>
   filteredQuestions.value.find((question) => question.id === reviewingQuestionId.value) ?? null
 )
+
+const currentQuestionIndex = computed(() => {
+  if (!currentQuestion.value) {
+    return -1
+  }
+
+  return filteredQuestions.value.findIndex((question) => question.id === currentQuestion.value.id)
+})
+
+const explanationImageUrl = computed(() => buildAssetUrl(currentExplanation.value?.imagePath))
+
+const explanationDisplayText = computed(() => {
+  const text = currentExplanation.value?.text
+
+  if (typeof text !== 'string') {
+    return ''
+  }
+
+  return text.trim()
+})
+
+const hasExplanationContent = computed(() =>
+  Boolean(explanationDisplayText.value || explanationImageUrl.value),
+)
+
+const reportingQuestion = computed(() => {
+  if (!reportingQuestionId.value) {
+    return null
+  }
+
+  return (
+    filteredQuestions.value.find((question) => question.id === reportingQuestionId.value) || null
+  )
+})
 
 const isAnyModalOpen = computed(() => reviewingQuestionId.value !== null || reportingQuestionId.value !== null)
 
@@ -103,13 +277,65 @@ const progressLegend = computed(() => [
   { colorClass: 'bg-gray-300', label: `${omittedCount.value} o'tkazilgan` }
 ])
 
-const answerExplanation = [
-  "To'g'ri javob: 2 - ln(2)",
-  "Bo'yalgan soha to'g'ri to'rtburchak va egri chiziq ostidagi soha orasidagi farqdir.",
-  "To'g'ri to'rtburchakning yuzi: 2 x 2 = 4",
-  'f(x) = 2/x funksiyasi ostidagi yuza: integral 1 dan 2 gacha (2/x)dx = 2ln(2)',
-  "Bo'yalgan yuza = 4 - 2ln(2) ~= 1.61"
-]
+async function loadTest() {
+  const testId = requestedTestId.value
+
+  if (!testId) {
+    testLoadError.value = 'Test ID topilmadi.'
+    return
+  }
+
+  isLoadingTest.value = true
+  testLoadError.value = ''
+
+  try {
+    await testStore.fetchTestById(testId)
+  } catch (error) {
+    testLoadError.value =
+      error instanceof Error ? error.message : "Testni yuklashda xatolik yuz berdi."
+  } finally {
+    isLoadingTest.value = false
+  }
+}
+
+async function loadExplanation(questionId) {
+  if (!questionId) {
+    return
+  }
+
+  isLoadingExplanation.value = true
+  explanationError.value = ''
+  currentExplanation.value = null
+
+  try {
+    currentExplanation.value = await testStore.fetchQuestionExplanation(questionId)
+  } catch (error) {
+    explanationError.value =
+      error instanceof Error ? error.message : 'Tushuntirishni yuklashda xatolik yuz berdi.'
+  } finally {
+    isLoadingExplanation.value = false
+  }
+}
+
+watch(reviewingQuestionId, (newQuestionId) => {
+  if (!newQuestionId) {
+    currentExplanation.value = null
+    explanationError.value = ''
+    return
+  }
+
+  void loadExplanation(newQuestionId)
+})
+
+onMounted(() => {
+  void loadTest()
+})
+
+watch(requestedTestId, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    void loadTest()
+  }
+})
 
 watch(isAnyModalOpen, (isOpen) => {
   if (typeof document === 'undefined') {
@@ -145,17 +371,39 @@ function closeReview() {
   reviewingQuestionId.value = null
   showAnswer.value = false
   activeTab.value = 'question'
+  currentExplanation.value = null
+  explanationError.value = ''
 }
 
 function showPreviousQuestion() {
-  if (reviewingQuestionId.value > 1) {
-    reviewingQuestionId.value -= 1
+  const previousIndex = currentQuestionIndex.value - 1
+
+  if (previousIndex < 0) {
+    return
+  }
+
+  const previousQuestion = filteredQuestions.value[previousIndex]
+
+  if (previousQuestion) {
+    reviewingQuestionId.value = previousQuestion.id
+    showAnswer.value = false
+    activeTab.value = 'question'
   }
 }
 
 function showNextQuestion() {
-  if (reviewingQuestionId.value < filteredQuestions.value.length) {
-    reviewingQuestionId.value += 1
+  const nextIndex = currentQuestionIndex.value + 1
+
+  if (nextIndex >= filteredQuestions.value.length) {
+    return
+  }
+
+  const nextQuestion = filteredQuestions.value[nextIndex]
+
+  if (nextQuestion) {
+    reviewingQuestionId.value = nextQuestion.id
+    showAnswer.value = false
+    activeTab.value = 'question'
   }
 }
 
@@ -307,7 +555,9 @@ function answerFeedbackText(question) {
           <h1 class="text-[clamp(22px,5vw,30px)] font-extrabold leading-[1.15] tracking-[-0.05em] text-[#0a0a0a]">
             Natijalar Tahlili
           </h1>
-          <p class="mt-1.5 text-sm text-gray-400">SAT Mock - 2024 - Modul 1 va 2</p>
+          <p class="mt-1.5 text-sm text-gray-400">
+            {{ testStore.currentTest?.title || "Test natijasi" }}
+          </p>
         </div>
 
         <button
@@ -458,10 +708,12 @@ function answerFeedbackText(question) {
               >
                 <td class="px-6 py-4">
                   <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f5f5f5] text-xs font-semibold text-gray-500">
-                    {{ row.id }}
+                    {{ row.displayIndex }}
                   </span>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ row.title }}</td>
+                <td class="px-6 py-4 text-sm text-gray-600">
+                  <TestInlineMathText :text="row.title" wrapper-class="line-clamp-2 break-words" />
+                </td>
                 <td class="px-6 py-4">
                   <span class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
                     {{ row.correctAnswer }}
@@ -523,10 +775,14 @@ function answerFeedbackText(question) {
           >
             <div class="mb-3 flex items-start gap-3">
               <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] text-xs font-semibold text-gray-500">
-                {{ row.id }}
+                {{ row.displayIndex }}
               </span>
               <div class="min-w-0 flex-1">
-                <p class="text-[13px] font-semibold leading-[1.4] text-[#222222]">{{ row.title }}</p>
+                <TestInlineMathText
+                  tag="p"
+                  :text="row.title"
+                  wrapper-class="text-[13px] font-semibold leading-[1.4] text-[#222222] line-clamp-3 break-words"
+                />
               </div>
               <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" :class="statusDotClass(row.status)" />
             </div>
@@ -582,7 +838,22 @@ function answerFeedbackText(question) {
           </article>
         </div>
 
-        <div v-if="filteredQuestions.length === 0" class="flex items-center justify-center py-16">
+        <div v-if="isLoadingTest" class="flex items-center justify-center py-16">
+          <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+        </div>
+
+        <div v-else-if="testLoadError" class="flex flex-col items-center justify-center gap-3 py-16">
+          <p class="text-sm text-red-600">{{ testLoadError }}</p>
+          <button
+            type="button"
+            class="inline-flex items-center justify-center rounded-full border border-gray-200 px-4 py-1.5 text-xs font-semibold text-[#0a0a0a] transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+            @click="loadTest"
+          >
+            Qaytadan urinish
+          </button>
+        </div>
+
+        <div v-else-if="filteredQuestions.length === 0" class="flex items-center justify-center py-16">
           <p class="text-sm text-gray-300">Ma'lumot topilmadi</p>
         </div>
       </section>
@@ -601,16 +872,20 @@ function answerFeedbackText(question) {
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0 flex-1 pr-4">
                 <p class="mb-0.5 text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
-                  SAT Amaliyot - 17 Aprel, 2026
+                  {{ testStore.currentTest?.title || "Test natijasi" }}
                 </p>
-                <h2 class="truncate text-[clamp(14px,4vw,18px)] font-bold tracking-[-0.02em] text-[#0a0a0a]">
-                  Savol {{ currentQuestion.id }} - {{ currentQuestion.title }}
+                <h2 class="flex items-center gap-1.5 text-[clamp(14px,4vw,18px)] font-bold tracking-[-0.02em] text-[#0a0a0a]">
+                  <span class="shrink-0">Savol {{ currentQuestion.displayIndex }} -</span>
+                  <TestInlineMathText
+                    :text="currentQuestion.title"
+                    wrapper-class="truncate"
+                  />
                 </h2>
               </div>
 
               <div class="flex shrink-0 items-center gap-2">
                 <span class="hidden rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-medium text-gray-500 sm:inline-flex">
-                  {{ currentQuestion.id }} / {{ totalQuestions }}
+                  {{ currentQuestion.displayIndex }} / {{ totalQuestions }}
                 </span>
                 <button
                   type="button"
@@ -649,43 +924,26 @@ function answerFeedbackText(question) {
             <div class="hidden h-full grid-cols-2 sm:grid" style="height: calc(92vh - 140px)">
               <div class="review-scrollbar overflow-y-auto border-r border-[#ebebeb] bg-white px-8 py-6">
                 <div>
-                  <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Matematika: Savol {{ currentQuestion.id }}</h3>
-                  <p class="mb-5 text-sm leading-[1.7] text-gray-600">
-                    Rasmda f(x) = 2/x, y1 = 0, y2 = 2, x1 = 0 va x2 = 2 funksiyani grafiklari tasvirlangan.
+                  <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
+                  <div
+                    v-if="currentQuestion.questionText"
+                    class="mb-5 text-sm leading-[1.7] text-gray-600"
+                    v-html="currentQuestion.questionText"
+                  />
+                  <p v-else class="mb-5 text-sm italic text-gray-400">
+                    Savol matni mavjud emas.
                   </p>
 
-                  <div class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4 sm:p-6">
-                    <svg width="100%" viewBox="0 0 500 380" style="max-width: 460px">
-                      <defs>
-                        <pattern id="grid2-desktop" width="40" height="40" patternUnits="userSpaceOnUse">
-                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f0f0f0" stroke-width="1" />
-                        </pattern>
-                      </defs>
-                      <rect width="500" height="380" fill="url(#grid2-desktop)" />
-                      <line x1="50" y1="190" x2="450" y2="190" stroke="#0a0a0a" stroke-width="2" />
-                      <line x1="250" y1="40" x2="250" y2="340" stroke="#0a0a0a" stroke-width="2" />
-                      <text x="458" y="195" font-size="18" font-style="italic" fill="#0a0a0a">x</text>
-                      <text x="255" y="36" font-size="18" font-style="italic" fill="#0a0a0a">y</text>
-                      <path
-                        d="M 250 95 L 350 95 L 350 145 Q 340 150 330 155 Q 320 160 310 167 Q 300 173 290 179 Q 270 186 260 190 L 250 190 Z"
-                        fill="#d1d5db"
-                        opacity="0.5"
-                      />
-                      <path
-                        d="M 260 184 Q 270 175 280 166 Q 290 157 300 150 Q 310 143 320 137 Q 330 132 340 128 Q 350 124 360 121 Q 380 116 410 112"
-                        stroke="#0a0a0a"
-                        stroke-width="2.5"
-                        fill="none"
-                      />
-                      <line x1="100" y1="95" x2="450" y2="95" stroke="#0a0a0a" stroke-width="2" />
-                      <text x="78" y="90" font-size="16" fill="#0a0a0a">y2=2</text>
-                      <line x1="350" y1="70" x2="350" y2="290" stroke="#0a0a0a" stroke-width="2" />
-                      <text x="356" y="308" font-size="16" fill="#0a0a0a">x2=2</text>
-                      <text x="370" y="138" font-size="15" fill="#0a0a0a">f(x)=2/x</text>
-                    </svg>
+                  <div
+                    v-if="currentQuestion.imageUrl"
+                    class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4 sm:p-6"
+                  >
+                    <img
+                      :src="currentQuestion.imageUrl"
+                      :alt="`Savol ${currentQuestion.displayIndex}`"
+                      class="max-h-[420px] w-auto max-w-full"
+                    />
                   </div>
-
-                  <p class="mt-5 text-sm leading-[1.7] text-gray-600">Bo'yalgan sohaning yuzini toping.</p>
                 </div>
               </div>
 
@@ -733,22 +991,37 @@ function answerFeedbackText(question) {
 
                     <div>
                       <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
-                      <p
-                        v-for="line in answerExplanation"
-                        :key="line"
-                        class="mb-2 text-[13px] leading-[1.7] text-gray-600"
-                      >
-                        {{ line }}
+
+                      <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
+                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
+                        <span>Yuklanmoqda...</span>
+                      </div>
+
+                      <p v-else-if="explanationError" class="text-[13px] text-red-600">
+                        {{ explanationError }}
                       </p>
 
-                      <div v-if="currentQuestion.videoUrl" class="mt-5">
-                        <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Video Tushuntirish</h4>
-                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-black">
-                          <video controls class="block h-auto w-full">
-                            <source :src="currentQuestion.videoUrl" type="video/mp4" />
-                          </video>
+                      <template v-else-if="hasExplanationContent">
+                        <div
+                          v-if="explanationDisplayText"
+                          class="mb-3 text-[13px] leading-[1.7] text-gray-600"
+                          v-html="explanationDisplayText"
+                        />
+                        <div
+                          v-if="explanationImageUrl"
+                          class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                        >
+                          <img
+                            :src="explanationImageUrl"
+                            alt="Tushuntirish rasmi"
+                            class="block h-auto w-full"
+                          />
                         </div>
-                      </div>
+                      </template>
+
+                      <p v-else class="text-[13px] italic text-gray-400">
+                        Tushuntirish mavjud emas.
+                      </p>
                     </div>
                   </template>
                 </div>
@@ -758,43 +1031,26 @@ function answerFeedbackText(question) {
             <div class="review-scrollbar overflow-y-auto sm:hidden" style="height: calc(92vh - 175px)">
               <div v-if="activeTab === 'question'" class="px-4 py-5">
                 <div>
-                  <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Matematika: Savol {{ currentQuestion.id }}</h3>
-                  <p class="mb-5 text-sm leading-[1.7] text-gray-600">
-                    Rasmda f(x) = 2/x, y1 = 0, y2 = 2, x1 = 0 va x2 = 2 funksiyani grafiklari tasvirlangan.
+                  <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
+                  <div
+                    v-if="currentQuestion.questionText"
+                    class="mb-5 text-sm leading-[1.7] text-gray-600"
+                    v-html="currentQuestion.questionText"
+                  />
+                  <p v-else class="mb-5 text-sm italic text-gray-400">
+                    Savol matni mavjud emas.
                   </p>
 
-                  <div class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4">
-                    <svg width="100%" viewBox="0 0 500 380" style="max-width: 460px">
-                      <defs>
-                        <pattern id="grid2-mobile" width="40" height="40" patternUnits="userSpaceOnUse">
-                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f0f0f0" stroke-width="1" />
-                        </pattern>
-                      </defs>
-                      <rect width="500" height="380" fill="url(#grid2-mobile)" />
-                      <line x1="50" y1="190" x2="450" y2="190" stroke="#0a0a0a" stroke-width="2" />
-                      <line x1="250" y1="40" x2="250" y2="340" stroke="#0a0a0a" stroke-width="2" />
-                      <text x="458" y="195" font-size="18" font-style="italic" fill="#0a0a0a">x</text>
-                      <text x="255" y="36" font-size="18" font-style="italic" fill="#0a0a0a">y</text>
-                      <path
-                        d="M 250 95 L 350 95 L 350 145 Q 340 150 330 155 Q 320 160 310 167 Q 300 173 290 179 Q 270 186 260 190 L 250 190 Z"
-                        fill="#d1d5db"
-                        opacity="0.5"
-                      />
-                      <path
-                        d="M 260 184 Q 270 175 280 166 Q 290 157 300 150 Q 310 143 320 137 Q 330 132 340 128 Q 350 124 360 121 Q 380 116 410 112"
-                        stroke="#0a0a0a"
-                        stroke-width="2.5"
-                        fill="none"
-                      />
-                      <line x1="100" y1="95" x2="450" y2="95" stroke="#0a0a0a" stroke-width="2" />
-                      <text x="78" y="90" font-size="16" fill="#0a0a0a">y2=2</text>
-                      <line x1="350" y1="70" x2="350" y2="290" stroke="#0a0a0a" stroke-width="2" />
-                      <text x="356" y="308" font-size="16" fill="#0a0a0a">x2=2</text>
-                      <text x="370" y="138" font-size="15" fill="#0a0a0a">f(x)=2/x</text>
-                    </svg>
+                  <div
+                    v-if="currentQuestion.imageUrl"
+                    class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4"
+                  >
+                    <img
+                      :src="currentQuestion.imageUrl"
+                      :alt="`Savol ${currentQuestion.displayIndex}`"
+                      class="max-h-[360px] w-auto max-w-full"
+                    />
                   </div>
-
-                  <p class="mt-5 text-sm leading-[1.7] text-gray-600">Bo'yalgan sohaning yuzini toping.</p>
                 </div>
               </div>
 
@@ -842,22 +1098,37 @@ function answerFeedbackText(question) {
 
                     <div>
                       <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
-                      <p
-                        v-for="line in answerExplanation"
-                        :key="line"
-                        class="mb-2 text-[13px] leading-[1.7] text-gray-600"
-                      >
-                        {{ line }}
+
+                      <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
+                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
+                        <span>Yuklanmoqda...</span>
+                      </div>
+
+                      <p v-else-if="explanationError" class="text-[13px] text-red-600">
+                        {{ explanationError }}
                       </p>
 
-                      <div v-if="currentQuestion.videoUrl" class="mt-5">
-                        <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Video Tushuntirish</h4>
-                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-black">
-                          <video controls class="block h-auto w-full">
-                            <source :src="currentQuestion.videoUrl" type="video/mp4" />
-                          </video>
+                      <template v-else-if="hasExplanationContent">
+                        <div
+                          v-if="explanationDisplayText"
+                          class="mb-3 text-[13px] leading-[1.7] text-gray-600"
+                          v-html="explanationDisplayText"
+                        />
+                        <div
+                          v-if="explanationImageUrl"
+                          class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                        >
+                          <img
+                            :src="explanationImageUrl"
+                            alt="Tushuntirish rasmi"
+                            class="block h-auto w-full"
+                          />
                         </div>
-                      </div>
+                      </template>
+
+                      <p v-else class="text-[13px] italic text-gray-400">
+                        Tushuntirish mavjud emas.
+                      </p>
                     </div>
                   </template>
                 </div>
@@ -891,14 +1162,14 @@ function answerFeedbackText(question) {
 
               <div class="flex items-center gap-2">
                 <span class="mr-auto text-xs font-medium text-gray-400 sm:hidden">
-                  {{ currentQuestion.id }}/{{ totalQuestions }}
+                  {{ currentQuestion.displayIndex }}/{{ totalQuestions }}
                 </span>
 
                 <button
                   type="button"
                   class="flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition"
-                  :class="currentQuestion.id === 1 ? 'cursor-not-allowed bg-[#f0f0f0] text-gray-300' : 'bg-[#0a0a0a] text-white hover:bg-[#1a1a1a]'"
-                  :disabled="currentQuestion.id === 1"
+                  :class="currentQuestionIndex <= 0 ? 'cursor-not-allowed bg-[#f0f0f0] text-gray-300' : 'bg-[#0a0a0a] text-white hover:bg-[#1a1a1a]'"
+                  :disabled="currentQuestionIndex <= 0"
                   @click="showPreviousQuestion"
                 >
                   <svg class="h-[15px] w-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -910,8 +1181,8 @@ function answerFeedbackText(question) {
                 <button
                   type="button"
                   class="flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition"
-                  :class="currentQuestion.id === totalQuestions ? 'cursor-not-allowed bg-[#f0f0f0] text-gray-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'"
-                  :disabled="currentQuestion.id === totalQuestions"
+                  :class="currentQuestionIndex >= totalQuestions - 1 ? 'cursor-not-allowed bg-[#f0f0f0] text-gray-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'"
+                  :disabled="currentQuestionIndex >= totalQuestions - 1"
                   @click="showNextQuestion"
                 >
                   <span>Keyingi</span>
@@ -965,7 +1236,9 @@ function answerFeedbackText(question) {
 
           <template v-else>
             <h2 class="mb-1 text-xl font-bold text-[#0a0a0a]">Muammo haqida xabar bering</h2>
-            <p class="mb-6 text-sm text-gray-400">Modul 1 - Savol {{ reportingQuestionId }}</p>
+            <p class="mb-6 text-sm text-gray-400">
+              {{ reportingQuestion ? `Savol ${reportingQuestion.displayIndex}` : `Savol #${reportingQuestionId}` }}
+            </p>
 
             <div class="mb-4">
               <label class="mb-2 block text-sm font-semibold text-gray-600">Izoh</label>

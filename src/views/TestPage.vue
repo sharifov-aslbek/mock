@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { NCard, NModal, NSpin } from 'naive-ui'
 import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
@@ -18,6 +18,7 @@ import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
 const route = useRoute()
+const router = useRouter()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
@@ -28,6 +29,7 @@ const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
 const showSubmitModal = ref(false)
+const isSubmittingTest = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
 let timerIntervalId = null
@@ -674,6 +676,54 @@ const restoreProgress = async (testId) => {
   }
 }
 
+const restoreProgressFromApi = async (testId) => {
+  if (!testId) {
+    return
+  }
+
+  let progress = null
+
+  try {
+    progress = await testStore.fetchTestProgress(testId)
+  } catch (error) {
+    console.error(error)
+    return
+  }
+
+  if (!progress || !progress.id) {
+    return
+  }
+
+  activeAttemptId.value = Number(progress.id)
+  syncAnswerActionAttemptIds()
+
+  const userAnswers = Array.isArray(progress.userAnswers) ? progress.userAnswers : []
+
+  for (const userAnswer of userAnswers) {
+    const normalizedQuestionId = Number(userAnswer?.questionId)
+
+    if (!normalizedQuestionId) {
+      continue
+    }
+
+    const questionKey = String(normalizedQuestionId)
+    const question = renderedQuestionsById.value.get(normalizedQuestionId)
+
+    if (question?.type === 'FreeAnswer') {
+      if (typeof userAnswer.textAnswer === 'string' && userAnswer.textAnswer.trim()) {
+        freeAnswers[questionKey] = userAnswer.textAnswer
+      }
+      continue
+    }
+
+    const selectedOptionId = Number(userAnswer?.selectedOptionId || 0)
+
+    if (selectedOptionId > 0) {
+      answers[questionKey] = selectedOptionId
+    }
+  }
+}
+
 const persistCurrentProgress = () => {
   if (!shouldPersistProgress.value || !currentTest.value) {
     return
@@ -926,6 +976,7 @@ watch(
     const savedProgress = testProgressStore.getProgress(test.id)
     startTimer(test.questions?.length, savedProgress?.remainingSeconds ?? null)
     await restoreProgress(test.id)
+    await restoreProgressFromApi(test.id)
     await ensureAttemptStarted(test)
   },
   {
@@ -942,11 +993,39 @@ const handleSubmitTest = () => {
 }
 
 const closeSubmitModal = () => {
+  if (isSubmittingTest.value) {
+    return
+  }
+
   showSubmitModal.value = false
 }
 
-const confirmSubmitTest = () => {
-  showSubmitModal.value = false
+const confirmSubmitTest = async () => {
+  if (isSubmittingTest.value) {
+    return
+  }
+
+  if (!currentTest.value?.id || !activeAttemptId.value) {
+    showSubmitModal.value = false
+    return
+  }
+
+  isSubmittingTest.value = true
+
+  try {
+    await syncDirtyAnswers()
+    await testStore.submitTestAttempt(currentTest.value.id, activeAttemptId.value)
+    stopTimer()
+    stopAutosaveLoop()
+    testProgressStore.clearProgress(currentTest.value.id)
+    clearAnswerActionsForTest(currentTest.value.id)
+    showSubmitModal.value = false
+    await router.push({ name: 'explanation', query: { testId: currentTest.value.id } })
+  } catch (error) {
+    console.error(error)
+  } finally {
+    isSubmittingTest.value = false
+  }
 }
 
 onMounted(() => {
@@ -1089,7 +1168,11 @@ onBeforeUnmount(() => {
       />
     </NSpin>
 
-    <NModal v-model:show="showSubmitModal">
+    <NModal
+      v-model:show="showSubmitModal"
+      :mask-closable="!isSubmittingTest"
+      :close-on-esc="!isSubmittingTest"
+    >
       <div class="w-[calc(100vw-2rem)] max-w-md">
         <NCard :bordered="false" size="large" class="!rounded-[28px]">
           <div class="space-y-6 text-center">
@@ -1103,7 +1186,8 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 @click="closeSubmitModal"
-                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+                :disabled="isSubmittingTest"
+                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-black"
               >
                 {{ t('testPage.submitConfirmNo') }}
               </button>
@@ -1111,9 +1195,15 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 @click="confirmSubmitTest"
-                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+                :disabled="isSubmittingTest"
+                class="inline-flex h-11 min-w-[7rem] items-center justify-center gap-2 rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80 disabled:hover:bg-black"
               >
-                {{ t('testPage.submitConfirmYes') }}
+                <span
+                  v-if="isSubmittingTest"
+                  class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                ></span>
+                <span>{{ t('testPage.submitConfirmYes') }}</span>
               </button>
             </div>
           </div>
