@@ -22,10 +22,33 @@ declare global {
   }
 }
 
+
 onMounted(() => {
   if (!telegramContainer.value) return
 
-  window.onTelegramAuth = async (user) => {
+  // Listen for postMessage from Telegram popup
+  const handleMessage = (event: MessageEvent) => {
+    if (event.origin !== 'https://oauth.telegram.org') return
+
+    const data =
+        typeof event.data === 'string'
+            ? JSON.parse(event.data)
+            : event.data
+
+    if (data?.event === 'auth_user' && data?.auth_data) {
+      const user: TelegramUser = data.auth_data
+
+      authStore.telegramLogin(user)
+          .then(() => {
+            router.push('/#')
+          })
+          .catch(() => {})
+    }
+  }
+
+  window.addEventListener('message', handleMessage)
+
+  window.onTelegramAuth = async (user: TelegramUser) => {
     try {
       await authStore.telegramLogin(user)
       const redirectTarget =
@@ -33,25 +56,28 @@ onMounted(() => {
               ? route.query.redirect
               : '/dashboard'
       await router.push(redirectTarget)
-    } catch {
-      // authStore should set errorMessage
-    }
+    } catch {}
   }
 
   const script = document.createElement('script')
-  script.src = 'https://telegram.org/js/telegram-widget.js?22'
+  script.src = 'https://telegram.org/js/telegram-widget.js?66'
   script.async = true
   script.setAttribute('data-telegram-login', 'milliymock_bot')
   script.setAttribute('data-size', 'large')
-  script.setAttribute('data-onauth', 'onTelegramAuth')
+  script.setAttribute('data-onauth', 'window.onTelegramAuth')
   script.setAttribute('data-request-access', 'write')
 
   telegramContainer.value.appendChild(script)
+
+  // Store handler ref for cleanup
+  ;(window as any)._tgMessageHandler = handleMessage
 })
 
 onUnmounted(() => {
+  window.removeEventListener('message', (window as any)._tgMessageHandler)
   delete window.onTelegramAuth
 })
+
 
 const email = ref('')
 const password = ref('')

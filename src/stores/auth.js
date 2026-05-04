@@ -54,27 +54,53 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function telegramLogin(userInfo) {
-      const apiBaseUrl = getTestApiBaseUrl()
+    async function telegramLogin(userInfo) {
+        const apiBaseUrl = getTestApiBaseUrl()
 
-      if (!apiBaseUrl) {
-          throw new Error('API base URL is missing.')
-      }
+        if (!apiBaseUrl) {
+            throw new Error('API base URL is missing.')
+        }
 
-      isLoading.value = true
-      errorMessage.value = ''
+        isLoading.value = true
+        errorMessage.value = ''
 
-      try {
-          console.log('Telegram user info:', userInfo)
-      } catch (error) {
-          errorMessage.value =
-              error instanceof Error ? error.message : 'Login failed.'
-          throw error
-      } finally {
-          isLoading.value = false
-      }
-  }
+        try {
+            const body = JSON.stringify({
+                id: userInfo.id,
+                firstName: userInfo.first_name,
+                lastName: userInfo.last_name ?? null,
+                username: userInfo.username,
+                photoUrl: userInfo.photo_url,
+                authDate: userInfo.auth_date,
+                hash: userInfo.hash,
+            })
 
+            const response = await fetch(`${apiBaseUrl}/auth/telegram-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    accept: '*/*',
+                },
+                body,
+            })
+
+            const payload = await response.json()
+
+            if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
+                throw new Error(payload?.message || 'Login failed.')
+            }
+
+            token.value = payload.data.token
+            localStorage.setItem(TOKEN_KEY, payload.data.token)
+
+        } catch (error) {
+            errorMessage.value =
+                error instanceof Error ? error.message : 'Login failed.'
+            throw error
+        } finally {
+            isLoading.value = false
+        }
+    }
 
 
   async function getUserInfo() {
