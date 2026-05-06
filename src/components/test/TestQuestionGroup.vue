@@ -1,5 +1,5 @@
 <script setup>
-import { ref , onMounted , computed } from 'vue'
+import { ref, computed } from 'vue'
 import { NPopover } from 'naive-ui'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
@@ -66,6 +66,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
 const openMatchingQuestionId = ref(null)
+const checkedQuestionIds = ref({})
 
 const isMatchingMenuOpen = (questionId) => openMatchingQuestionId.value === Number(questionId)
 
@@ -106,6 +107,20 @@ const clearMatchingOption = (questionId) => {
   openMatchingQuestionId.value = null
 }
 
+const isQuestionChecked = (questionId) => Boolean(checkedQuestionIds.value[questionId])
+
+const updateQuestionCheck = (questionId, checked) => {
+  checkedQuestionIds.value = {
+    ...checkedQuestionIds.value,
+    [questionId]: checked,
+  }
+}
+
+const hasSelectableQuestions = computed(() =>
+  props.questions.some((question) => question?.type === 'Matching'),
+)
+
+const shouldShowGroupOrderLabel = computed(() => Boolean(props.orderLabel && !hasSelectableQuestions.value))
 
 const formattedQuestions = computed(() => {
   const number = Number(props.orderLabel)
@@ -127,7 +142,7 @@ const formattedQuestions = computed(() => {
     <div class="border-l-[3px] border-[#5b5750] pl-3.5 sm:pl-4">
       <div class="flex items-start gap-3 sm:gap-4">
         <span
-          v-if="orderLabel"
+          v-if="shouldShowGroupOrderLabel"
           class="font-mono-custom min-w-[40px] shrink-0 pt-0.5 text-[15px] font-semibold leading-none text-[#1a1814] sm:min-w-[46px] sm:text-[17px]"
         >
           {{ orderLabel }}
@@ -280,6 +295,20 @@ const formattedQuestions = computed(() => {
               />
             </div>
           </div>
+
+          <label
+            class="mt-2 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center sm:mt-2.5"
+            aria-label="Check question"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :checked="isQuestionChecked(question.id)"
+              class="h-4 w-4 cursor-pointer rounded border-[#8a857c] text-black accent-black"
+              @change="updateQuestionCheck(question.id, $event.target.checked)"
+              @click.stop
+            />
+          </label>
         </div>
 
         <div v-else class="flex items-start gap-3 sm:gap-4">
@@ -326,6 +355,20 @@ const formattedQuestions = computed(() => {
               @update:model-value="emit('update-option', question.id, $event)"
             />
           </div>
+
+          <label
+            class="mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center sm:mt-1"
+            aria-label="Check question"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :checked="isQuestionChecked(question.id)"
+              class="h-4 w-4 cursor-pointer rounded border-[#8a857c] text-black accent-black"
+              @change="updateQuestionCheck(question.id, $event.target.checked)"
+              @click.stop
+            />
+          </label>
         </div>
       </div>
     </div>

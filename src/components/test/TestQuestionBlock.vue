@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
@@ -39,6 +40,8 @@ defineProps({
 })
 
 defineEmits(['update-option', 'update-free-answer'])
+
+const isQuestionChecked = ref(false)
 </script>
 
 <template>
@@ -86,5 +89,18 @@ defineEmits(['update-option', 'update-free-answer'])
         @update:model-value="$emit('update-option', question.id, $event)"
       />
     </div>
+
+    <label
+      class="mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center sm:mt-1"
+      aria-label="Check question"
+      @click.stop
+    >
+      <input
+        v-model="isQuestionChecked"
+        type="checkbox"
+        class="h-4 w-4 cursor-pointer rounded border-[#8a857c] text-black accent-black"
+        @click.stop
+      />
+    </label>
   </div>
 </template>
