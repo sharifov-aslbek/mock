@@ -90,17 +90,22 @@ const isQuestionChecked = ref(false)
       />
     </div>
 
-    <label
-      class="mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center sm:mt-1"
-      aria-label="Check question"
-      @click.stop
+    <button
+      type="button"
+      class="mt-0 flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-[#e1e5dc] bg-white shadow-[0_3px_10px_rgba(26,24,20,0.06)] transition hover:border-[#bcc7b5] hover:bg-[#fbfdf8] sm:mt-0.5"
+      :class="isQuestionChecked ? 'text-[#1a1814]' : 'text-[#7f8a78]'"
+      aria-label="Save question"
+      @click.stop="isQuestionChecked = !isQuestionChecked"
     >
-      <input
-        v-model="isQuestionChecked"
-        type="checkbox"
-        class="h-4 w-4 cursor-pointer rounded border-[#8a857c] text-black accent-black"
-        @click.stop
-      />
-    </label>
+      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M7 4.75h10v14.5l-5-3.25-5 3.25V4.75Z"
+          :fill="isQuestionChecked ? 'currentColor' : 'none'"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
   </div>
 </template>

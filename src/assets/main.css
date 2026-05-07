@@ -1,8 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 @import "tailwindcss";
 
+html,
+body,
+button,
+input,
+textarea,
+select {
+  font-family: 'DM Sans', sans-serif;
+}
+
 .font-serif-custom {
-  font-family: 'DM Serif Display', serif;
+  font-family: 'DM Sans', sans-serif;
 }
 
 .font-sans-custom {
@@ -10,5 +19,5 @@
 }
 
 .font-mono-custom {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'DM Sans', sans-serif;
 }
