@@ -10,6 +10,10 @@ const props = defineProps({
   test: {
     type: Object,
     required: true
+  },
+  isAttemptedCard: {
+    type: Boolean,
+    default: false,
   }
 })
 
@@ -20,6 +24,7 @@ const testStore = useTestStore()
 const isStarting = ref(false)
 const startError = ref('')
 const showStartModal = ref(false)
+const showAttemptChoiceModal = ref(false)
 const isInProgressCard = computed(() => Boolean(props.test.isInProgressCard))
 
 const ensureAuth = async (redirectTarget) => {
@@ -38,7 +43,9 @@ const ensureAuth = async (redirectTarget) => {
 }
 
 const openTest = async () => {
-  const redirectTarget = `/test?testId=${props.test.id}`
+  const redirectTarget = props.isAttemptedCard
+    ? `/test?testId=${props.test.id}&restart=1`
+    : `/test?testId=${props.test.id}`
 
   if (!(await ensureAuth(redirectTarget))) {
     return
@@ -70,11 +77,35 @@ const confirmStartTest = async () => {
   showStartModal.value = false
   await handleStartTest()
 }
+
+const openLastResult = async () => {
+  const redirectTarget = `/explanation?testId=${props.test.id}`
+
+  if (!(await ensureAuth(redirectTarget))) {
+    return
+  }
+
+  showAttemptChoiceModal.value = false
+  await router.push(redirectTarget)
+}
+
+const restartAttemptedTest = async () => {
+  showAttemptChoiceModal.value = false
+  await openTest()
+}
+
+const handleAttemptedCardClick = () => {
+  if (props.isAttemptedCard && !isInProgressCard.value) {
+    showAttemptChoiceModal.value = true
+  }
+}
 </script>
 
 <template>
   <article
     class="group relative overflow-hidden rounded-[28px] border border-black/10 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.12)]"
+    :class="isAttemptedCard && !isInProgressCard ? 'cursor-pointer' : ''"
+    @click="handleAttemptedCardClick"
   >
     <div class="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.03)_1px,transparent_1px)] bg-[size:24px_24px] opacity-70"></div>
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),rgba(255,255,255,0.8),transparent_70%)]"></div>
@@ -137,7 +168,7 @@ const confirmStartTest = async () => {
         <button
           v-if="!isInProgressCard"
           type="button"
-          @click="showStartModal = true"
+          @click.stop="isAttemptedCard ? (showAttemptChoiceModal = true) : (showStartModal = true)"
           :disabled="isStarting"
           class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -145,7 +176,7 @@ const confirmStartTest = async () => {
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.752 11.168-4.586-2.65A1 1 0 0 0 8.667 9.39v5.22a1 1 0 0 0 1.499.872l4.586-2.65a1 1 0 0 0 0-1.664Z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          {{ isStarting ? t('mathCard.starting') : t('mathCard.start') }}
+          {{ isStarting ? t('mathCard.starting') : isAttemptedCard ? 'Tanlash' : t('mathCard.start') }}
         </button>
 
         <button
@@ -194,6 +225,50 @@ const confirmStartTest = async () => {
     {{ t('mathCard.confirmYes') }}
   </button>
 </div>
+          </div>
+        </NCard>
+      </div>
+    </NModal>
+
+    <NModal v-model:show="showAttemptChoiceModal">
+      <div class="w-[calc(100vw-2rem)] max-w-lg">
+        <NCard :bordered="false" size="large" class="!rounded-[28px]">
+          <div class="space-y-6 text-center">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+                {{ test.title }}
+              </p>
+              <h4 class="mt-2 text-xl font-bold tracking-tight text-black">
+                Bu test bilan nima qilmoqchisiz?
+              </h4>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                @click="restartAttemptedTest"
+                :disabled="isStarting"
+                class="inline-flex min-h-12 items-center justify-center rounded-2xl border border-black bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Boshidan ishlash
+              </button>
+
+              <button
+                type="button"
+                @click="openLastResult"
+                class="inline-flex min-h-12 items-center justify-center rounded-2xl border border-black bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-black hover:text-white active:scale-[0.98]"
+              >
+                Oxirgi natijalarni ko'rish
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="text-sm font-medium text-gray-400 transition hover:text-black"
+              @click="showAttemptChoiceModal = false"
+            >
+              Bekor qilish
+            </button>
           </div>
         </NCard>
       </div>

@@ -241,6 +241,7 @@ const emptyMessageKey = computed(() =>
           v-for="test in filteredTests"
           :key="test.id"
           :test="test"
+          :is-attempted-card="activeTab === 'attempted'"
         />
       </div>
 

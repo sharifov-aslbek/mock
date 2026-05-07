@@ -12,6 +12,7 @@ const testStore = useTestStore()
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const LANGUAGE_BY_LOCALE = { uz: 'Uzbek', ru: 'Russian' }
+const GROUP_SUBORDER_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('')
 
 const reviewingQuestionId = ref(null)
 const reportingQuestionId = ref(null)
@@ -142,7 +143,49 @@ const filteredQuestions = computed(() => {
     return []
   }
 
-  return apiQuestions.map((apiQuestion, index) => {
+  const questionGroupsById = new Map(
+    (testStore.currentTest?.questionGroups || []).map((group) => [Number(group.id), group]),
+  )
+  const groupedQuestionCounts = apiQuestions.reduce((counts, question) => {
+    const groupId = Number(question?.questionGroupId || 0)
+
+    if (!groupId) {
+      return counts
+    }
+
+    counts.set(groupId, Number(counts.get(groupId) || 0) + 1)
+    return counts
+  }, new Map())
+  const groupBaseLabels = new Map()
+  const groupQuestionIndexes = new Map()
+  const shownGroupHeaders = new Set()
+  let displayCounter = 0
+
+  return apiQuestions.map((apiQuestion) => {
+    const groupId = Number(apiQuestion?.questionGroupId || 0)
+    const group = groupId ? questionGroupsById.get(groupId) : null
+    const isGroupedQuestion = Boolean(group && Number(groupedQuestionCounts.get(groupId) || 0) > 1)
+
+    if (isGroupedQuestion && !groupBaseLabels.has(groupId)) {
+      displayCounter += 1
+      groupBaseLabels.set(groupId, String(displayCounter))
+    } else if (!isGroupedQuestion) {
+      displayCounter += 1
+    }
+
+    const groupQuestionIndex = Number(groupQuestionIndexes.get(groupId) || 0)
+    const groupSubLabel = GROUP_SUBORDER_LETTERS[groupQuestionIndex] || String(groupQuestionIndex + 1)
+    const baseDisplayLabel = isGroupedQuestion
+      ? groupBaseLabels.get(groupId)
+      : String(displayCounter)
+    const displayLabel = isGroupedQuestion ? `${baseDisplayLabel}.${groupSubLabel}` : baseDisplayLabel
+    const showGroupHeader = isGroupedQuestion && !shownGroupHeaders.has(groupId)
+
+    if (isGroupedQuestion) {
+      groupQuestionIndexes.set(groupId, groupQuestionIndex + 1)
+      shownGroupHeaders.add(groupId)
+    }
+
     const options = Array.isArray(apiQuestion.options)
       ? apiQuestion.options.map((option, optionIndex) => ({
           ...option,
@@ -168,12 +211,17 @@ const filteredQuestions = computed(() => {
       status = 'incorrect'
     }
 
-    const titleSource = stripHtml(getEntityText(apiQuestion)) || `Savol ${index + 1}`
+    const groupTitle = isGroupedQuestion ? stripHtml(getEntityText(group)) : ''
+    const titleSource = stripHtml(getEntityText(apiQuestion)) || `Savol ${displayLabel}`
 
     return {
       id: Number(apiQuestion.id),
-      displayIndex: index + 1,
+      displayIndex: displayLabel,
       title: titleSource,
+      groupId: isGroupedQuestion ? groupId : null,
+      groupTitle,
+      groupDisplayLabel: baseDisplayLabel,
+      showGroupHeader,
       questionText: getEntityText(apiQuestion),
       imageUrl: apiQuestion.imageUrl || buildAssetUrl(apiQuestion.imagePath),
       correctAnswer: correctOption?.letter || '-',
@@ -297,6 +345,16 @@ async function loadTest() {
 
   try {
     await testStore.fetchTestById(testId)
+
+    try {
+      const latestProgress = await testStore.fetchTestProgress(testId)
+
+      if (latestProgress) {
+        testStore.lastSubmission = latestProgress
+      }
+    } catch (progressError) {
+      console.error(progressError)
+    }
   } catch (error) {
     testLoadError.value =
       error instanceof Error ? error.message : "Testni yuklashda xatolik yuz berdi."
@@ -562,7 +620,7 @@ function answerFeedbackText(question) {
   <main class="explanation-page min-h-screen w-full bg-[#f7f7f7] font-sans-custom">
     <div class="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 sm:pt-10 lg:px-8">
       <div class="mb-4 flex items-center gap-1.5 text-xs text-gray-400 sm:mb-6">
-        <span class="cursor-default transition-colors hover:text-gray-500">Result</span>
+        <RouterLink to="/" class="cursor-default transition-colors hover:text-gray-500 cursor-pointer">Bosh sahifa</RouterLink>
         <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="m9 18 6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
@@ -720,142 +778,188 @@ function answerFeedbackText(question) {
               </tr>
             </thead>
             <tbody>
-              <tr
+              <template
                 v-for="(row, index) in filteredQuestions"
                 :key="row.id"
-                class="transition-colors hover:bg-[#fafafa]"
-                :class="{ 'border-b border-[#f5f5f5]': index < filteredQuestions.length - 1 }"
               >
-                <td class="px-6 py-4">
-                  <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f5f5f5] text-xs font-semibold text-gray-500">
-                    {{ row.displayIndex }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-600">
-                  <TestInlineMathText :text="row.title" wrapper-class="line-clamp-2 break-words" />
-                </td>
-                <td class="px-6 py-4">
-                  <span class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
-                    {{ row.correctAnswer }}
-                  </span>
-                </td>
-                <td class="px-6 py-4">
-                  <span
-                    class="inline-flex min-w-[72px] items-center justify-center rounded-full px-3 py-1 text-xs"
-                    :class="answerBadgeClass(row.status)"
-                  >
-                    {{ answerBadgeLabel(row.status, row.yourAnswer) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4">
-                  <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold" :class="complexityBadgeClass(row.complexity)">
-                    {{ row.complexity }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <div class="flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      class="inline-flex items-center gap-1.5 rounded-full border border-[#ebebeb] px-3 py-1.5 text-xs text-gray-300 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
-                      @click="openReview(row.id)"
-                    >
-                      <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path
-                          d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
+                <tr v-if="row.showGroupHeader" class="border-y border-[#eeeeee] bg-[#fafafa]">
+                  <td colspan="6" class="px-6 py-3">
+                    <div class="flex items-center gap-3">
+                      <!-- <span class="inline-flex min-w-8 items-center justify-center rounded-full bg-[#0a0a0a] px-2.5 py-1 text-xs font-bold text-white">
+                        {{ row.groupDisplayLabel }}
+                      </span> -->
+                      <div class="min-w-0">
+                        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                          Question group
+                        </p>
+                        <TestInlineMathText
+                          :text="row.groupTitle || `Savol ${row.groupDisplayLabel} guruhi`"
+                          wrapper-class="mt-0.5 line-clamp-2 text-sm font-semibold text-[#0a0a0a]"
                         />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                      <span>Review</span>
-                    </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
 
-                    <button
-                      type="button"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ebebeb] text-gray-300 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
-                      @click="openReport(row.id)"
+                <tr
+                  class="transition-colors hover:bg-[#fafafa]"
+                  :class="{ 'border-b border-[#f5f5f5]': index < filteredQuestions.length - 1 }"
+                >
+                  <td class="px-6 py-4">
+                    <span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[#f5f5f5] px-2 text-xs font-semibold text-gray-500">
+                      {{ row.displayIndex }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-600">
+                    <TestInlineMathText :text="row.title" wrapper-class="line-clamp-2 break-words" />
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
+                      {{ row.correctAnswer }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span
+                      class="inline-flex min-w-[72px] items-center justify-center rounded-full px-3 py-1 text-xs"
+                      :class="answerBadgeClass(row.status)"
                     >
-                      <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M4 4v16" stroke-linecap="round" />
-                        <path d="M4 5h10l-1.5 3L14 11H4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
+                      {{ answerBadgeLabel(row.status, row.yourAnswer) }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold" :class="complexityBadgeClass(row.complexity)">
+                      {{ row.complexity }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-[#ebebeb] px-3 py-1.5 text-xs text-gray-300 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                        @click="openReview(row.id)"
+                      >
+                        <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path
+                            d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span>Review</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ebebeb] text-gray-300 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                        @click="openReport(row.id)"
+                      >
+                        <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M4 4v16" stroke-linecap="round" />
+                          <path d="M4 5h10l-1.5 3L14 11H4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
 
         <div class="flex flex-col gap-3 p-4 md:hidden">
-          <article
+          <template
             v-for="row in filteredQuestions"
             :key="row.id"
-            class="rounded-2xl border border-[#ebebeb] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
           >
-            <div class="mb-3 flex items-start gap-3">
-              <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] text-xs font-semibold text-gray-500">
-                {{ row.displayIndex }}
-              </span>
-              <div class="min-w-0 flex-1">
-                <TestInlineMathText
-                  tag="p"
-                  :text="row.title"
-                  wrapper-class="text-[13px] font-semibold leading-[1.4] text-[#222222] line-clamp-3 break-words"
-                />
-              </div>
-              <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" :class="statusDotClass(row.status)" />
-            </div>
-
-            <div class="mb-3 flex flex-wrap items-center gap-3">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[11px] text-gray-300">To'g'ri:</span>
-                <span class="inline-flex rounded-full bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-bold text-[#0a0a0a]">
-                  {{ row.correctAnswer }}
+            <div
+              v-if="row.showGroupHeader"
+              class="rounded-2xl border border-[#ebebeb] bg-[#fafafa] p-4"
+            >
+              <div class="flex items-center gap-3">
+                <span class="inline-flex min-w-8 items-center justify-center rounded-full bg-[#0a0a0a] px-2.5 py-1 text-xs font-bold text-white">
+                  {{ row.groupDisplayLabel }}
                 </span>
-              </div>
-
-              <div class="flex items-center gap-1.5">
-                <span class="text-[11px] text-gray-300">Sizniki:</span>
-                <span class="inline-flex min-w-[68px] items-center justify-center rounded-full px-2.5 py-0.5 text-[11px]" :class="answerBadgeClass(row.status)">
-                  {{ answerBadgeLabel(row.status, row.yourAnswer) }}
-                </span>
-              </div>
-
-              <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold" :class="complexityBadgeClass(row.complexity)">
-                {{ row.complexity }}
-              </span>
-            </div>
-
-            <div class="flex items-center gap-2 border-t border-[#f5f5f5] pt-3">
-              <button
-                type="button"
-                class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#0a0a0a] py-2 text-xs font-semibold text-white transition hover:bg-[#1a1a1a]"
-                @click="openReview(row.id)"
-              >
-                <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path
-                    d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                <div class="min-w-0">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                    Question group
+                  </p>
+                  <TestInlineMathText
+                    :text="row.groupTitle || `Savol ${row.groupDisplayLabel} guruhi`"
+                    wrapper-class="mt-0.5 line-clamp-3 text-sm font-semibold text-[#0a0a0a]"
                   />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                Ko'rib chiqish
-              </button>
-
-              <button
-                type="button"
-                class="flex h-10 w-10 items-center justify-center rounded-xl border border-[#ebebeb] bg-[#f5f5f5] text-gray-500 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
-                @click="openReport(row.id)"
-              >
-                <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M4 4v16" stroke-linecap="round" />
-                  <path d="M4 5h10l-1.5 3L14 11H4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
+                </div>
+              </div>
             </div>
-          </article>
+
+            <article
+              class="rounded-2xl border border-[#ebebeb] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+              :class="row.groupId ? 'ml-4 border-l-4 border-l-[#0a0a0a]/10' : ''"
+            >
+              <div class="mb-3 flex items-start gap-3">
+                <span class="mt-0.5 inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] px-2 text-xs font-semibold text-gray-500">
+                  {{ row.displayIndex }}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <TestInlineMathText
+                    tag="p"
+                    :text="row.title"
+                    wrapper-class="text-[13px] font-semibold leading-[1.4] text-[#222222] line-clamp-3 break-words"
+                  />
+                </div>
+                <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" :class="statusDotClass(row.status)" />
+              </div>
+
+              <div class="mb-3 flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] text-gray-300">To'g'ri:</span>
+                  <span class="inline-flex rounded-full bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-bold text-[#0a0a0a]">
+                    {{ row.correctAnswer }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] text-gray-300">Sizniki:</span>
+                  <span class="inline-flex min-w-[68px] items-center justify-center rounded-full px-2.5 py-0.5 text-[11px]" :class="answerBadgeClass(row.status)">
+                    {{ answerBadgeLabel(row.status, row.yourAnswer) }}
+                  </span>
+                </div>
+
+                <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold" :class="complexityBadgeClass(row.complexity)">
+                  {{ row.complexity }}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2 border-t border-[#f5f5f5] pt-3">
+                <button
+                  type="button"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#0a0a0a] py-2 text-xs font-semibold text-white transition hover:bg-[#1a1a1a]"
+                  @click="openReview(row.id)"
+                >
+                  <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                      d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  Ko'rib chiqish
+                </button>
+
+                <button
+                  type="button"
+                  class="flex h-10 w-10 items-center justify-center rounded-xl border border-[#ebebeb] bg-[#f5f5f5] text-gray-500 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                  @click="openReport(row.id)"
+                >
+                  <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4v16" stroke-linecap="round" />
+                    <path d="M4 5h10l-1.5 3L14 11H4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </article>
+          </template>
         </div>
 
         <div v-if="isLoadingTest" class="flex items-center justify-center py-16">
@@ -892,7 +996,7 @@ function answerFeedbackText(question) {
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0 flex-1 pr-4">
                 <p class="mb-0.5 text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
-                  {{ testStore.currentTest?.title || "Test natijasi" }}
+                  {{ currentQuestion.groupTitle || testStore.currentTest?.title || "Test natijasi" }}
                 </p>
                 <h2 class="flex items-center gap-1.5 text-[clamp(14px,4vw,18px)] font-bold tracking-[-0.02em] text-[#0a0a0a]">
                   <span class="shrink-0">Savol {{ currentQuestion.displayIndex }} -</span>
@@ -905,7 +1009,7 @@ function answerFeedbackText(question) {
 
               <div class="flex shrink-0 items-center gap-2">
                 <span class="hidden rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-medium text-gray-500 sm:inline-flex">
-                  {{ currentQuestion.displayIndex }} / {{ totalQuestions }}
+                  Savol {{ currentQuestion.displayIndex }}
                 </span>
                 <button
                   type="button"
@@ -944,6 +1048,9 @@ function answerFeedbackText(question) {
             <div class="hidden h-full grid-cols-2 sm:grid" style="height: calc(92vh - 140px)">
               <div class="review-scrollbar overflow-y-auto border-r border-[#ebebeb] bg-white px-8 py-6">
                 <div>
+                  <p v-if="currentQuestion.groupTitle" class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                    {{ currentQuestion.groupTitle }}
+                  </p>
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
                   <div
                     v-if="currentQuestion.questionText"
@@ -1051,6 +1158,9 @@ function answerFeedbackText(question) {
             <div class="review-scrollbar overflow-y-auto sm:hidden" style="height: calc(92vh - 175px)">
               <div v-if="activeTab === 'question'" class="px-4 py-5">
                 <div>
+                  <p v-if="currentQuestion.groupTitle" class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                    {{ currentQuestion.groupTitle }}
+                  </p>
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
                   <div
                     v-if="currentQuestion.questionText"
@@ -1182,7 +1292,7 @@ function answerFeedbackText(question) {
 
               <div class="flex items-center gap-2">
                 <span class="mr-auto text-xs font-medium text-gray-400 sm:hidden">
-                  {{ currentQuestion.displayIndex }}/{{ totalQuestions }}
+                  Savol {{ currentQuestion.displayIndex }}
                 </span>
 
                 <button

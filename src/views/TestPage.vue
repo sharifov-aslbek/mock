@@ -78,6 +78,8 @@ const requestedTestId = computed(() => {
   return ''
 })
 
+const shouldRestartTest = computed(() => route.query.restart === '1')
+
 const currentTest = computed(() => testStore.currentTest)
 const testApiBaseUrl = getTestApiBaseUrl()
 
@@ -614,6 +616,16 @@ const closeReferenceWindow = () => {
   isReferenceOpen.value = false
 }
 
+const clearRestartQuery = async () => {
+  if (!shouldRestartTest.value) {
+    return
+  }
+
+  const nextQuery = { ...route.query }
+  delete nextQuery.restart
+  await router.replace({ query: nextQuery })
+}
+
 const stopTimer = () => {
   if (timerIntervalId) {
     clearInterval(timerIntervalId)
@@ -944,6 +956,17 @@ const loadTest = async (testId) => {
   }
 
   if (Number(currentTest.value?.id) === Number(testId)) {
+    if (shouldRestartTest.value && currentTest.value) {
+      clearAnswers()
+      activeAttemptId.value = null
+      dirtyQuestionIds.clear()
+      testProgressStore.clearProgress(testId)
+      clearAnswerActionsForTest(testId)
+      await ensureAttemptStarted(currentTest.value)
+      await clearRestartQuery()
+      return
+    }
+
     if (!activeAttemptId.value && currentTest.value) {
       await ensureAttemptStarted(currentTest.value)
     }
@@ -986,10 +1009,25 @@ watch(
 
     startAutosaveLoop()
     const savedProgress = testProgressStore.getProgress(test.id)
-    startTimer(test.questions?.length, savedProgress?.remainingSeconds ?? null)
-    await restoreProgress(test.id)
-    await restoreProgressFromApi(test.id)
+    const shouldStartFresh = shouldRestartTest.value
+
+    if (shouldStartFresh) {
+      clearAnswers()
+      activeAttemptId.value = null
+      dirtyQuestionIds.clear()
+      testProgressStore.clearProgress(test.id)
+      clearAnswerActionsForTest(test.id)
+    }
+
+    startTimer(test.questions?.length, shouldStartFresh ? null : savedProgress?.remainingSeconds ?? null)
+
+    if (!shouldStartFresh) {
+      await restoreProgress(test.id)
+      await restoreProgressFromApi(test.id)
+    }
+
     await ensureAttemptStarted(test)
+    await clearRestartQuery()
   },
   {
     immediate: true,
