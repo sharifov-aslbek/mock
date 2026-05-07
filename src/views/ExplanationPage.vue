@@ -21,6 +21,7 @@ const reportComment = ref('')
 const reportFileName = ref('')
 const reportSubmitted = ref(false)
 const reportFileInput = ref(null)
+const isCertificateModalOpen = ref(false)
 
 const isLoadingTest = ref(false)
 const testLoadError = ref('')
@@ -32,6 +33,7 @@ let reportCloseTimeout = null
 let previousBodyOverflow = ''
 
 const apiBaseUrl = getTestApiBaseUrl()
+const certificatePreviewUrl = 'https://extraordinary-lolly-890df5.netlify.app/'
 
 const apiOrigin = (() => {
   try {
@@ -250,7 +252,12 @@ const reportingQuestion = computed(() => {
   )
 })
 
-const isAnyModalOpen = computed(() => reviewingQuestionId.value !== null || reportingQuestionId.value !== null)
+const isAnyModalOpen = computed(
+  () =>
+    reviewingQuestionId.value !== null ||
+    reportingQuestionId.value !== null ||
+    isCertificateModalOpen.value,
+)
 
 const statCards = computed(() => [
   {
@@ -431,6 +438,18 @@ function closeReport() {
   }
 }
 
+function openCertificateModal() {
+  isCertificateModalOpen.value = true
+}
+
+function closeCertificateModal() {
+  isCertificateModalOpen.value = false
+}
+
+function downloadCertificate() {
+  window.open(certificatePreviewUrl, '_blank', 'noopener,noreferrer')
+}
+
 function clearReportTimeout() {
   if (reportCloseTimeout !== null) {
     window.clearTimeout(reportCloseTimeout)
@@ -563,6 +582,7 @@ function answerFeedbackText(question) {
         <button
           type="button"
           class="inline-flex self-start rounded-full bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a1a1a]"
+          @click="openCertificateModal"
         >
           <span class="mr-2 inline-flex h-4 w-4 items-center justify-center">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1295,6 +1315,60 @@ function answerFeedbackText(question) {
         </div>
       </div>
     </Teleport>
+
+    <Teleport to="body">
+      <div
+        v-if="isCertificateModalOpen"
+        class="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-[2px] sm:items-center"
+        @click.self="closeCertificateModal"
+      >
+        <div class="certificate-modal-inner flex h-[92vh] w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(0,0,0,0.25)] sm:mx-4 sm:max-w-5xl">
+          <div class="flex shrink-0 items-center justify-between gap-4 border-b border-[#ebebeb] px-4 py-4 sm:px-6">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400">
+                Sertifikat
+              </p>
+              <h2 class="mt-1 text-xl font-extrabold tracking-[-0.04em] text-[#0a0a0a]">
+                Sertifikatni ko'rish
+              </h2>
+            </div>
+
+            <div class="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                class="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#0a0a0a] px-4 text-xs font-semibold text-white transition hover:bg-[#1a1a1a]"
+                @click="downloadCertificate"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3v12" stroke-linecap="round" />
+                  <path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M5 21h14" stroke-linecap="round" />
+                </svg>
+                <span class="hidden sm:inline">Yuklab olish</span>
+              </button>
+
+              <button
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"
+                @click="closeCertificateModal"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M18 6 6 18" stroke-linecap="round" />
+                  <path d="m6 6 12 12" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <iframe
+            :src="certificatePreviewUrl"
+            title="Sertifikat"
+            class="min-h-0 w-full flex-1 border-0 bg-white"
+            loading="lazy"
+          ></iframe>
+        </div>
+      </div>
+    </Teleport>
   </main>
 </template>
 
@@ -1344,13 +1418,15 @@ function answerFeedbackText(question) {
 }
 
 .review-modal-inner,
-.report-modal-inner {
+.report-modal-inner,
+.certificate-modal-inner {
   border-radius: 20px 20px 0 0;
 }
 
 @media (min-width: 640px) {
   .review-modal-inner,
-  .report-modal-inner {
+  .report-modal-inner,
+  .certificate-modal-inner {
     border-radius: 20px;
   }
 }
