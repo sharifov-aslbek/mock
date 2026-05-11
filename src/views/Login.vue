@@ -100,7 +100,7 @@ const handleLogin = async () => {
     const redirectTarget =
       typeof route.query.redirect === 'string'
         ? route.query.redirect
-        : '/dashboard'
+        : '/math'
 
     await router.push(redirectTarget)
   } catch {
