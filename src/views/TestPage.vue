@@ -1271,82 +1271,75 @@ onBeforeUnmount(() => {
       </div>
     </NModal>
 
-    <NModal
-      v-model:show="showResultPreviewModal"
-      :mask-closable="!isSubmittingTest"
-      :close-on-esc="!isSubmittingTest"
+<NModal
+  v-model:show="showResultPreviewModal"
+  :mask-closable="!isSubmittingTest"
+  :close-on-esc="!isSubmittingTest"
+>
+  <div class="w-[92vw] max-w-[900px]">
+    <div
+      class="overflow-hidden rounded-3xl border border-[#e0ddd7] bg-white shadow-2xl"
     >
-      <div class="relative w-[calc(100vw-1.5rem)] max-w-[980px]">
-        <span
-          v-for="(piece, index) in confettiPieces"
-          :key="index"
-          class="submit-confetti-piece"
-          :style="{
-            left: piece.left,
-            right: piece.right,
-            top: piece.top,
-            backgroundColor: piece.color,
-            animationDelay: piece.delay,
-            transform: `rotate(${piece.rotate})`,
-          }"
-          aria-hidden="true"
-        ></span>
+      <!-- HEADER -->
+      <div class="border-b border-[#e0ddd7] px-5 py-4">
+        <p
+          class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8a857c]"
+        >
+          Test yakunlandi
+        </p>
 
-        <div
-          class="pointer-events-none absolute -left-8 top-16 hidden h-20 w-20 rounded-full border-[10px] border-[#f59e0b]/30 submit-confetti-pop sm:block"
-          aria-hidden="true"
-        ></div>
-        <div
-          class="pointer-events-none absolute -right-8 bottom-24 hidden h-24 w-24 rounded-full border-[12px] border-[#22c55e]/25 submit-confetti-pop sm:block"
-          aria-hidden="true"
-        ></div>
-
-        <div class="overflow-hidden rounded-[28px] border border-[#e0ddd7] bg-[#fffdfa] shadow-[0_28px_90px_rgba(26,24,20,0.18)] ring-1 ring-white/70">
-          <div class="border-b border-[#e0ddd7] px-4 py-4 sm:px-6">
-            <p class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8a857c]">
-              Test yakunlandi
-            </p>
-            <h3 class="mt-1 font-serif-custom text-2xl font-normal leading-tight text-[#1a1814] sm:text-3xl">
-              Tabriklaymiz!
-            </h3>
-          </div>
-
-          <div class="bg-white">
-            <iframe
-              :src="resultPreviewUrl"
-              title="Results preview"
-              class="h-[min(62vh,640px)] w-full border-0 bg-white"
-              loading="lazy"
-            ></iframe>
-          </div>
-
-          <div class="flex flex-col-reverse gap-3 border-t border-[#e0ddd7] bg-[#fffdfa] px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
-            <button
-              type="button"
-              @click="closeResultPreviewModal"
-              :disabled="isSubmittingTest"
-              class="inline-flex h-11 items-center justify-center rounded-full border border-[#1a1814] bg-white px-6 text-sm font-semibold text-[#1a1814] transition duration-200 hover:bg-[#1a1814] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-[#1a1814]"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              @click="confirmSubmitTest"
-              :disabled="isSubmittingTest"
-              class="inline-flex h-11 min-w-[13rem] items-center justify-center gap-2 rounded-full border border-[#1a1814] bg-[#1a1814] px-6 text-sm font-semibold text-white transition duration-200 hover:bg-[#2d2a25] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80 disabled:hover:bg-[#1a1814]"
-            >
-              <span
-                v-if="isSubmittingTest"
-                class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                aria-hidden="true"
-              ></span>
-              <span>Natijalarni analiz qilish</span>
-            </button>
-          </div>
-        </div>
+        <h3
+          class="mt-1 font-serif-custom text-2xl text-[#1a1814]"
+        >
+          Tabriklaymiz!
+        </h3>
       </div>
-    </NModal>
+
+      <!-- IFRAME -->
+      <div
+        class="relative overflow-hidden bg-[#f3f4f6]"
+        style="height: 78vh;"
+      >
+        <iframe
+          :src="resultPreviewUrl"
+          title="Results preview"
+          loading="lazy"
+          scrolling="no"
+          class="absolute top-0 left-0 border-0 bg-white"
+          style="
+            width: calc(100% / 0.55);
+            height: calc(100% / 0.55);
+            transform: scale(0.55);
+            transform-origin: top left;
+          "
+        ></iframe>
+      </div>
+
+      <!-- FOOTER -->
+      <div
+        class="flex justify-end gap-3 border-t border-[#e0ddd7] px-5 py-4"
+      >
+        <button
+          type="button"
+          @click="closeResultPreviewModal"
+          :disabled="isSubmittingTest"
+          class="h-11 rounded-full border border-[#1a1814] bg-white px-6 text-sm font-semibold text-[#1a1814]"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          @click="confirmSubmitTest"
+          :disabled="isSubmittingTest"
+          class="h-11 rounded-full bg-[#1a1814] px-6 text-sm font-semibold text-white"
+        >
+          Natijalarni analiz qilish
+        </button>
+      </div>
+    </div>
+  </div>
+</NModal>
   </main>
 </template>
 
