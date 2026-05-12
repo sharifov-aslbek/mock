@@ -19,6 +19,11 @@ const routes = [
     component: () => import('@/views/MathPage.vue')
   },
   {
+    path: '/result-exam',
+    name: 'result-exam',
+    component: () => import('@/views/ResultExamPage.vue')
+  },
+  {
     path: '/test',
     name: 'test',
     component: () => import('@/views/TestPage.vue')

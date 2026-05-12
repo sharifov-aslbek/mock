@@ -19,7 +19,7 @@ const navItems = computed(() => [
   { label: t('navbar.items.psat'), href: '#' },
   { label: t('navbar.items.shsat'), href: '#' },
   { label: t('navbar.pricing'), to: '/pricing' },
-  { label: t('navbar.result'), to: { path: '/math', query: { tab: 'attempted' } } },
+  { label: t('navbar.result'), to: '/result-exam' },
   { label: t('navbar.resources'), href: '#', hasDropdown: true },
 ])
 
@@ -38,7 +38,7 @@ const isActiveItem = (item: { to?: string | Record<string, unknown>; label: stri
   }
 
   if (item.label === t('navbar.result')) {
-    return route.path === '/math' && route.query.tab === 'attempted'
+    return route.path === '/result-exam'
   }
 
   return false

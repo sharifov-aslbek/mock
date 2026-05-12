@@ -15,7 +15,7 @@ const rawTests = ref([])
 const { t } = useI18n()
 const testProgressStore = useTestProgressStore()
 const apiBaseUrl = getTestApiBaseUrl()
-const VALID_TAB_IDS = ['all', 'started', 'notStarted', 'attempted']
+const VALID_TAB_IDS = ['all', 'started', 'notStarted']
 
 const normalizeTab = (tab) =>
   VALID_TAB_IDS.includes(tab) ? tab : 'all'
@@ -131,11 +131,6 @@ const tabs = computed(() => [
     name: t('math.tabs.notStarted'),
     count: tests.value.filter((test) => Number(test.attemptCount) === 0).length
   },
-  {
-    id: 'attempted',
-    name: t('math.tabs.attempted'),
-    count: tests.value.filter((test) => Number(test.attemptCount) > 0).length
-  }
 ])
 
 const filteredTests = computed(() => {
@@ -149,8 +144,6 @@ const filteredTests = computed(() => {
 
   if (activeTab.value === 'notStarted') {
     result = result.filter((test) => Number(test.attemptCount) === 0)
-  } else if (activeTab.value === 'attempted') {
-    result = result.filter((test) => Number(test.attemptCount) > 0)
   }
 
   if (selectedSort.value === 'popular') {
@@ -241,7 +234,6 @@ const emptyMessageKey = computed(() =>
           v-for="test in filteredTests"
           :key="test.id"
           :test="test"
-          :is-attempted-card="activeTab === 'attempted'"
         />
       </div>
 

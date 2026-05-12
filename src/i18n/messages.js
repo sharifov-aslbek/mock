@@ -20,6 +20,10 @@ const messages = {
     supportButton: {
       label: 'Yordam'
     },
+    networkAlert: {
+      title: 'Internet aloqasi uzildi',
+      description: 'Iltimos, ulanishni tekshiring. Internet qaytsa, sahifa avtomatik davom etadi.'
+    },
     hero: {
       badge: 'Milliy sertifikat uchun zamonaviy mock platforma',
       titleStart: 'Milliy Sertifikatga',
@@ -208,6 +212,16 @@ const messages = {
         { title: 'Sinov imtihoni #69', subject: 'Matematika', amount: '50 ta savol', peopleTook: '1097', lastScore: '81%', type: 'To‘liq mock', status: 'Tavsiya etiladi', isFree: false, isNew: false, inProgress: false, completed: true, order: 69 }
       ]
     },
+    resultExam: {
+      eyebrow: 'Natijalar',
+      title: 'Urinish qilingan testlar',
+      description: 'Avval ishlangan testlarni shu sahifadan ko‘ring, natijani oching yoki testni boshidan qayta ishlang.',
+      totalLabel: 'Urinish qilingan',
+      loading: 'Natijalar yuklanmoqda...',
+      errorConfig: 'API manzili topilmadi.',
+      errorFetch: 'Natijalarni API dan yuklab bo‘lmadi.',
+      empty: 'Hozircha urinish qilingan testlar yo‘q.'
+    },
     mathCard: {
       free: 'BEPUL',
       premium: 'PREMIUM',
@@ -292,6 +306,10 @@ const messages = {
     },
     supportButton: {
       label: 'Поддержка'
+    },
+    networkAlert: {
+      title: 'Интернет-соединение потеряно',
+      description: 'Проверьте подключение. Когда интернет вернется, страница продолжит работу.'
     },
     hero: {
       badge: 'Современная mock-платформа для национального сертификата',
@@ -480,6 +498,16 @@ const messages = {
         { title: 'Статистика #70', subject: 'Математика', amount: '25 вопросов', peopleTook: '83', lastScore: 'Не пройден', type: 'Практический тест', status: '', isFree: false, isNew: false, inProgress: true, completed: false, order: 70 },
         { title: 'Mock экзамен #69', subject: 'Математика', amount: '50 вопросов', peopleTook: '1097', lastScore: '81%', type: 'Полный mock', status: 'Рекомендуется', isFree: false, isNew: false, inProgress: false, completed: true, order: 69 }
       ]
+    },
+    resultExam: {
+      eyebrow: 'Результаты',
+      title: 'Тесты с попытками',
+      description: 'Здесь можно открыть ранее пройденные тесты, посмотреть результат или начать тест заново.',
+      totalLabel: 'С попытками',
+      loading: 'Результаты загружаются...',
+      errorConfig: 'Не найден базовый URL API.',
+      errorFetch: 'Не удалось загрузить результаты из API.',
+      empty: 'Пока нет тестов с попытками.'
     },
     mathCard: {
       free: 'БЕСПЛАТНО',
