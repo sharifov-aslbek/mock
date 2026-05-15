@@ -1,12 +1,13 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTestStore } from '@/stores/test'
 import { getTestApiBaseUrl } from '@/utils/api'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 
 const route = useRoute()
+const router = useRouter()
 const { locale } = useI18n()
 const testStore = useTestStore()
 
@@ -23,6 +24,7 @@ const reportFileName = ref('')
 const reportSubmitted = ref(false)
 const reportFileInput = ref(null)
 const isCertificateModalOpen = ref(false)
+const showResultModal = ref(false)
 
 const isLoadingTest = ref(false)
 const testLoadError = ref('')
@@ -35,6 +37,49 @@ let previousBodyOverflow = ''
 
 const apiBaseUrl = getTestApiBaseUrl()
 const certificatePreviewUrl = 'https://extraordinary-lolly-890df5.netlify.app/'
+
+// The certificate page renders a fixed A4 layout (794×1123) inside 24px of body
+// padding, so the iframe always needs this exact viewport to show the whole
+// certificate. We scale that fixed frame down to fit every screen size.
+const CERT_FRAME_WIDTH = 842
+const CERT_FRAME_HEIGHT = 1171
+
+const certScale = ref(1)
+let certResizeObserver = null
+
+const certFrameStyle = computed(() => ({
+  width: `${CERT_FRAME_WIDTH}px`,
+  height: `${CERT_FRAME_HEIGHT}px`,
+  transform: `translate(-50%, -50%) scale(${certScale.value})`,
+}))
+
+function measureCertViewport(el) {
+  if (!el || !el.clientWidth || !el.clientHeight) {
+    return
+  }
+
+  // Fit the whole certificate within the viewport on both axes.
+  certScale.value = Math.min(
+    el.clientWidth / CERT_FRAME_WIDTH,
+    el.clientHeight / CERT_FRAME_HEIGHT,
+  )
+}
+
+// Template ref callback — runs when a certificate viewport mounts/unmounts as
+// the modals open and close. Keeps the scale in sync with the container size.
+function bindCertViewport(el) {
+  if (certResizeObserver) {
+    certResizeObserver.disconnect()
+    certResizeObserver = null
+  }
+
+  measureCertViewport(el)
+
+  if (el && typeof ResizeObserver !== 'undefined') {
+    certResizeObserver = new ResizeObserver(() => measureCertViewport(el))
+    certResizeObserver.observe(el)
+  }
+}
 
 const apiOrigin = (() => {
   try {
@@ -304,7 +349,8 @@ const isAnyModalOpen = computed(
   () =>
     reviewingQuestionId.value !== null ||
     reportingQuestionId.value !== null ||
-    isCertificateModalOpen.value,
+    isCertificateModalOpen.value ||
+    showResultModal.value,
 )
 
 const statCards = computed(() => [
@@ -346,14 +392,27 @@ async function loadTest() {
   try {
     await testStore.fetchTestById(testId)
 
-    try {
-      const latestProgress = await testStore.fetchTestProgress(testId)
+    // When the user just submitted the test, `lastSubmission` already holds the
+    // graded result with the selected options. Keep it instead of overwriting it
+    // with the in-progress data. Only fall back to progress when there is no
+    // submission for this test (e.g. the page was opened directly).
+    const submission = testStore.lastSubmission
+    const hasSubmissionForTest =
+      Array.isArray(submission?.userAnswers) &&
+      submission.userAnswers.some(
+        (answer) => Number(answer?.question?.testId) === Number(testId),
+      )
 
-      if (latestProgress) {
-        testStore.lastSubmission = latestProgress
+    if (!hasSubmissionForTest) {
+      try {
+        const latestProgress = await testStore.fetchTestProgress(testId)
+
+        if (latestProgress) {
+          testStore.lastSubmission = latestProgress
+        }
+      } catch (progressError) {
+        console.error(progressError)
       }
-    } catch (progressError) {
-      console.error(progressError)
     }
   } catch (error) {
     testLoadError.value =
@@ -394,6 +453,16 @@ watch(reviewingQuestionId, (newQuestionId) => {
 
 onMounted(() => {
   void loadTest()
+
+  // Shown right after the test taker submits the test on the test page.
+  if (route.query.submitted === '1') {
+    showResultModal.value = true
+
+    // Drop the flag so refreshing the explanation page doesn't reopen the modal.
+    const nextQuery = { ...route.query }
+    delete nextQuery.submitted
+    void router.replace({ query: nextQuery })
+  }
 })
 
 watch(requestedTestId, (newId, oldId) => {
@@ -419,6 +488,11 @@ watch(isAnyModalOpen, (isOpen) => {
 onBeforeUnmount(() => {
   if (reportCloseTimeout !== null) {
     window.clearTimeout(reportCloseTimeout)
+  }
+
+  if (certResizeObserver) {
+    certResizeObserver.disconnect()
+    certResizeObserver = null
   }
 
   if (typeof document !== 'undefined') {
@@ -502,6 +576,10 @@ function openCertificateModal() {
 
 function closeCertificateModal() {
   isCertificateModalOpen.value = false
+}
+
+function closeResultModal() {
+  showResultModal.value = false
 }
 
 function downloadCertificate() {
@@ -1470,12 +1548,75 @@ function answerFeedbackText(question) {
             </div>
           </div>
 
-          <iframe
-            :src="certificatePreviewUrl"
-            title="Sertifikat"
-            class="min-h-0 w-full flex-1 border-0 bg-white"
-            loading="lazy"
-          ></iframe>
+          <div
+            :ref="bindCertViewport"
+            class="relative min-h-0 flex-1 overflow-hidden bg-[#f3f4f6]"
+          >
+            <iframe
+              :src="certificatePreviewUrl"
+              title="Sertifikat"
+              loading="lazy"
+              scrolling="no"
+              class="absolute left-1/2 top-1/2 border-0 bg-white"
+              :style="certFrameStyle"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div
+        v-if="showResultModal"
+        class="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-[2px] sm:items-center"
+        @click.self="closeResultModal"
+      >
+        <div class="result-modal-inner flex h-[92vh] w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(0,0,0,0.25)] sm:mx-4 sm:max-w-5xl">
+          <div class="flex shrink-0 items-start justify-between gap-4 border-b border-[#ebebeb] px-5 py-4 sm:px-6">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400">
+                Test yakunlandi
+              </p>
+              <h2 class="mt-1 text-2xl font-extrabold tracking-[-0.04em] text-[#0a0a0a]">
+                Tabriklaymiz!
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"
+              @click="closeResultModal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M18 6 6 18" stroke-linecap="round" />
+                <path d="m6 6 12 12" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div
+            :ref="bindCertViewport"
+            class="relative min-h-0 flex-1 overflow-hidden bg-[#f3f4f6]"
+          >
+            <iframe
+              :src="certificatePreviewUrl"
+              title="Natijalar"
+              loading="lazy"
+              scrolling="no"
+              class="absolute left-1/2 top-1/2 border-0 bg-white"
+              :style="certFrameStyle"
+            ></iframe>
+          </div>
+
+          <div class="flex shrink-0 justify-end border-t border-[#ebebeb] px-5 py-4 sm:px-6">
+            <button
+              type="button"
+              class="h-11 rounded-full bg-[#0a0a0a] px-6 text-sm font-semibold text-white transition hover:bg-[#1a1a1a]"
+              @click="closeResultModal"
+            >
+              Natijalarni ko'rish
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -1529,14 +1670,16 @@ function answerFeedbackText(question) {
 
 .review-modal-inner,
 .report-modal-inner,
-.certificate-modal-inner {
+.certificate-modal-inner,
+.result-modal-inner {
   border-radius: 20px 20px 0 0;
 }
 
 @media (min-width: 640px) {
   .review-modal-inner,
   .report-modal-inner,
-  .certificate-modal-inner {
+  .certificate-modal-inner,
+  .result-modal-inner {
     border-radius: 20px;
   }
 }

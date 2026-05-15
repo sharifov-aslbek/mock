@@ -29,19 +29,17 @@ const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
 const showSubmitModal = ref(false)
-const showResultPreviewModal = ref(false)
 const showLeaveModal = ref(false)
 const isSubmittingTest = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
 let timerIntervalId = null
-let autosaveIntervalId = null
 let isSyncingAnswers = false
+let pendingSyncRequested = false
 let isStartingAttempt = false
 const dirtyQuestionIds = new Set()
 const ANSWER_ACTIONS_STORAGE_KEY = 'test_answer_actions'
 const answerActions = ref([])
-const resultPreviewUrl = 'https://extraordinary-lolly-890df5.netlify.app/'
 const confettiPieces = [
   { left: '-22px', top: '22px', color: '#ef4444', delay: '0s', rotate: '18deg' },
   { left: '-34px', top: '118px', color: '#f59e0b', delay: '0.18s', rotate: '-24deg' },
@@ -585,12 +583,14 @@ const updateMatchingAnswer = (questionId, value) => {
   answers[questionId] = value ? Number(value) : ''
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
+  void syncDirtyAnswers()
 }
 
 const updateOptionAnswer = (questionId, value) => {
   answers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
+  void syncDirtyAnswers()
 }
 
 const clearAnswers = () => {
@@ -607,6 +607,7 @@ const updateFreeAnswer = (questionId, value) => {
   freeAnswers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
+  void syncDirtyAnswers()
 }
 
 const toggleReferenceWindow = () => {
@@ -845,7 +846,13 @@ const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
 }
 
 const syncDirtyAnswers = async () => {
-  if (!activeAttemptId.value || !currentTest.value?.id || isSyncingAnswers) {
+  if (!activeAttemptId.value || !currentTest.value?.id) {
+    return
+  }
+
+  // A sync is already running; queue one more pass so the latest edit is sent.
+  if (isSyncingAnswers) {
+    pendingSyncRequested = true
     return
   }
 
@@ -893,21 +900,11 @@ const syncDirtyAnswers = async () => {
   } finally {
     isSyncingAnswers = false
   }
-}
 
-const stopAutosaveLoop = () => {
-  if (autosaveIntervalId) {
-    clearInterval(autosaveIntervalId)
-    autosaveIntervalId = null
-  }
-}
-
-const startAutosaveLoop = () => {
-  stopAutosaveLoop()
-
-  autosaveIntervalId = window.setInterval(() => {
+  if (pendingSyncRequested) {
+    pendingSyncRequested = false
     void syncDirtyAnswers()
-  }, 5000)
+  }
 }
 
 const ensureAttemptStarted = async (test) => {
@@ -926,6 +923,7 @@ const ensureAttemptStarted = async (test) => {
     activeAttemptId.value = Number(savedProgress.attemptId)
     syncAnswerActionAttemptIds()
     persistCurrentProgress()
+    void syncDirtyAnswers()
     return
   }
 
@@ -935,6 +933,7 @@ const ensureAttemptStarted = async (test) => {
     activeAttemptId.value = Number(attempt.id)
     syncAnswerActionAttemptIds()
     persistCurrentProgress()
+    void syncDirtyAnswers()
   } catch (error) {
     console.error(error)
   } finally {
@@ -1088,7 +1087,6 @@ watch(
     if (!test) {
       closeReferenceWindow()
       stopTimer()
-      stopAutosaveLoop()
       removeFullscreenGestureListeners()
       exitFullscreen()
       remainingSeconds.value = 0
@@ -1096,7 +1094,6 @@ watch(
       return
     }
 
-    startAutosaveLoop()
     armFullscreen()
     const savedProgress = testProgressStore.getProgress(test.id)
     const shouldStartFresh = shouldRestartTest.value
@@ -1140,19 +1137,6 @@ const closeSubmitModal = () => {
   showSubmitModal.value = false
 }
 
-const openResultPreviewModal = () => {
-  showSubmitModal.value = false
-  showResultPreviewModal.value = true
-}
-
-const closeResultPreviewModal = () => {
-  if (isSubmittingTest.value) {
-    return
-  }
-
-  showResultPreviewModal.value = false
-}
-
 const confirmSubmitTest = async () => {
   if (isSubmittingTest.value) {
     return
@@ -1160,7 +1144,6 @@ const confirmSubmitTest = async () => {
 
   if (!currentTest.value?.id || !activeAttemptId.value) {
     showSubmitModal.value = false
-    showResultPreviewModal.value = false
     return
   }
 
@@ -1170,12 +1153,13 @@ const confirmSubmitTest = async () => {
     await syncDirtyAnswers()
     await testStore.submitTestAttempt(currentTest.value.id, activeAttemptId.value)
     stopTimer()
-    stopAutosaveLoop()
     testProgressStore.clearProgress(currentTest.value.id)
     clearAnswerActionsForTest(currentTest.value.id)
     showSubmitModal.value = false
-    showResultPreviewModal.value = false
-    await router.push({ name: 'explanation', query: { testId: currentTest.value.id } })
+    await router.push({
+      name: 'explanation',
+      query: { testId: currentTest.value.id, submitted: '1' },
+    })
   } catch (error) {
     console.error(error)
   } finally {
@@ -1212,12 +1196,10 @@ onBeforeRouteLeave(() => {
 onMounted(() => {
   testProgressStore.hydrate()
   hydrateAnswerActions()
-  startAutosaveLoop()
   window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
 onBeforeUnmount(() => {
-  stopAutosaveLoop()
   void syncDirtyAnswers()
   persistCurrentProgress()
   stopTimer()
@@ -1379,7 +1361,7 @@ onBeforeUnmount(() => {
 
               <button
                 type="button"
-                @click="openResultPreviewModal"
+                @click="confirmSubmitTest"
                 :disabled="isSubmittingTest"
                 class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80 disabled:hover:bg-black"
               >
@@ -1390,76 +1372,6 @@ onBeforeUnmount(() => {
         </NCard>
       </div>
     </NModal>
-
-<NModal
-  v-model:show="showResultPreviewModal"
-  :mask-closable="!isSubmittingTest"
-  :close-on-esc="!isSubmittingTest"
->
-  <div class="w-[92vw] max-w-[900px]">
-    <div
-      class="overflow-hidden rounded-3xl border border-[#e0ddd7] bg-white shadow-2xl"
-    >
-      <!-- HEADER -->
-      <div class="border-b border-[#e0ddd7] px-5 py-4">
-        <p
-          class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8a857c]"
-        >
-          Test yakunlandi
-        </p>
-
-        <h3
-          class="mt-1 font-serif-custom text-2xl text-[#1a1814]"
-        >
-          Tabriklaymiz!
-        </h3>
-      </div>
-
-      <!-- IFRAME -->
-      <div
-        class="relative overflow-hidden bg-[#f3f4f6]"
-        style="height: 78vh;"
-      >
-        <iframe
-          :src="resultPreviewUrl"
-          title="Results preview"
-          loading="lazy"
-          scrolling="no"
-          class="absolute top-0 left-0 border-0 bg-white"
-          style="
-            width: calc(100% / 0.55);
-            height: calc(100% / 0.55);
-            transform: scale(0.55);
-            transform-origin: top left;
-          "
-        ></iframe>
-      </div>
-
-      <!-- FOOTER -->
-      <div
-        class="flex justify-end gap-3 border-t border-[#e0ddd7] px-5 py-4"
-      >
-        <button
-          type="button"
-          @click="closeResultPreviewModal"
-          :disabled="isSubmittingTest"
-          class="h-11 rounded-full border border-[#1a1814] bg-white px-6 text-sm font-semibold text-[#1a1814]"
-        >
-          Cancel
-        </button>
-
-        <button
-          type="button"
-          @click="confirmSubmitTest"
-          :disabled="isSubmittingTest"
-          class="h-11 rounded-full bg-[#1a1814] px-6 text-sm font-semibold text-white"
-        >
-          Natijalarni analiz qilish
-        </button>
-      </div>
-    </div>
-  </div>
-</NModal>
 
     <NModal
       v-model:show="showLeaveModal"
