@@ -108,9 +108,10 @@ const handleLogin = async () => {
   }
 }
 
-const handleGoogleLogin = () => {
-  authStore.errorMessage = t('login.socialDisabled')
-}
+// Google orqali kirish vaqtincha o'chirildi
+// const handleGoogleLogin = () => {
+//   authStore.errorMessage = t('login.socialDisabled')
+// }
 
 </script>
 
@@ -142,6 +143,7 @@ const handleGoogleLogin = () => {
 
         <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div class="space-y-3">
+            <!-- Google orqali kirish tugmasi vaqtincha o'chirildi
             <button
               type="button"
               @click="handleGoogleLogin"
@@ -168,6 +170,7 @@ const handleGoogleLogin = () => {
               </svg>
               {{ t('login.google') }}
             </button>
+            -->
 
             <div
                 ref="telegramContainer"

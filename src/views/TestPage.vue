@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { NCard, NModal, NSpin } from 'naive-ui'
 import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
@@ -30,6 +30,7 @@ const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
 const showSubmitModal = ref(false)
 const showResultPreviewModal = ref(false)
+const showLeaveModal = ref(false)
 const isSubmittingTest = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
@@ -633,16 +634,27 @@ const stopTimer = () => {
   }
 }
 
+// Each question is allotted 120 seconds (2 minutes).
+const SECONDS_PER_QUESTION = 120
+
 const startTimer = (questionCount, initialRemainingSeconds = null) => {
   stopTimer()
 
-  const durationInMinutes = Number(questionCount || 0) * 2
-  const durationInSeconds =
-    initialRemainingSeconds ?? Math.max(Math.floor(durationInMinutes * 60), 0)
+  const totalDurationSeconds = Math.max(Number(questionCount) || 0, 0) * SECONDS_PER_QUESTION
+  const canResume =
+    typeof initialRemainingSeconds === 'number' &&
+    Number.isFinite(initialRemainingSeconds) &&
+    initialRemainingSeconds > 0
+  const durationInSeconds = canResume ? initialRemainingSeconds : totalDurationSeconds
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
 
   remainingSeconds.value = Math.ceil(durationInMilliseconds / 1000)
+
+  if (durationInMilliseconds <= 0) {
+    return durationInMilliseconds
+  }
+
   timerIntervalId = window.setInterval(() => {
     const elapsedMilliseconds = Date.now() - startedAt
     const nextDurationMs = Math.max(durationInMilliseconds - elapsedMilliseconds, 0)
@@ -985,6 +997,81 @@ const loadTest = async (testId) => {
   }
 }
 
+const enterFullscreen = async () => {
+  if (typeof document === 'undefined' || document.fullscreenElement) {
+    return
+  }
+
+  const element = document.documentElement
+  const request =
+    element.requestFullscreen || element.webkitRequestFullscreen || element.msRequestFullscreen
+
+  if (typeof request !== 'function') {
+    return
+  }
+
+  try {
+    await request.call(element)
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const exitFullscreen = () => {
+  if (typeof document === 'undefined' || !document.fullscreenElement) {
+    return
+  }
+
+  const exit =
+    document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen
+
+  if (typeof exit !== 'function') {
+    return
+  }
+
+  try {
+    void exit.call(document)
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+function removeFullscreenGestureListeners() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.removeEventListener('pointerdown', handleFullscreenGesture)
+  window.removeEventListener('keydown', handleFullscreenGesture)
+}
+
+const handleFullscreenGesture = () => {
+  removeFullscreenGestureListeners()
+  void enterFullscreen()
+}
+
+// Browsers only allow fullscreen from a user gesture, so try immediately and
+// fall back to entering on the test taker's first interaction with the page.
+const armFullscreen = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  void enterFullscreen()
+  removeFullscreenGestureListeners()
+  window.addEventListener('pointerdown', handleFullscreenGesture)
+  window.addEventListener('keydown', handleFullscreenGesture)
+}
+
+const handleBeforeUnload = (event) => {
+  if (!currentTest.value || isSubmittingTest.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.returnValue = ''
+}
+
 watch(
   requestedTestId,
   (testId) => {
@@ -1002,12 +1089,15 @@ watch(
       closeReferenceWindow()
       stopTimer()
       stopAutosaveLoop()
+      removeFullscreenGestureListeners()
+      exitFullscreen()
       remainingSeconds.value = 0
       activeAttemptId.value = null
       return
     }
 
     startAutosaveLoop()
+    armFullscreen()
     const savedProgress = testProgressStore.getProgress(test.id)
     const shouldStartFresh = shouldRestartTest.value
 
@@ -1093,10 +1183,37 @@ const confirmSubmitTest = async () => {
   }
 }
 
+let leaveResolver = null
+
+const resolveLeave = (allowLeave) => {
+  showLeaveModal.value = false
+
+  if (leaveResolver) {
+    leaveResolver(allowLeave)
+    leaveResolver = null
+  }
+}
+
+const confirmLeave = () => resolveLeave(true)
+const cancelLeave = () => resolveLeave(false)
+
+onBeforeRouteLeave(() => {
+  if (!currentTest.value || isSubmittingTest.value) {
+    return true
+  }
+
+  showLeaveModal.value = true
+
+  return new Promise((resolve) => {
+    leaveResolver = resolve
+  })
+})
+
 onMounted(() => {
   testProgressStore.hydrate()
   hydrateAnswerActions()
   startAutosaveLoop()
+  window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
 onBeforeUnmount(() => {
@@ -1104,6 +1221,9 @@ onBeforeUnmount(() => {
   void syncDirtyAnswers()
   persistCurrentProgress()
   stopTimer()
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  removeFullscreenGestureListeners()
+  exitFullscreen()
 })
 </script>
 
@@ -1340,6 +1460,45 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </NModal>
+
+    <NModal
+      v-model:show="showLeaveModal"
+      :mask-closable="false"
+      :close-on-esc="false"
+    >
+      <div class="w-[calc(100vw-2rem)] max-w-md">
+        <NCard :bordered="false" size="large" class="!rounded-[28px]">
+          <div class="space-y-6 text-center">
+            <div class="space-y-2">
+              <h4 class="text-xl font-bold tracking-tight text-black">
+                {{ t('testPage.leaveConfirmTitle') }}
+              </h4>
+              <p class="text-sm text-[#6b6760]">
+                {{ t('testPage.leaveConfirm') }}
+              </p>
+            </div>
+
+            <div class="flex justify-center gap-3">
+              <button
+                type="button"
+                @click="cancelLeave"
+                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+              >
+                {{ t('testPage.leaveConfirmStay') }}
+              </button>
+
+              <button
+                type="button"
+                @click="confirmLeave"
+                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+              >
+                {{ t('testPage.leaveConfirmLeave') }}
+              </button>
+            </div>
+          </div>
+        </NCard>
+      </div>
+    </NModal>
   </main>
 </template>
 

@@ -23,7 +23,7 @@ defineEmits(['submit'])
 
 <template>
   <div class="fixed bottom-0 left-1/2 z-30 w-full max-w-[920px] -translate-x-1/2 border-t border-[#e0ddd7] bg-white">
-    <div class="flex flex-col gap-3 px-[3px] py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-4">
+    <div class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
       <div class="flex items-center gap-2.5">
         <button
           type="button"

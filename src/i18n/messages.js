@@ -279,6 +279,11 @@ const messages = {
       imageAlt: 'Savol rasmi',
       missingId: 'Test ID topilmadi.',
       authRequired: 'Bu testni ochish uchun tizimga kiring.',
+      leaveConfirm:
+        'Test hali yakunlanmagan. Sahifani tark etsangiz yoki yangilasangiz, javoblaringiz yo‘qolishi mumkin. Chiqishni xohlaysizmi?',
+      leaveConfirmTitle: 'Sahifani tark etasizmi?',
+      leaveConfirmStay: 'Qolish',
+      leaveConfirmLeave: 'Chiqish',
       questionTypes: {
         MultipleChoice: 'Tanlovli savol',
         FreeAnswer: 'Erkin javob',
@@ -566,6 +571,11 @@ const messages = {
       imageAlt: 'Изображение вопроса',
       missingId: 'ID теста не найден.',
       authRequired: 'Для открытия этого теста нужно войти в систему.',
+      leaveConfirm:
+        'Тест ещё не завершён. Если вы покинете страницу или обновите её, ваши ответы могут быть потеряны. Вы уверены?',
+      leaveConfirmTitle: 'Покинуть страницу?',
+      leaveConfirmStay: 'Остаться',
+      leaveConfirmLeave: 'Выйти',
       questionTypes: {
         MultipleChoice: 'Выбор ответа',
         FreeAnswer: 'Свободный ответ',
