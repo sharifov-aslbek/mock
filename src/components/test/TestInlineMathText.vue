@@ -245,21 +245,95 @@ const renderMixedContent = (source) => {
   return result
 }
 
-const renderedHtml = computed(() => {
-  const normalizedSource = normalizeMathWrappers(normalizeMixedSource(normalizeTestText(props.text)))
+// Full LaTeX environments such as \begin{cases}...\end{cases} or \begin{matrix}.
+// Some API text arrives without the leading backslashes (`begin{cases}...`),
+// so accept both forms and normalize before handing it to KaTeX.
+const ENV_BLOCK_PATTERN = /\\?begin\s*\{[A-Za-z*]+\}[\s\S]*?\\?end\s*\{[A-Za-z*]+\}/g
+
+const normalizeEnvironmentRows = (environmentName, body) => {
+  if (environmentName !== 'cases' || /\\\\/.test(body)) {
+    return body
+  }
+
+  const ampersandCount = (body.match(/&/g) || []).length
+
+  if (ampersandCount <= 1) {
+    return body
+  }
+
+  return body.replace(/\s+(?=[^&\s]+\s*&)/g, ' \\\\\\\\ ')
+}
+
+const normalizeEnvironmentFormula = (value) => {
+  const normalizedValue = String(value)
+    .trim()
+    .replace(/\\?begin\s*\{/g, '\\begin{')
+    .replace(/\\?end\s*\{/g, '\\end{')
+
+  return normalizedValue.replace(
+    /\\begin\s*\{([A-Za-z*]+)\}([\s\S]*?)\\end\s*\{\1\}/g,
+    (_, environmentName, body) =>
+      `\\begin{${environmentName}}${normalizeEnvironmentRows(environmentName, body)}\\end{${environmentName}}`,
+  )
+}
+
+// Render a complete environment block as one KaTeX formula. It is passed raw,
+// without the loose normalization that would strip the `\\` row separators.
+const renderEnvFormula = (value) => {
+  const normalizedValue = normalizeEnvironmentFormula(value)
+
+  try {
+    return katex.renderToString(normalizedValue, {
+      throwOnError: true,
+      strict: 'ignore',
+      displayMode: false,
+    })
+  } catch {
+    return escapeHtml(value)
+  }
+}
+
+const renderPlainOrMixed = (source) => {
+  const normalizedSource = normalizeMathWrappers(normalizeMixedSource(source))
 
   if (!normalizedSource) {
     return ''
   }
 
-  const hasWrappedLatex =
-    /\$\$[\s\S]*?\$\$/.test(normalizedSource)
+  const hasWrappedLatex = /\$\$[\s\S]*?\$\$/.test(normalizedSource)
 
-  if (hasWrappedLatex) {
-    return renderMixedContent(normalizedSource)
+  return hasWrappedLatex ? renderMixedContent(normalizedSource) : renderLooseContent(normalizedSource)
+}
+
+const renderedHtml = computed(() => {
+  const baseText = normalizeTestText(props.text)
+
+  if (!baseText) {
+    return ''
   }
 
-  return renderLooseContent(normalizedSource)
+  // Pull out \begin{...}...\end{...} blocks first — the loose tokenizer would
+  // split them on whitespace and never hand them to KaTeX as a single formula.
+  const envMatches = [...baseText.matchAll(ENV_BLOCK_PATTERN)]
+
+  if (!envMatches.length) {
+    return renderPlainOrMixed(baseText)
+  }
+
+  let result = ''
+  let lastIndex = 0
+
+  for (const envMatch of envMatches) {
+    const matchIndex = envMatch.index ?? 0
+
+    result += renderPlainOrMixed(baseText.slice(lastIndex, matchIndex))
+    result += renderEnvFormula(envMatch[0])
+
+    lastIndex = matchIndex + envMatch[0].length
+  }
+
+  result += renderPlainOrMixed(baseText.slice(lastIndex))
+  return result
 })
 </script>
 

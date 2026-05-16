@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useTestStore } from '@/stores/test'
 import { getTestApiBaseUrl } from '@/utils/api'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
@@ -31,6 +31,8 @@ const testLoadError = ref('')
 const isLoadingExplanation = ref(false)
 const explanationError = ref('')
 const currentExplanation = ref(null)
+const activeAttemptId = ref(null)
+const hasSubmittedResult = ref(false)
 
 let reportCloseTimeout = null
 let previousBodyOverflow = ''
@@ -112,6 +114,19 @@ const requestedTestId = computed(() => {
   return value ? String(value) : ''
 })
 
+const requestedAttemptId = computed(() => {
+  const queryValue = route.query.attemptId
+  const value = Array.isArray(queryValue) ? queryValue[0] : queryValue
+
+  return value ? Number(value) : null
+})
+
+const submittedQuestions = computed(() => {
+  const submissionQuestions = testStore.lastSubmission?.questions
+
+  return Array.isArray(submissionQuestions) ? submissionQuestions : null
+})
+
 const getLocalizedTranslation = (entity) => {
   const translations = Array.isArray(entity?.translations) ? entity.translations : []
 
@@ -182,7 +197,7 @@ const userAnswersByQuestionId = computed(() => {
 })
 
 const filteredQuestions = computed(() => {
-  const apiQuestions = testStore.currentTest?.questions
+  const apiQuestions = submittedQuestions.value || testStore.currentTest?.questions
 
   if (!Array.isArray(apiQuestions)) {
     return []
@@ -239,6 +254,8 @@ const filteredQuestions = computed(() => {
       : []
     const correctOption = options.find((option) => option.isCorrect)
     const userAnswer = userAnswersByQuestionId.value.get(Number(apiQuestion.id))
+    const answerQuestion = userAnswer?.question || null
+    const sourceQuestion = answerQuestion || apiQuestion
     const selectedOptionId = userAnswer?.selectedOptionId || 0
     const selectedOption = selectedOptionId
       ? options.find((option) => Number(option.id) === Number(selectedOptionId))
@@ -257,7 +274,7 @@ const filteredQuestions = computed(() => {
     }
 
     const groupTitle = isGroupedQuestion ? stripHtml(getEntityText(group)) : ''
-    const titleSource = stripHtml(getEntityText(apiQuestion)) || `Savol ${displayLabel}`
+    const titleSource = stripHtml(getEntityText(sourceQuestion)) || `Savol ${displayLabel}`
 
     return {
       id: Number(apiQuestion.id),
@@ -267,8 +284,9 @@ const filteredQuestions = computed(() => {
       groupTitle,
       groupDisplayLabel: baseDisplayLabel,
       showGroupHeader,
-      questionText: getEntityText(apiQuestion),
-      imageUrl: apiQuestion.imageUrl || buildAssetUrl(apiQuestion.imagePath),
+      questionText: getEntityText(sourceQuestion),
+      questionExplanation: sourceQuestion.questionExplanation || null,
+      imageUrl: sourceQuestion.imageUrl || buildAssetUrl(sourceQuestion.imagePath),
       correctAnswer: correctOption?.letter || '-',
       yourAnswer,
       attemptedAnswer: yourAnswer,
@@ -378,6 +396,29 @@ const progressLegend = computed(() => [
   { colorClass: 'bg-gray-300', label: `${omittedCount.value} o'tkazilgan` }
 ])
 
+function submissionBelongsToTest(submission, testId) {
+  if (!submission || !testId) {
+    return false
+  }
+
+  if (Number(submission.testId || submission?.test?.id || 0) === Number(testId)) {
+    return true
+  }
+
+  if (typeof submission.correctCount === 'number' || typeof submission.incorrectCount === 'number') {
+    const currentQuestionIds = new Set(
+      (testStore.currentTest?.questions || []).map((question) => Number(question.id)),
+    )
+
+    return (
+      Array.isArray(submission.userAnswers) &&
+      submission.userAnswers.some((answer) => currentQuestionIds.has(Number(answer?.questionId)))
+    )
+  }
+
+  return false
+}
+
 async function loadTest() {
   const testId = requestedTestId.value
 
@@ -391,17 +432,15 @@ async function loadTest() {
 
   try {
     await testStore.fetchTestById(testId)
+    activeAttemptId.value = requestedAttemptId.value
 
     // When the user just submitted the test, `lastSubmission` already holds the
     // graded result with the selected options. Keep it instead of overwriting it
     // with the in-progress data. Only fall back to progress when there is no
     // submission for this test (e.g. the page was opened directly).
     const submission = testStore.lastSubmission
-    const hasSubmissionForTest =
-      Array.isArray(submission?.userAnswers) &&
-      submission.userAnswers.some(
-        (answer) => Number(answer?.question?.testId) === Number(testId),
-      )
+    const hasSubmissionForTest = submissionBelongsToTest(submission, testId)
+    hasSubmittedResult.value = hasSubmissionForTest
 
     if (!hasSubmissionForTest) {
       try {
@@ -409,6 +448,14 @@ async function loadTest() {
 
         if (latestProgress) {
           testStore.lastSubmission = latestProgress
+          activeAttemptId.value = Number(latestProgress.id || activeAttemptId.value || 0) || null
+          hasSubmittedResult.value = Boolean(
+            latestProgress.isSubmitted ||
+              latestProgress.submitted ||
+              latestProgress.completed ||
+              latestProgress.submittedAt ||
+              latestProgress.finishedAt,
+          )
         }
       } catch (progressError) {
         console.error(progressError)
@@ -432,6 +479,20 @@ async function loadExplanation(questionId) {
   currentExplanation.value = null
 
   try {
+    const localExplanation =
+      filteredQuestions.value.find((question) => question.id === Number(questionId))
+        ?.questionExplanation || null
+
+    if (localExplanation) {
+      const translation = getLocalizedTranslation(localExplanation)
+      currentExplanation.value = {
+        ...localExplanation,
+        text: translation?.text || localExplanation.text || '',
+        imagePath: translation?.imagePath || localExplanation.imagePath || null,
+      }
+      return
+    }
+
     currentExplanation.value = await testStore.fetchQuestionExplanation(questionId)
   } catch (error) {
     explanationError.value =
@@ -463,6 +524,14 @@ onMounted(() => {
     delete nextQuery.submitted
     void router.replace({ query: nextQuery })
   }
+})
+
+onBeforeRouteLeave((to) => {
+  if (hasSubmittedResult.value && to.name === 'test') {
+    return { name: 'math' }
+  }
+
+  return true
 })
 
 watch(requestedTestId, (newId, oldId) => {
@@ -715,23 +784,25 @@ function answerFeedbackText(question) {
           </p>
         </div>
 
-        <button
-          type="button"
-          class="inline-flex self-start rounded-full bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a1a1a]"
-          @click="openCertificateModal"
-        >
-          <span class="mr-2 inline-flex h-4 w-4 items-center justify-center">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path
-                d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </span>
-          Sertifikatni ko'rish
-        </button>
+        <div class="flex flex-col items-start gap-2 sm:items-end">
+          <button
+            type="button"
+            class="inline-flex self-start rounded-full bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] sm:self-auto"
+            @click="openCertificateModal"
+          >
+            <span class="mr-2 inline-flex h-4 w-4 items-center justify-center">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0Z"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </span>
+            Sertifikatni ko'rish
+          </button>
+        </div>
       </div>
 
       <div class="mb-6 flex flex-col gap-4 sm:flex-row">
@@ -1073,16 +1144,9 @@ function answerFeedbackText(question) {
           <div class="shrink-0 border-b border-[#ebebeb] px-4 py-4 sm:px-8 sm:py-5">
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0 flex-1 pr-4">
-                <p class="mb-0.5 text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
+                <p class="text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
                   {{ currentQuestion.groupTitle || testStore.currentTest?.title || "Test natijasi" }}
                 </p>
-                <h2 class="flex items-center gap-1.5 text-[clamp(14px,4vw,18px)] font-bold tracking-[-0.02em] text-[#0a0a0a]">
-                  <span class="shrink-0">Savol {{ currentQuestion.displayIndex }} -</span>
-                  <TestInlineMathText
-                    :text="currentQuestion.title"
-                    wrapper-class="truncate"
-                  />
-                </h2>
               </div>
 
               <div class="flex shrink-0 items-center gap-2">
@@ -1130,10 +1194,11 @@ function answerFeedbackText(question) {
                     {{ currentQuestion.groupTitle }}
                   </p>
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
-                  <div
+                  <TestInlineMathText
                     v-if="currentQuestion.questionText"
-                    class="mb-5 text-sm leading-[1.7] text-gray-600"
-                    v-html="currentQuestion.questionText"
+                    tag="div"
+                    :text="currentQuestion.questionText"
+                    wrapper-class="mb-5 text-sm leading-[1.7] text-gray-600"
                   />
                   <p v-else class="mb-5 text-sm italic text-gray-400">
                     Savol matni mavjud emas.
@@ -1240,10 +1305,11 @@ function answerFeedbackText(question) {
                     {{ currentQuestion.groupTitle }}
                   </p>
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
-                  <div
+                  <TestInlineMathText
                     v-if="currentQuestion.questionText"
-                    class="mb-5 text-sm leading-[1.7] text-gray-600"
-                    v-html="currentQuestion.questionText"
+                    tag="div"
+                    :text="currentQuestion.questionText"
+                    wrapper-class="mb-5 text-sm leading-[1.7] text-gray-600"
                   />
                   <p v-else class="mb-5 text-sm italic text-gray-400">
                     Savol matni mavjud emas.

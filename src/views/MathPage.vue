@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
@@ -13,6 +14,7 @@ const isLoading = ref(true)
 const errorKey = ref('')
 const rawTests = ref([])
 const { t } = useI18n()
+const authStore = useAuthStore()
 const testProgressStore = useTestProgressStore()
 const apiBaseUrl = getTestApiBaseUrl()
 const VALID_TAB_IDS = ['all', 'started', 'notStarted']
@@ -71,6 +73,11 @@ const fetchTests = async () => {
 
 onMounted(() => {
   testProgressStore.hydrate()
+  if (authStore.isAuthenticated) {
+    void authStore.getUserInfo().catch((error) => {
+      console.error(error)
+    })
+  }
   fetchTests()
 })
 

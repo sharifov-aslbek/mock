@@ -17,6 +17,14 @@ import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
+const USER_PROFILE_API_URL = 'http://37.60.255.118:5090/api/user'
+const REQUIRED_PROFILE_FIELDS = ['fullName', 'firstName', 'lastName', 'fatherName']
+const EXAM_SESSION_STORAGE_PREFIX = 'milliymock_exam_session'
+const EXAM_VIOLATION_LIMIT = 5
+const EXAM_FULLSCREEN_LIMIT = 2
+const EXAM_VISIBILITY_LIMIT = 3
+const EXAM_DEVTOOLS_LIMIT = 2
+
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -30,13 +38,32 @@ const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
 const showSubmitModal = ref(false)
 const showLeaveModal = ref(false)
+const showProfileModal = ref(false)
 const isSubmittingTest = ref(false)
+const isSavingProfile = ref(false)
+const isExamContentHidden = ref(false)
+const examWarningMessage = ref('')
+const examWarnings = ref([])
+const examViolationTotal = ref(0)
+const examViolationCounts = reactive({})
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
+const hasCompletedEntryProfile = ref(false)
+const profileError = ref('')
+const profileForm = reactive({
+  firstName: '',
+  lastName: '',
+  fatherName: '',
+})
 let timerIntervalId = null
 let isSyncingAnswers = false
 let pendingSyncRequested = false
 let isStartingAttempt = false
+let isCompletingTest = false
+let devtoolsCheckIntervalId = null
+let inactivityTimeoutId = null
+let examBroadcastChannel = null
+const examSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 const dirtyQuestionIds = new Set()
 const ANSWER_ACTIONS_STORAGE_KEY = 'test_answer_actions'
 const answerActions = ref([])
@@ -242,6 +269,11 @@ const loginRoute = computed(() => ({
 }))
 
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
+const canAccessTest = computed(() => currentTest.value && hasCompletedEntryProfile.value)
+const isExamActive = computed(() => Boolean(canAccessTest.value && !isCompletingTest))
+const examSessionStorageKey = computed(() =>
+  currentTest.value?.id ? `${EXAM_SESSION_STORAGE_PREFIX}_${currentTest.value.id}` : '',
+)
 
 const totalQuestions = computed(() => renderedQuestions.value.length)
 
@@ -966,6 +998,16 @@ const loadTest = async (testId) => {
     return
   }
 
+  if (!(await ensureEntryProfile())) {
+    clearAnswers()
+    activeAttemptId.value = null
+    dirtyQuestionIds.clear()
+    closeReferenceWindow()
+    testStore.clearCurrentTest()
+    showProfileModal.value = true
+    return
+  }
+
   if (Number(currentTest.value?.id) === Number(testId)) {
     if (shouldRestartTest.value && currentTest.value) {
       clearAnswers()
@@ -994,6 +1036,47 @@ const loadTest = async (testId) => {
   } catch (error) {
     console.error(error)
   }
+}
+
+const hasRequiredUserProfile = (userInfo) =>
+  REQUIRED_PROFILE_FIELDS.every((field) => {
+    const value = userInfo?.[field]
+
+    return typeof value === 'string' ? Boolean(value.trim()) : Boolean(value)
+  })
+
+const fillProfileForm = (userInfo) => {
+  profileForm.firstName = typeof userInfo?.firstName === 'string' ? userInfo.firstName : ''
+  profileForm.lastName = typeof userInfo?.lastName === 'string' ? userInfo.lastName : ''
+  profileForm.fatherName = typeof userInfo?.fatherName === 'string' ? userInfo.fatherName : ''
+}
+
+const ensureEntryProfile = async () => {
+  if (hasCompletedEntryProfile.value && hasRequiredUserProfile(authStore.userInfo)) {
+    return true
+  }
+
+  let userInfo = authStore.userInfo
+
+  if (!hasRequiredUserProfile(userInfo)) {
+    try {
+      userInfo = await authStore.getUserInfo()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  if (hasRequiredUserProfile(userInfo)) {
+    hasCompletedEntryProfile.value = true
+    showProfileModal.value = false
+    profileError.value = ''
+    return true
+  }
+
+  hasCompletedEntryProfile.value = false
+  fillProfileForm(userInfo)
+  showProfileModal.value = true
+  return false
 }
 
 const enterFullscreen = async () => {
@@ -1049,6 +1132,74 @@ const handleFullscreenGesture = () => {
   void enterFullscreen()
 }
 
+const clearExamWarningSoon = () => {
+  window.setTimeout(() => {
+    examWarningMessage.value = ''
+  }, 4200)
+}
+
+const logExamViolation = (type, message) => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  examViolationCounts[type] = Number(examViolationCounts[type] || 0) + 1
+  examViolationTotal.value += 1
+  examWarningMessage.value = message
+  examWarnings.value = [
+    {
+      id: Date.now(),
+      type,
+      message,
+      count: examViolationCounts[type],
+      createdAt: new Date().toISOString(),
+    },
+    ...examWarnings.value,
+  ].slice(0, 20)
+
+  console.warn('[exam violation]', type, message, {
+    total: examViolationTotal.value,
+    count: examViolationCounts[type],
+  })
+
+  clearExamWarningSoon()
+
+  if (
+    examViolationTotal.value >= EXAM_VIOLATION_LIMIT ||
+    Number(examViolationCounts.fullscreen || 0) > EXAM_FULLSCREEN_LIMIT ||
+    Number(examViolationCounts.visibility || 0) > EXAM_VISIBILITY_LIMIT ||
+    Number(examViolationCounts.devtools || 0) >= EXAM_DEVTOOLS_LIMIT
+  ) {
+    void forceFinishExam('violation-limit')
+  }
+}
+
+const forceFinishExam = async (reason) => {
+  if (!isExamActive.value || isCompletingTest) {
+    return
+  }
+
+  isCompletingTest = true
+  examWarningMessage.value = t('testPage.examAutoFinish')
+
+  try {
+    await syncDirtyAnswers()
+    stopTimer()
+    showSubmitModal.value = false
+    await router.push({
+      name: 'explanation',
+      query: {
+        testId: currentTest.value.id,
+        attemptId: activeAttemptId.value,
+        reason,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    isCompletingTest = false
+  }
+}
+
 // Browsers only allow fullscreen from a user gesture, so try immediately and
 // fall back to entering on the test taker's first interaction with the page.
 const armFullscreen = () => {
@@ -1062,13 +1213,250 @@ const armFullscreen = () => {
   window.addEventListener('keydown', handleFullscreenGesture)
 }
 
+const handleFullscreenChange = () => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  if (!document.fullscreenElement) {
+    logExamViolation('fullscreen', t('testPage.fullscreenWarning'))
+    armFullscreen()
+  }
+}
+
 const handleBeforeUnload = (event) => {
-  if (!currentTest.value || isSubmittingTest.value) {
+  if (!currentTest.value || isCompletingTest) {
     return
   }
 
   event.preventDefault()
   event.returnValue = ''
+}
+
+const isBlockedDevtoolsShortcut = (event) => {
+  const key = String(event.key || '').toLowerCase()
+
+  return (
+    key === 'f12' ||
+    ((event.ctrlKey || event.metaKey) && event.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+    ((event.ctrlKey || event.metaKey) && ['a', 'c', 'p', 's', 'u', 'v', 'x'].includes(key)) ||
+    (event.ctrlKey && key === 'tab') ||
+    (event.altKey && key === 'tab') ||
+    (event.metaKey && event.shiftKey && ['3', '4', '5'].includes(key)) ||
+    (event.metaKey && event.altKey && ['i', 'j', 'c'].includes(key)) ||
+    key === 'printscreen'
+  )
+}
+
+const handleRestrictedKeydown = (event) => {
+  if (!isExamActive.value && !showProfileModal.value) {
+    return
+  }
+
+  if (isBlockedDevtoolsShortcut(event)) {
+    event.preventDefault()
+    event.stopPropagation()
+    logExamViolation('shortcut', t('testPage.shortcutWarning'))
+  }
+}
+
+const handleContextMenu = (event) => {
+  if (!isExamActive.value && !showProfileModal.value) {
+    return
+  }
+
+  event.preventDefault()
+  logExamViolation('contextmenu', t('testPage.contextMenuWarning'))
+}
+
+const handlePopState = () => {
+  if (!currentTest.value || isCompletingTest) {
+    return
+  }
+
+  window.history.pushState(null, '', window.location.href)
+  showLeaveModal.value = true
+  logExamViolation('navigation', t('testPage.navigationWarning'))
+  void router.replace({
+    name: 'test',
+    query: {
+      ...route.query,
+      testId: requestedTestId.value,
+    },
+  })
+}
+
+const blockClipboardAction = (event) => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  logExamViolation('clipboard', t('testPage.clipboardWarning'))
+}
+
+const blockSelectionAction = (event) => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  event.preventDefault()
+}
+
+const handleVisibilityChange = () => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  if (document.hidden) {
+    isExamContentHidden.value = true
+    logExamViolation('visibility', t('testPage.visibilityWarning'))
+    return
+  }
+
+  isExamContentHidden.value = false
+}
+
+const handleWindowBlur = () => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  isExamContentHidden.value = true
+  logExamViolation('visibility', t('testPage.focusWarning'))
+}
+
+const handleWindowFocus = () => {
+  isExamContentHidden.value = false
+}
+
+const detectDevtools = () => {
+  if (!isExamActive.value) {
+    return
+  }
+
+  const widthGap = Math.abs(window.outerWidth - window.innerWidth)
+  const heightGap = Math.abs(window.outerHeight - window.innerHeight)
+
+  if (widthGap > 180 || heightGap > 180) {
+    logExamViolation('devtools', t('testPage.devtoolsWarning'))
+  }
+}
+
+const resetInactivityTimer = () => {
+  if (inactivityTimeoutId) {
+    window.clearTimeout(inactivityTimeoutId)
+  }
+
+  if (!isExamActive.value) {
+    return
+  }
+
+  inactivityTimeoutId = window.setTimeout(() => {
+    logExamViolation('inactivity', t('testPage.inactivityWarning'))
+  }, 120000)
+}
+
+const getStoredExamSessionId = () => {
+  if (!examSessionStorageKey.value) {
+    return ''
+  }
+
+  return window.localStorage.getItem(examSessionStorageKey.value) || ''
+}
+
+const claimExamSession = () => {
+  if (!examSessionStorageKey.value || typeof window === 'undefined') {
+    return
+  }
+
+  const storedSessionId = getStoredExamSessionId()
+
+  if (storedSessionId && storedSessionId !== examSessionId) {
+    logExamViolation('multi-session', t('testPage.multiSessionWarning'))
+  }
+
+  window.localStorage.setItem(examSessionStorageKey.value, examSessionId)
+
+  if ('BroadcastChannel' in window) {
+    examBroadcastChannel?.close()
+    examBroadcastChannel = new BroadcastChannel(examSessionStorageKey.value)
+    examBroadcastChannel.onmessage = (event) => {
+      if (event.data?.type === 'exam-session-opened' && event.data.sessionId !== examSessionId) {
+        logExamViolation('multi-session', t('testPage.multiSessionWarning'))
+      }
+    }
+    examBroadcastChannel.postMessage({
+      type: 'exam-session-opened',
+      sessionId: examSessionId,
+    })
+  }
+}
+
+const releaseExamSession = () => {
+  if (examSessionStorageKey.value && getStoredExamSessionId() === examSessionId) {
+    window.localStorage.removeItem(examSessionStorageKey.value)
+  }
+
+  examBroadcastChannel?.close()
+  examBroadcastChannel = null
+}
+
+const startExamMonitoring = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  claimExamSession()
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('blur', handleWindowBlur)
+  window.addEventListener('focus', handleWindowFocus)
+  window.addEventListener('copy', blockClipboardAction, true)
+  window.addEventListener('paste', blockClipboardAction, true)
+  window.addEventListener('cut', blockClipboardAction, true)
+  window.addEventListener('selectstart', blockSelectionAction, true)
+  window.addEventListener('dragstart', blockSelectionAction, true)
+  window.addEventListener('drop', blockSelectionAction, true)
+  window.addEventListener('mousemove', resetInactivityTimer)
+  window.addEventListener('keydown', resetInactivityTimer)
+  window.addEventListener('pointerdown', resetInactivityTimer)
+  document.documentElement.classList.add('exam-mode-active')
+  devtoolsCheckIntervalId = window.setInterval(detectDevtools, 1200)
+  resetInactivityTimer()
+}
+
+const stopExamMonitoring = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  releaseExamSession()
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('blur', handleWindowBlur)
+  window.removeEventListener('focus', handleWindowFocus)
+  window.removeEventListener('copy', blockClipboardAction, true)
+  window.removeEventListener('paste', blockClipboardAction, true)
+  window.removeEventListener('cut', blockClipboardAction, true)
+  window.removeEventListener('selectstart', blockSelectionAction, true)
+  window.removeEventListener('dragstart', blockSelectionAction, true)
+  window.removeEventListener('drop', blockSelectionAction, true)
+  window.removeEventListener('mousemove', resetInactivityTimer)
+  window.removeEventListener('keydown', resetInactivityTimer)
+  window.removeEventListener('pointerdown', resetInactivityTimer)
+  document.documentElement.classList.remove('exam-mode-active')
+
+  if (devtoolsCheckIntervalId) {
+    window.clearInterval(devtoolsCheckIntervalId)
+    devtoolsCheckIntervalId = null
+  }
+
+  if (inactivityTimeoutId) {
+    window.clearTimeout(inactivityTimeoutId)
+    inactivityTimeoutId = null
+  }
 }
 
 watch(
@@ -1088,13 +1476,16 @@ watch(
       closeReferenceWindow()
       stopTimer()
       removeFullscreenGestureListeners()
+      stopExamMonitoring()
       exitFullscreen()
       remainingSeconds.value = 0
       activeAttemptId.value = null
       return
     }
 
+    stopExamMonitoring()
     armFullscreen()
+    startExamMonitoring()
     const savedProgress = testProgressStore.getProgress(test.id)
     const shouldStartFresh = shouldRestartTest.value
 
@@ -1148,55 +1539,104 @@ const confirmSubmitTest = async () => {
   }
 
   isSubmittingTest.value = true
+  isCompletingTest = true
 
   try {
     await syncDirtyAnswers()
-    await testStore.submitTestAttempt(currentTest.value.id, activeAttemptId.value)
     stopTimer()
-    testProgressStore.clearProgress(currentTest.value.id)
-    clearAnswerActionsForTest(currentTest.value.id)
     showSubmitModal.value = false
     await router.push({
       name: 'explanation',
-      query: { testId: currentTest.value.id, submitted: '1' },
+      query: { testId: currentTest.value.id, attemptId: activeAttemptId.value, readyToSubmit: '1' },
     })
   } catch (error) {
     console.error(error)
+    isCompletingTest = false
   } finally {
     isSubmittingTest.value = false
   }
 }
 
-let leaveResolver = null
+const submitEntryProfile = async () => {
+  const firstName = profileForm.firstName.trim()
+  const lastName = profileForm.lastName.trim()
+  const fatherName = profileForm.fatherName.trim()
 
-const resolveLeave = (allowLeave) => {
-  showLeaveModal.value = false
+  if (!firstName || !lastName || !fatherName) {
+    profileError.value = t('testPage.profileValidation')
+    return
+  }
 
-  if (leaveResolver) {
-    leaveResolver(allowLeave)
-    leaveResolver = null
+  isSavingProfile.value = true
+  profileError.value = ''
+
+  try {
+    const headers = {
+      accept: '*/*',
+      'Content-Type': 'application/json',
+    }
+
+    if (authStore.token) {
+      headers.Authorization = `Bearer ${authStore.token}`
+    }
+
+    const response = await fetch(USER_PROFILE_API_URL, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        fullName: `${firstName} ${lastName}`,
+        firstName,
+        lastName,
+        fatherName,
+      }),
+    })
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || (payload && payload.code && payload.code !== 200)) {
+      throw new Error(payload?.message || t('testPage.profileSaveError'))
+    }
+
+    authStore.userInfo =
+      payload?.data || {
+        ...(authStore.userInfo || {}),
+        fullName: `${firstName} ${lastName}`,
+        firstName,
+        lastName,
+        fatherName,
+      }
+    hasCompletedEntryProfile.value = true
+    showProfileModal.value = false
+    await loadTest(requestedTestId.value)
+  } catch (error) {
+    profileError.value =
+      error instanceof Error ? error.message : t('testPage.profileSaveError')
+  } finally {
+    isSavingProfile.value = false
   }
 }
 
-const confirmLeave = () => resolveLeave(true)
-const cancelLeave = () => resolveLeave(false)
+const closeBlockedLeaveModal = () => {
+  showLeaveModal.value = false
+}
 
 onBeforeRouteLeave(() => {
-  if (!currentTest.value || isSubmittingTest.value) {
+  if (!currentTest.value || isCompletingTest) {
     return true
   }
 
   showLeaveModal.value = true
-
-  return new Promise((resolve) => {
-    leaveResolver = resolve
-  })
+  return false
 })
 
 onMounted(() => {
   testProgressStore.hydrate()
   hydrateAnswerActions()
   window.addEventListener('beforeunload', handleBeforeUnload)
+  window.addEventListener('keydown', handleRestrictedKeydown, true)
+  window.addEventListener('contextmenu', handleContextMenu)
+  window.history.pushState(null, '', window.location.href)
+  window.addEventListener('popstate', handlePopState)
 })
 
 onBeforeUnmount(() => {
@@ -1204,6 +1644,10 @@ onBeforeUnmount(() => {
   persistCurrentProgress()
   stopTimer()
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  window.removeEventListener('keydown', handleRestrictedKeydown, true)
+  window.removeEventListener('contextmenu', handleContextMenu)
+  window.removeEventListener('popstate', handlePopState)
+  stopExamMonitoring()
   removeFullscreenGestureListeners()
   exitFullscreen()
 })
@@ -1211,6 +1655,53 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
+    <div
+      v-if="canAccessTest"
+      class="pointer-events-none fixed inset-0 z-[60] select-none opacity-[0.055]"
+      aria-hidden="true"
+    >
+      <!-- <div class="grid h-full rotate-[-18deg] grid-cols-2 gap-12 p-10 text-[22px] font-black uppercase tracking-[0.28em] text-black sm:grid-cols-3">
+        <span
+          v-for="index in 18"
+          :key="index"
+          class="whitespace-nowrap"
+        >
+          {{ authStore.userInfo?.fullName || 'MilliyMock' }} · {{ requestedTestId }}
+        </span>
+      </div> -->
+    </div>
+
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="-translate-y-2 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="-translate-y-2 opacity-0"
+    >
+      <div
+        v-if="examWarningMessage"
+        class="fixed right-4 top-4 z-[520] w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-red-500/30 bg-red-600 px-4 py-3 text-white shadow-[0_18px_40px_rgba(185,28,28,0.28)]"
+        role="alert"
+      >
+        <p class="text-sm font-bold">{{ t('testPage.examWarningTitle') }}</p>
+        <p class="mt-1 text-sm text-white/85">{{ examWarningMessage }}</p>
+        <p class="mt-2 text-xs text-white/70">
+          {{ t('testPage.violationCount') }}: {{ examViolationTotal }}
+        </p>
+      </div>
+    </Transition>
+
+    <div
+      v-if="isExamContentHidden"
+      class="fixed inset-0 z-[500] flex items-center justify-center bg-black/85 px-6 text-center text-white"
+    >
+      <div>
+        <p class="text-2xl font-black">{{ t('testPage.contentHiddenTitle') }}</p>
+        <p class="mt-2 max-w-md text-sm text-white/75">{{ t('testPage.contentHiddenDescription') }}</p>
+      </div>
+    </div>
+
     <TestFloatingTools
       v-if="currentTest"
       :remaining-seconds="remainingSeconds"
@@ -1241,8 +1732,9 @@ onBeforeUnmount(() => {
         />
 
         <div
-          v-else-if="currentTest"
+          v-else-if="canAccessTest"
           class="mx-auto max-w-[1040px]"
+          :class="isExamContentHidden ? 'blur-xl' : ''"
         >
           <button
             type="button"
@@ -1326,11 +1818,11 @@ onBeforeUnmount(() => {
       </div>
 
       <TestBottomBar
-        v-if="currentTest"
+        v-if="canAccessTest"
         :answered-count="answeredCount"
         :total-questions="totalQuestions"
         :answered-label="t('testPage.answered')"
-        :submit-label="t('testPage.submit')"
+        :submit-label="t('testPage.finish')"
         @submit="handleSubmitTest"
       />
     </NSpin>
@@ -1374,6 +1866,87 @@ onBeforeUnmount(() => {
     </NModal>
 
     <NModal
+      v-model:show="showProfileModal"
+      :mask-closable="false"
+      :close-on-esc="false"
+    >
+      <div class="w-[calc(100vw-2rem)] max-w-lg">
+        <NCard :bordered="false" size="large" class="!rounded-[28px]">
+          <form class="space-y-5" @submit.prevent="submitEntryProfile">
+            <div class="space-y-2 text-center">
+              <h4 class="text-xl font-bold tracking-tight text-black">
+                {{ t('testPage.profileTitle') }}
+              </h4>
+              <p class="text-sm text-[#6b6760]">
+                {{ t('testPage.profileDescription') }}
+              </p>
+            </div>
+
+            <div class="grid gap-3">
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-semibold text-[#1a1814]">
+                  {{ t('testPage.firstName') }}
+                </span>
+                <input
+                  v-model="profileForm.firstName"
+                  type="text"
+                  autocomplete="given-name"
+                  class="h-12 w-full rounded-2xl border border-[#e0ddd7] bg-white px-4 text-sm text-black outline-none transition focus:border-black"
+                  :disabled="isSavingProfile"
+                />
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-semibold text-[#1a1814]">
+                  {{ t('testPage.lastName') }}
+                </span>
+                <input
+                  v-model="profileForm.lastName"
+                  type="text"
+                  autocomplete="family-name"
+                  class="h-12 w-full rounded-2xl border border-[#e0ddd7] bg-white px-4 text-sm text-black outline-none transition focus:border-black"
+                  :disabled="isSavingProfile"
+                />
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-sm font-semibold text-[#1a1814]">
+                  {{ t('testPage.fatherName') }}
+                </span>
+                <input
+                  v-model="profileForm.fatherName"
+                  type="text"
+                  class="h-12 w-full rounded-2xl border border-[#e0ddd7] bg-white px-4 text-sm text-black outline-none transition focus:border-black"
+                  :disabled="isSavingProfile"
+                />
+              </label>
+            </div>
+
+            <p
+              v-if="profileError"
+              class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              {{ profileError }}
+            </p>
+
+            <button
+              type="submit"
+              :disabled="isSavingProfile"
+              class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-black px-6 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <span
+                v-if="isSavingProfile"
+                class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                aria-hidden="true"
+              ></span>
+              {{ isSavingProfile ? t('testPage.profileSaving') : t('testPage.profileStart') }}
+            </button>
+          </form>
+        </NCard>
+      </div>
+    </NModal>
+
+    <NModal
       v-model:show="showLeaveModal"
       :mask-closable="false"
       :close-on-esc="false"
@@ -1390,21 +1963,13 @@ onBeforeUnmount(() => {
               </p>
             </div>
 
-            <div class="flex justify-center gap-3">
+            <div class="flex justify-center">
               <button
                 type="button"
-                @click="cancelLeave"
+                @click="closeBlockedLeaveModal"
                 class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
               >
                 {{ t('testPage.leaveConfirmStay') }}
-              </button>
-
-              <button
-                type="button"
-                @click="confirmLeave"
-                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
-              >
-                {{ t('testPage.leaveConfirmLeave') }}
               </button>
             </div>
           </div>
