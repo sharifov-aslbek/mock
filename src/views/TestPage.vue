@@ -1304,32 +1304,32 @@ const blockSelectionAction = (event) => {
   event.preventDefault()
 }
 
-const handleVisibilityChange = () => {
-  if (!isExamActive.value) {
-    return
-  }
+// const handleVisibilityChange = () => {
+//   if (!isExamActive.value) {
+//     return
+//   }
 
-  if (document.hidden) {
-    isExamContentHidden.value = true
-    logExamViolation('visibility', t('testPage.visibilityWarning'))
-    return
-  }
+//   if (document.hidden) {
+//     isExamContentHidden.value = true
+//     logExamViolation('visibility', t('testPage.visibilityWarning'))
+//     return
+//   }
 
-  isExamContentHidden.value = false
-}
+//   isExamContentHidden.value = false
+// }
 
-const handleWindowBlur = () => {
-  if (!isExamActive.value) {
-    return
-  }
+// const handleWindowBlur = () => {
+//   if (!isExamActive.value) {
+//     return
+//   }
 
-  isExamContentHidden.value = true
-  logExamViolation('visibility', t('testPage.focusWarning'))
-}
+//   isExamContentHidden.value = true
+//   logExamViolation('visibility', t('testPage.focusWarning'))
+// }
 
-const handleWindowFocus = () => {
-  isExamContentHidden.value = false
-}
+// const handleWindowFocus = () => {
+//   isExamContentHidden.value = false
+// }
 
 const detectDevtools = () => {
   if (!isExamActive.value) {
@@ -1366,42 +1366,42 @@ const getStoredExamSessionId = () => {
   return window.localStorage.getItem(examSessionStorageKey.value) || ''
 }
 
-const claimExamSession = () => {
-  if (!examSessionStorageKey.value || typeof window === 'undefined') {
-    return
-  }
+// const claimExamSession = () => {
+//   if (!examSessionStorageKey.value || typeof window === 'undefined') {
+//     return
+//   }
 
-  const storedSessionId = getStoredExamSessionId()
+//   const storedSessionId = getStoredExamSessionId()
 
-  if (storedSessionId && storedSessionId !== examSessionId) {
-    logExamViolation('multi-session', t('testPage.multiSessionWarning'))
-  }
+//   if (storedSessionId && storedSessionId !== examSessionId) {
+//     logExamViolation('multi-session', t('testPage.multiSessionWarning'))
+//   }
 
-  window.localStorage.setItem(examSessionStorageKey.value, examSessionId)
+//   window.localStorage.setItem(examSessionStorageKey.value, examSessionId)
 
-  if ('BroadcastChannel' in window) {
-    examBroadcastChannel?.close()
-    examBroadcastChannel = new BroadcastChannel(examSessionStorageKey.value)
-    examBroadcastChannel.onmessage = (event) => {
-      if (event.data?.type === 'exam-session-opened' && event.data.sessionId !== examSessionId) {
-        logExamViolation('multi-session', t('testPage.multiSessionWarning'))
-      }
-    }
-    examBroadcastChannel.postMessage({
-      type: 'exam-session-opened',
-      sessionId: examSessionId,
-    })
-  }
-}
+//   if ('BroadcastChannel' in window) {
+//     examBroadcastChannel?.close()
+//     examBroadcastChannel = new BroadcastChannel(examSessionStorageKey.value)
+//     examBroadcastChannel.onmessage = (event) => {
+//       if (event.data?.type === 'exam-session-opened' && event.data.sessionId !== examSessionId) {
+//         logExamViolation('multi-session', t('testPage.multiSessionWarning'))
+//       }
+//     }
+//     examBroadcastChannel.postMessage({
+//       type: 'exam-session-opened',
+//       sessionId: examSessionId,
+//     })
+//   }
+// }
 
-const releaseExamSession = () => {
-  if (examSessionStorageKey.value && getStoredExamSessionId() === examSessionId) {
-    window.localStorage.removeItem(examSessionStorageKey.value)
-  }
+// const releaseExamSession = () => {
+//   if (examSessionStorageKey.value && getStoredExamSessionId() === examSessionId) {
+//     window.localStorage.removeItem(examSessionStorageKey.value)
+//   }
 
-  examBroadcastChannel?.close()
-  examBroadcastChannel = null
-}
+//   examBroadcastChannel?.close()
+//   examBroadcastChannel = null
+// }
 
 const startExamMonitoring = () => {
   if (typeof window === 'undefined') {
@@ -1410,9 +1410,9 @@ const startExamMonitoring = () => {
 
   claimExamSession()
   document.addEventListener('fullscreenchange', handleFullscreenChange)
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-  window.addEventListener('blur', handleWindowBlur)
-  window.addEventListener('focus', handleWindowFocus)
+  // document.addEventListener('visibilitychange', handleVisibilityChange)
+  // window.addEventListener('blur', handleWindowBlur)
+  // window.addEventListener('focus', handleWindowFocus)
   window.addEventListener('copy', blockClipboardAction, true)
   window.addEventListener('paste', blockClipboardAction, true)
   window.addEventListener('cut', blockClipboardAction, true)
