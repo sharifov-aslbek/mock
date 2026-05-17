@@ -2,14 +2,24 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { useTestStore } from '@/stores/test'
-import { getTestApiBaseUrl } from '@/utils/api'
+import TestCertificate from '@/components/certificate/TestCertificate.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useTestStore } from '@/stores/test'
+import { useTestProgressStore } from '@/stores/testProgress'
+import { getTestApiBaseUrl } from '@/utils/api'
+import { buildCertificateViewModel } from '@/utils/certificateData'
+import {
+  loadTestSubmission,
+  saveTestSubmission,
+} from '@/utils/testSubmissionStorage'
 
 const route = useRoute()
 const router = useRouter()
 const { locale } = useI18n()
+const authStore = useAuthStore()
 const testStore = useTestStore()
+const testProgressStore = useTestProgressStore()
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const LANGUAGE_BY_LOCALE = { uz: 'Uzbek', ru: 'Russian' }
@@ -33,18 +43,15 @@ const explanationError = ref('')
 const currentExplanation = ref(null)
 const activeAttemptId = ref(null)
 const hasSubmittedResult = ref(false)
+const isFinalizingSubmission = ref(false)
 
 let reportCloseTimeout = null
 let previousBodyOverflow = ''
 
 const apiBaseUrl = getTestApiBaseUrl()
-const certificatePreviewUrl = 'https://extraordinary-lolly-890df5.netlify.app/'
 
-// The certificate page renders a fixed A4 layout (794×1123) inside 24px of body
-// padding, so the iframe always needs this exact viewport to show the whole
-// certificate. We scale that fixed frame down to fit every screen size.
-const CERT_FRAME_WIDTH = 842
-const CERT_FRAME_HEIGHT = 1171
+const CERT_FRAME_WIDTH = 794
+const CERT_FRAME_HEIGHT = 1123
 
 const certScale = ref(1)
 let certResizeObserver = null
@@ -120,6 +127,15 @@ const requestedAttemptId = computed(() => {
 
   return value ? Number(value) : null
 })
+
+const certificateViewModel = computed(() =>
+  buildCertificateViewModel({
+    submission: testStore.lastSubmission,
+    user: authStore.userInfo,
+    test: testStore.currentTest,
+    attemptId: activeAttemptId.value || requestedAttemptId.value,
+  }),
+)
 
 const submittedQuestions = computed(() => {
   const submissionQuestions = testStore.lastSubmission?.questions
@@ -419,7 +435,7 @@ function submissionBelongsToTest(submission, testId) {
   return false
 }
 
-async function loadTest() {
+async function loadTest({ skipProgressFallback = false } = {}) {
   const testId = requestedTestId.value
 
   if (!testId) {
@@ -434,15 +450,20 @@ async function loadTest() {
     await testStore.fetchTestById(testId)
     activeAttemptId.value = requestedAttemptId.value
 
-    // When the user just submitted the test, `lastSubmission` already holds the
-    // graded result with the selected options. Keep it instead of overwriting it
-    // with the in-progress data. Only fall back to progress when there is no
-    // submission for this test (e.g. the page was opened directly).
+    const storedSubmission = loadTestSubmission(testId)
+
+    if (storedSubmission && submissionBelongsToTest(storedSubmission, testId)) {
+      testStore.lastSubmission = storedSubmission
+      hasSubmittedResult.value = true
+      return
+    }
+
+    // When arriving from the test page, submit runs next and fills `lastSubmission`.
     const submission = testStore.lastSubmission
     const hasSubmissionForTest = submissionBelongsToTest(submission, testId)
     hasSubmittedResult.value = hasSubmissionForTest
 
-    if (!hasSubmissionForTest) {
+    if (!hasSubmissionForTest && !skipProgressFallback) {
       try {
         const latestProgress = await testStore.fetchTestProgress(testId)
 
@@ -466,6 +487,74 @@ async function loadTest() {
       error instanceof Error ? error.message : "Testni yuklashda xatolik yuz berdi."
   } finally {
     isLoadingTest.value = false
+  }
+}
+
+async function finalizeTestSubmission() {
+  const testId = requestedTestId.value
+  const attemptId = requestedAttemptId.value || activeAttemptId.value
+
+  if (!testId || !attemptId) {
+    throw new Error('Test yoki urinish identifikatori topilmadi.')
+  }
+
+  activeAttemptId.value = Number(attemptId)
+  const submission = await testStore.submitTestAttempt(testId, attemptId)
+
+  if (submission) {
+    saveTestSubmission(testId, submission)
+    testStore.lastSubmission = submission
+  }
+
+  testProgressStore.clearProgress(Number(testId))
+  hasSubmittedResult.value = Boolean(submission)
+
+  return submission
+}
+
+function stripRouteFlags(flags) {
+  const nextQuery = { ...route.query }
+
+  flags.forEach((flag) => {
+    delete nextQuery[flag]
+  })
+
+  return router.replace({ query: nextQuery })
+}
+
+async function initializeExplanationPage() {
+  testLoadError.value = ''
+
+  if (authStore.isAuthenticated && !authStore.userInfo) {
+    try {
+      await authStore.getUserInfo()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const readyToSubmit = route.query.readyToSubmit === '1'
+
+  try {
+    await loadTest({ skipProgressFallback: readyToSubmit })
+
+    if (readyToSubmit) {
+      isFinalizingSubmission.value = true
+      await finalizeTestSubmission()
+      showResultModal.value = true
+      await stripRouteFlags(['readyToSubmit'])
+      return
+    }
+
+    if (route.query.submitted === '1') {
+      showResultModal.value = true
+      await stripRouteFlags(['submitted'])
+    }
+  } catch (error) {
+    testLoadError.value =
+      error instanceof Error ? error.message : 'Testni topshirishda xatolik yuz berdi.'
+  } finally {
+    isFinalizingSubmission.value = false
   }
 }
 
@@ -513,17 +602,7 @@ watch(reviewingQuestionId, (newQuestionId) => {
 })
 
 onMounted(() => {
-  void loadTest()
-
-  // Shown right after the test taker submits the test on the test page.
-  if (route.query.submitted === '1') {
-    showResultModal.value = true
-
-    // Drop the flag so refreshing the explanation page doesn't reopen the modal.
-    const nextQuery = { ...route.query }
-    delete nextQuery.submitted
-    void router.replace({ query: nextQuery })
-  }
+  void initializeExplanationPage()
 })
 
 onBeforeRouteLeave((to) => {
@@ -652,7 +731,11 @@ function closeResultModal() {
 }
 
 function downloadCertificate() {
-  window.open(certificatePreviewUrl, '_blank', 'noopener,noreferrer')
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.print()
 }
 
 function clearReportTimeout() {
@@ -1111,8 +1194,11 @@ function answerFeedbackText(question) {
           </template>
         </div>
 
-        <div v-if="isLoadingTest" class="flex items-center justify-center py-16">
+        <div v-if="isLoadingTest || isFinalizingSubmission"
+          class="flex flex-col items-center justify-center gap-3 py-16"
+        >
           <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
+          <p v-if="isFinalizingSubmission" class="text-sm text-gray-500">Test topshirilmoqda...</p>
         </div>
 
         <div v-else-if="testLoadError" class="flex flex-col items-center justify-center gap-3 py-16">
@@ -1120,7 +1206,7 @@ function answerFeedbackText(question) {
           <button
             type="button"
             class="inline-flex items-center justify-center rounded-full border border-gray-200 px-4 py-1.5 text-xs font-semibold text-[#0a0a0a] transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
-            @click="loadTest"
+            @click="initializeExplanationPage"
           >
             Qaytadan urinish
           </button>
@@ -1618,14 +1704,11 @@ function answerFeedbackText(question) {
             :ref="bindCertViewport"
             class="relative min-h-0 flex-1 overflow-hidden bg-[#f3f4f6]"
           >
-            <iframe
-              :src="certificatePreviewUrl"
-              title="Sertifikat"
-              loading="lazy"
-              scrolling="no"
-              class="absolute left-1/2 top-1/2 border-0 bg-white"
+            <TestCertificate
+              :data="certificateViewModel"
+              class="absolute left-1/2 top-1/2 origin-center"
               :style="certFrameStyle"
-            ></iframe>
+            />
           </div>
         </div>
       </div>
@@ -1664,14 +1747,11 @@ function answerFeedbackText(question) {
             :ref="bindCertViewport"
             class="relative min-h-0 flex-1 overflow-hidden bg-[#f3f4f6]"
           >
-            <iframe
-              :src="certificatePreviewUrl"
-              title="Natijalar"
-              loading="lazy"
-              scrolling="no"
-              class="absolute left-1/2 top-1/2 border-0 bg-white"
+            <TestCertificate
+              :data="certificateViewModel"
+              class="absolute left-1/2 top-1/2 origin-center"
               :style="certFrameStyle"
-            ></iframe>
+            />
           </div>
 
           <div class="flex shrink-0 justify-end border-t border-[#ebebeb] px-5 py-4 sm:px-6">
