@@ -59,7 +59,7 @@ let timerIntervalId = null
 let isSyncingAnswers = false
 let pendingSyncRequested = false
 let isStartingAttempt = false
-let isCompletingTest = false
+let isCompletingTest = ref(false)
 let devtoolsCheckIntervalId = null
 let inactivityTimeoutId = null
 let examBroadcastChannel = null
@@ -270,7 +270,7 @@ const loginRoute = computed(() => ({
 
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
 const canAccessTest = computed(() => currentTest.value && hasCompletedEntryProfile.value)
-const isExamActive = computed(() => Boolean(canAccessTest.value && !isCompletingTest))
+const isExamActive = computed(() => Boolean(canAccessTest.value && !isCompletingTest.value))
 const examSessionStorageKey = computed(() =>
   currentTest.value?.id ? `${EXAM_SESSION_STORAGE_PREFIX}_${currentTest.value.id}` : '',
 )
@@ -673,31 +673,33 @@ const SECONDS_PER_QUESTION = 120
 const startTimer = (questionCount, initialRemainingSeconds = null) => {
   stopTimer()
 
-  const totalDurationSeconds = Math.max(Number(questionCount) || 0, 0) * SECONDS_PER_QUESTION
-  const canResume =
-    typeof initialRemainingSeconds === 'number' &&
-    Number.isFinite(initialRemainingSeconds) &&
-    initialRemainingSeconds > 0
-  const durationInSeconds = canResume ? initialRemainingSeconds : totalDurationSeconds
+  const questionCountNumber = Math.max(Number(questionCount) || 0, 0)
+  const totalDurationSeconds = questionCountNumber * SECONDS_PER_QUESTION
+  const resumeSeconds = Number(initialRemainingSeconds)
+  const canResume = Number.isFinite(resumeSeconds) && resumeSeconds > 0
+  const durationInSeconds = canResume ? resumeSeconds : totalDurationSeconds
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
 
-  remainingSeconds.value = Math.ceil(durationInMilliseconds / 1000)
+  remainingSeconds.value = Math.max(Math.ceil(durationInMilliseconds / 1000), 0)
 
   if (durationInMilliseconds <= 0) {
     return durationInMilliseconds
   }
 
-  timerIntervalId = window.setInterval(() => {
+  const tick = () => {
     const elapsedMilliseconds = Date.now() - startedAt
     const nextDurationMs = Math.max(durationInMilliseconds - elapsedMilliseconds, 0)
 
-    remainingSeconds.value = Math.ceil(nextDurationMs / 1000)
+    remainingSeconds.value = Math.max(Math.ceil(nextDurationMs / 1000), 0)
 
     if (nextDurationMs <= 0) {
       stopTimer()
     }
-  }, 1000)
+  }
+
+  timerIntervalId = window.setInterval(tick, 1000)
+  tick()
 
   return durationInMilliseconds
 }
@@ -1015,13 +1017,19 @@ const loadTest = async (testId) => {
       dirtyQuestionIds.clear()
       testProgressStore.clearProgress(testId)
       clearAnswerActionsForTest(testId)
+      const savedProgress = testProgressStore.getProgress(testId)
+      const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
+      startTimer(questionCount, null)
       await ensureAttemptStarted(currentTest.value)
       await clearRestartQuery()
       return
     }
 
     if (!activeAttemptId.value && currentTest.value) {
+      const savedProgress = testProgressStore.getProgress(testId)
       await ensureAttemptStarted(currentTest.value)
+      const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
+      startTimer(questionCount, savedProgress?.remainingSeconds ?? null)
     }
     return
   }
@@ -1175,11 +1183,11 @@ const logExamViolation = (type, message) => {
 }
 
 const forceFinishExam = async (reason) => {
-  if (!isExamActive.value || isCompletingTest) {
+  if (!isExamActive.value || isCompletingTest.value) {
     return
   }
 
-  isCompletingTest = true
+  isCompletingTest.value = true
   examWarningMessage.value = t('testPage.examAutoFinish')
 
   try {
@@ -1196,7 +1204,7 @@ const forceFinishExam = async (reason) => {
     })
   } catch (error) {
     console.error(error)
-    isCompletingTest = false
+    isCompletingTest.value = false
   }
 }
 
@@ -1225,7 +1233,7 @@ const handleFullscreenChange = () => {
 }
 
 const handleBeforeUnload = (event) => {
-  if (!currentTest.value || isCompletingTest) {
+  if (!currentTest.value || isCompletingTest.value) {
     return
   }
 
@@ -1270,7 +1278,7 @@ const handleContextMenu = (event) => {
 }
 
 const handlePopState = () => {
-  if (!currentTest.value || isCompletingTest) {
+  if (!currentTest.value || isCompletingTest.value) {
     return
   }
 
@@ -1497,7 +1505,8 @@ watch(
       clearAnswerActionsForTest(test.id)
     }
 
-    startTimer(test.questions?.length, shouldStartFresh ? null : savedProgress?.remainingSeconds ?? null)
+    const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
+    startTimer(questionCount, shouldStartFresh ? null : savedProgress?.remainingSeconds ?? null)
 
     if (!shouldStartFresh) {
       await restoreProgress(test.id)
