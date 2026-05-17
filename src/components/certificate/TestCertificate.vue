@@ -1,4 +1,6 @@
 <script setup>
+import gerbSvg from '@/assets/gerb.svg?raw'
+
 defineProps({
   data: {
     type: Object,
@@ -6,11 +8,7 @@ defineProps({
   },
 })
 
-const coatOfArmsSrc = '@/assets/gerb.png'
-
-function hideBrokenImage(event) {
-  event.target.style.display = 'none'
-}
+const gerbMarkup = gerbSvg.replace(/<\?xml[^>]*>\s*/i, '').trim()
 </script>
 
 <template>
@@ -20,9 +18,12 @@ function hideBrokenImage(event) {
     <div class="ornament-bottom-left"></div>
 
     <div class="content">
-      <div class="logo">
-        <img :src="coatOfArmsSrc" alt="O'zbekiston gerbi" @error="hideBrokenImage" />
-      </div>
+      <div
+        class="logo"
+        role="img"
+        aria-label="O'zbekiston gerbi"
+        v-html="gerbMarkup"
+      />
 
       <h1 class="top-title">
         O‘ZBEKISTON RESPUBLIKASI OLIY TA’LIM, FAN VA INNOVATSIYALAR VAZIRLIGI<br />
@@ -199,10 +200,10 @@ function hideBrokenImage(event) {
   overflow: hidden;
 }
 
-.logo img {
+.logo :deep(svg) {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
 }
 
 .top-title {
