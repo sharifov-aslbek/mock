@@ -18,7 +18,7 @@ import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
 const USER_PROFILE_API_URL = 'http://37.60.255.118:5090/api/user'
-const REQUIRED_PROFILE_FIELDS = ['fullName', 'firstName', 'lastName', 'fatherName']
+const REQUIRED_PROFILE_FIELDS = ['firstName', 'lastName', 'fatherName']
 const EXAM_SESSION_STORAGE_PREFIX = 'milliymock_exam_session'
 const EXAM_VIOLATION_LIMIT = 5
 const EXAM_FULLSCREEN_LIMIT = 2
@@ -1593,7 +1593,7 @@ const submitEntryProfile = async () => {
       method: 'PUT',
       headers,
       body: JSON.stringify({
-        fullName: `${firstName} ${lastName}`,
+        // fullName: `${firstName} ${lastName}`,
         firstName,
         lastName,
         fatherName,
