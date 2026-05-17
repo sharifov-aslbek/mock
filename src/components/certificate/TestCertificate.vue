@@ -6,7 +6,7 @@ defineProps({
   },
 })
 
-const coatOfArmsSrc = '/src/assets/gerb.png'
+const coatOfArmsSrc = '@/assets/gerb.png'
 
 function hideBrokenImage(event) {
   event.target.style.display = 'none'
