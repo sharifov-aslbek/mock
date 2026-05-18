@@ -17,7 +17,6 @@ import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
-const USER_PROFILE_API_URL = 'http://37.60.255.118:5090/api/user'
 const REQUIRED_PROFILE_FIELDS = ['firstName', 'lastName', 'fatherName']
 const route = useRoute()
 const router = useRouter()
@@ -1268,6 +1267,7 @@ const confirmSubmitTest = async () => {
 }
 
 const submitEntryProfile = async () => {
+  const apiBaseUrl = getTestApiBaseUrl()
   const firstName = profileForm.firstName.trim()
   const lastName = profileForm.lastName.trim()
   const fatherName = profileForm.fatherName.trim()
@@ -1290,7 +1290,7 @@ const submitEntryProfile = async () => {
       headers.Authorization = `Bearer ${authStore.token}`
     }
 
-    const response = await fetch(USER_PROFILE_API_URL, {
+    const response = await fetch(apiBaseUrl, {
       method: 'PUT',
       headers,
       body: JSON.stringify({
