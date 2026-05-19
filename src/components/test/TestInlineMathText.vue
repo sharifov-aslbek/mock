@@ -319,6 +319,19 @@ const normalizeEnvironmentRows = (environmentName, body) => {
   return body.replace(/\s+(?=[^&\s]+\s*&)/g, ' \\\\\\\\ ')
 }
 
+// KaTeX cannot typeset some LaTeX environments standalone (they are only valid
+// nested inside another). Map them to the equivalent environment KaTeX *can*
+// render on its own, otherwise the whole block falls back to a raw string.
+const ENV_NAME_FALLBACKS = {
+  split: 'aligned',
+  align: 'aligned',
+  'align*': 'aligned',
+  eqnarray: 'aligned',
+  'eqnarray*': 'aligned',
+  gather: 'gathered',
+  'gather*': 'gathered',
+}
+
 const normalizeEnvironmentFormula = (value) => {
   const normalizedValue = String(value)
     .trim()
@@ -327,8 +340,10 @@ const normalizeEnvironmentFormula = (value) => {
 
   return normalizedValue.replace(
     /\\begin\s*\{([A-Za-z*]+)\}([\s\S]*?)\\end\s*\{\1\}/g,
-    (_, environmentName, body) =>
-      `\\begin{${environmentName}}${normalizeEnvironmentRows(environmentName, body)}\\end{${environmentName}}`,
+    (_, environmentName, body) => {
+      const renderName = ENV_NAME_FALLBACKS[environmentName] || environmentName
+      return `\\begin{${renderName}}${normalizeEnvironmentRows(environmentName, body)}\\end{${renderName}}`
+    },
   )
 }
 

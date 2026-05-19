@@ -1,13 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import heroImage from '@/assets/hero.jpg'
-import testImage from '@/assets/test.jpg'
+import heroImage from '@/assets/hero.png'
+import testImage from '@/assets/test.png'
 
 const { t } = useI18n()
 
 const activeTab = ref(0)
-const currentImage = computed(() => (activeTab.value === 0 ? heroImage : testImage))
+const currentImage = computed(() => (activeTab.value === 0 ? testImage : heroImage))
 </script>
 
 <template>
@@ -26,7 +26,7 @@ const currentImage = computed(() => (activeTab.value === 0 ? heroImage : testIma
             :class="activeTab === 0 ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-800 hover:bg-white/60'"
             @click="activeTab = 0"
           >
-            {{ t('productShowcase.sat') }}
+            {{ t('productShowcase.act') }}
           </button>
           <button
             type="button"
@@ -34,7 +34,7 @@ const currentImage = computed(() => (activeTab.value === 0 ? heroImage : testIma
             :class="activeTab === 1 ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-800 hover:bg-white/60'"
             @click="activeTab = 1"
           >
-            {{ t('productShowcase.act') }}
+            {{ t('productShowcase.sat') }}
           </button>
         </div>
       </div>
