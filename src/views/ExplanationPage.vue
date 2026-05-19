@@ -353,7 +353,58 @@ const currentQuestionIndex = computed(() => {
   return filteredQuestions.value.findIndex((question) => question.id === currentQuestion.value.id)
 })
 
+const coerceExplanationText = (value) => {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim()
+
+    if (!trimmedValue) {
+      return ''
+    }
+
+    return trimmedValue
+      .replace(/^"(.*)"$/s, '$1')
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\\\(?=[A-Za-z()[\]{}])/g, '\\')
+      .trim()
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => coerceExplanationText(item)).filter(Boolean).join('\n')
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.text === 'string' || Array.isArray(value.text)) {
+      return coerceExplanationText(value.text)
+    }
+
+    return ''
+  }
+
+  return ''
+}
+
+const normalizeExplanation = (entity) => {
+  if (!entity) {
+    return null
+  }
+
+  const translation = getLocalizedTranslation(entity)
+
+  return {
+    ...entity,
+    text: coerceExplanationText(translation?.text || entity?.text || ''),
+    imagePath: translation?.imagePath || entity?.imagePath || null,
+    videoLink: entity?.videoLink || null,
+  }
+}
+
 const explanationImageUrl = computed(() => buildAssetUrl(currentExplanation.value?.imagePath))
+const explanationVideoLink = computed(() => {
+  const videoLink = currentExplanation.value?.videoLink
+  return typeof videoLink === 'string' && videoLink.trim() ? videoLink.trim() : ''
+})
 
 const explanationDisplayText = computed(() => {
   const text = currentExplanation.value?.text
@@ -366,7 +417,7 @@ const explanationDisplayText = computed(() => {
 })
 
 const hasExplanationContent = computed(() =>
-  Boolean(explanationDisplayText.value || explanationImageUrl.value),
+  Boolean(explanationDisplayText.value || explanationImageUrl.value || explanationVideoLink.value),
 )
 
 const reportingQuestion = computed(() => {
@@ -568,21 +619,21 @@ async function loadExplanation(questionId) {
   currentExplanation.value = null
 
   try {
+    const explanation = await testStore.fetchQuestionExplanation(questionId)
+
+    if (explanation) {
+      currentExplanation.value = normalizeExplanation(explanation)
+      return
+    }
+
     const localExplanation =
       filteredQuestions.value.find((question) => question.id === Number(questionId))
         ?.questionExplanation || null
 
     if (localExplanation) {
-      const translation = getLocalizedTranslation(localExplanation)
-      currentExplanation.value = {
-        ...localExplanation,
-        text: translation?.text || localExplanation.text || '',
-        imagePath: translation?.imagePath || localExplanation.imagePath || null,
-      }
+      currentExplanation.value = normalizeExplanation(localExplanation)
       return
     }
-
-    currentExplanation.value = await testStore.fetchQuestionExplanation(questionId)
   } catch (error) {
     explanationError.value =
       error instanceof Error ? error.message : 'Tushuntirishni yuklashda xatolik yuz berdi.'
@@ -651,7 +702,7 @@ onBeforeUnmount(() => {
 function openReview(questionId) {
   reviewingQuestionId.value = questionId
   showAnswer.value = false
-  activeTab.value = 'question'
+  activeTab.value = 'answer'
 }
 
 function closeReview() {
@@ -674,7 +725,7 @@ function showPreviousQuestion() {
   if (previousQuestion) {
     reviewingQuestionId.value = previousQuestion.id
     showAnswer.value = false
-    activeTab.value = 'question'
+    activeTab.value = 'answer'
   }
 }
 
@@ -690,7 +741,7 @@ function showNextQuestion() {
   if (nextQuestion) {
     reviewingQuestionId.value = nextQuestion.id
     showAnswer.value = false
-    activeTab.value = 'question'
+    activeTab.value = 'answer'
   }
 }
 
@@ -1342,50 +1393,58 @@ function answerFeedbackText(question) {
                     </div>
                   </div>
 
-                  <template v-if="showAnswer">
-                    <div
-                      class="mb-5 rounded-xl px-4 py-3 text-[13px] font-semibold"
-                      :class="answerFeedbackClass(currentQuestion.status)"
-                    >
-                      {{ answerFeedbackText(currentQuestion) }}
+                  <div
+                    v-if="showAnswer"
+                    class="mb-5 rounded-xl px-4 py-3 text-[13px] font-semibold"
+                    :class="answerFeedbackClass(currentQuestion.status)"
+                  >
+                    {{ answerFeedbackText(currentQuestion) }}
+                  </div>
+
+                  <div>
+                    <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
+
+                    <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
+                      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
+                      <span>Yuklanmoqda...</span>
                     </div>
 
-                    <div>
-                      <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
+                    <p v-else-if="explanationError" class="text-[13px] text-red-600">
+                      {{ explanationError }}
+                    </p>
 
-                      <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
-                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
-                        <span>Yuklanmoqda...</span>
-                      </div>
-
-                      <p v-else-if="explanationError" class="text-[13px] text-red-600">
-                        {{ explanationError }}
-                      </p>
-
-                      <template v-else-if="hasExplanationContent">
-                        <TestInlineMathText
-                          v-if="explanationDisplayText"
-                          tag="div"
-                          :text="explanationDisplayText"
-                          wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
+                    <template v-else-if="hasExplanationContent">
+                      <TestInlineMathText
+                        v-if="explanationDisplayText"
+                        tag="div"
+                        :text="explanationDisplayText"
+                        wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
+                      />
+                      <a
+                        v-if="explanationVideoLink"
+                        :href="explanationVideoLink"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-[13px] font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100"
+                      >
+                        <span>Video izohni ko'rish</span>
+                      </a>
+                      <div
+                        v-if="explanationImageUrl"
+                        class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                      >
+                        <img
+                          :src="explanationImageUrl"
+                          alt="Tushuntirish rasmi"
+                          class="block h-auto w-full"
                         />
-                        <div
-                          v-if="explanationImageUrl"
-                          class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
-                        >
-                          <img
-                            :src="explanationImageUrl"
-                            alt="Tushuntirish rasmi"
-                            class="block h-auto w-full"
-                          />
-                        </div>
-                      </template>
+                      </div>
+                    </template>
 
-                      <p v-else class="text-[13px] italic text-gray-400">
-                        Tushuntirish mavjud emas.
-                      </p>
-                    </div>
-                  </template>
+                    <p v-else class="text-[13px] italic text-gray-400">
+                      Tushuntirish mavjud emas.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1454,50 +1513,58 @@ function answerFeedbackText(question) {
                     </div>
                   </div>
 
-                  <template v-if="showAnswer">
-                    <div
-                      class="mb-5 rounded-xl px-4 py-3 text-[13px] font-semibold"
-                      :class="answerFeedbackClass(currentQuestion.status)"
-                    >
-                      {{ answerFeedbackText(currentQuestion) }}
+                  <div
+                    v-if="showAnswer"
+                    class="mb-5 rounded-xl px-4 py-3 text-[13px] font-semibold"
+                    :class="answerFeedbackClass(currentQuestion.status)"
+                  >
+                    {{ answerFeedbackText(currentQuestion) }}
+                  </div>
+
+                  <div>
+                    <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
+
+                    <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
+                      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
+                      <span>Yuklanmoqda...</span>
                     </div>
 
-                    <div>
-                      <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
+                    <p v-else-if="explanationError" class="text-[13px] text-red-600">
+                      {{ explanationError }}
+                    </p>
 
-                      <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
-                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
-                        <span>Yuklanmoqda...</span>
-                      </div>
-
-                      <p v-else-if="explanationError" class="text-[13px] text-red-600">
-                        {{ explanationError }}
-                      </p>
-
-                      <template v-else-if="hasExplanationContent">
-                        <TestInlineMathText
-                          v-if="explanationDisplayText"
-                          tag="div"
-                          :text="explanationDisplayText"
-                          wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
+                    <template v-else-if="hasExplanationContent">
+                      <TestInlineMathText
+                        v-if="explanationDisplayText"
+                        tag="div"
+                        :text="explanationDisplayText"
+                        wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
+                      />
+                      <a
+                        v-if="explanationVideoLink"
+                        :href="explanationVideoLink"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-[13px] font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100"
+                      >
+                        <span>Video izohni ko'rish</span>
+                      </a>
+                      <div
+                        v-if="explanationImageUrl"
+                        class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                      >
+                        <img
+                          :src="explanationImageUrl"
+                          alt="Tushuntirish rasmi"
+                          class="block h-auto w-full"
                         />
-                        <div
-                          v-if="explanationImageUrl"
-                          class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
-                        >
-                          <img
-                            :src="explanationImageUrl"
-                            alt="Tushuntirish rasmi"
-                            class="block h-auto w-full"
-                          />
-                        </div>
-                      </template>
+                      </div>
+                    </template>
 
-                      <p v-else class="text-[13px] italic text-gray-400">
-                        Tushuntirish mavjud emas.
-                      </p>
-                    </div>
-                  </template>
+                    <p v-else class="text-[13px] italic text-gray-400">
+                      Tushuntirish mavjud emas.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
