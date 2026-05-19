@@ -1290,16 +1290,15 @@ const submitEntryProfile = async () => {
       headers.Authorization = `Bearer ${authStore.token}`
     }
 
-    const response = await fetch(apiBaseUrl, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({
-        // fullName: `${firstName} ${lastName}`,
-        firstName,
-        lastName,
-        fatherName,
-      }),
-    })
+const response = await fetch(`${apiBaseUrl}/user`, {
+  method: 'PUT',
+  headers,
+  body: JSON.stringify({
+    firstName,
+    lastName,
+    fatherName,
+  }),
+})
 
     const payload = await response.json().catch(() => null)
 
