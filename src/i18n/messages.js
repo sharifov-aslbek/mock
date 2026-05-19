@@ -60,8 +60,8 @@ const messages = {
     },
     productShowcase: {
       title: 'MilliyMock tajribasi',
-      sat: 'SAT / PSAT',
-      act: 'Kengaytirilgan ACT'
+      sat: 'Kuchaytirilgan analiz',
+      act: 'Qulay muhit'
     },
     testimonials: {
       title: 'O‘quvchilar fikri',
@@ -362,8 +362,8 @@ const messages = {
     },
     productShowcase: {
       title: 'Опыт MilliyMock',
-      sat: 'SAT / PSAT',
-      act: 'Расширенный ACT'
+      sat: 'Расширенный анализ',
+      act: 'Удобная среда'
     },
     testimonials: {
       title: 'Отзывы учеников',

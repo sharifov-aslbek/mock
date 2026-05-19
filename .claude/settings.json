@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(awk 'NR>=248 && NR<=271' src/components/test/TestInlineMathText.vue)"
+    ]
+  }
+}

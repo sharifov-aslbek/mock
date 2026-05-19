@@ -197,6 +197,20 @@ const renderMathSegment = (value) => {
     return escapeTextSegment(value)
   }
 
+  // A run with no real typesetting need (fractions, sub/superscripts, LaTeX
+  // commands) that is either long or contains a word-length letter sequence is
+  // almost always mangled text, not a formula. KaTeX would render it as one
+  // atomic, non-wrapping blob that overflows the layout — whereas plain text
+  // wraps and adapts to any width, so it always falls onto the next line.
+  const needsKatex = /\\[A-Za-z]+|[\^_{}]/.test(coreValue)
+  const looksLikeMangledText =
+    coreValue.length > 20 ||
+    /[A-Za-z\u00C0-\u024F\u0400-\u04FF]{6,}/.test(coreValue)
+
+  if (!needsKatex && looksLikeMangledText) {
+    return escapeTextSegment(cleanupTextEscapes(value))
+  }
+
   const renderedFormula = renderFormula(coreValue, false)
   const isPlainFallback = renderedFormula === escapeHtml(coreValue)
 
@@ -224,6 +238,15 @@ const renderLooseContent = (source) =>
     })
     .join('')
 
+// A `$$…$$` / `\(…\)` span that — once LaTeX command names are removed — still
+// contains a word-length letter run is prose the API wrapped in math
+// delimiters, not a real formula. Typesetting it with KaTeX collapses every
+// space and emits one atomic, non-wrapping line that overflows its column.
+const looksLikeProseBlock = (value) =>
+  /[A-Za-zÀ-ɏЀ-ӿ]{5,}/.test(
+    String(value).replace(/\\[A-Za-z]+/g, ' '),
+  )
+
 const renderMixedContent = (source) => {
   const pattern = /\$\$([\s\S]*?)\$\$|\\\(([\s\S]*?)\\\)/g
   let result = ''
@@ -234,9 +257,15 @@ const renderMixedContent = (source) => {
     const matchedValue = match[0] || ''
     const blockFormula = match[1]
     const inlineFormula = match[2]
+    const formulaBody = blockFormula ?? inlineFormula ?? ''
 
     result += renderLooseContent(source.slice(lastIndex, matchIndex))
-    result += renderFormula(blockFormula ?? inlineFormula ?? '', Boolean(blockFormula))
+
+    // Prose wrapped in math delimiters: tokenize it word-by-word so the line
+    // wraps. Genuine math tokens inside still get typeset individually.
+    result += looksLikeProseBlock(formulaBody)
+      ? renderLooseContent(formulaBody)
+      : renderFormula(formulaBody, Boolean(blockFormula))
 
     lastIndex = matchIndex + matchedValue.length
   }
@@ -244,6 +273,32 @@ const renderMixedContent = (source) => {
   result += renderLooseContent(source.slice(lastIndex))
   return result
 }
+
+// `\displaylines{...}` (the API also sends it without the backslash) wraps a
+// block whose word spacing and row breaks are collapsed into semicolons.
+const DISPLAYLINES_PATTERN = /\\?displaylines\s*\{([\s\S]*?)\}/g
+
+// API text frequently arrives "mangled": the spaces between words and the line
+// breaks have been collapsed into semicolons (`Kutubxonada;5;xil;matematika`,
+// or `;;`/`;;;` for row breaks). Such text gets mis-detected as a single math
+// formula and renders as one unreadable, overflowing KaTeX blob. Recover a
+// normal layout by turning *glued* semicolons (no space on either side) back
+// into spaces / line breaks. Genuine punctuation (`a; b`, with a trailing
+// space) and numeric coordinates (`(2;5)`) are left untouched.
+const demangleSemicolons = (value) =>
+  String(value)
+    .replace(/\s*;{2,}\s*/g, '\n')
+    .replace(/(?<=\S);(?=\S)/g, (_match, offset, source) =>
+      /\d/.test(source[offset - 1]) && /\d/.test(source[offset + 1]) ? ';' : ' ',
+    )
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .trim()
+
+const preprocessTestText = (value) =>
+  demangleSemicolons(
+    String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+  )
 
 // Full LaTeX environments such as \begin{cases}...\end{cases} or \begin{matrix}.
 // Some API text arrives without the leading backslashes (`begin{cases}...`),
@@ -293,6 +348,17 @@ const renderEnvFormula = (value) => {
   }
 }
 
+// API text sometimes wraps a plain *sentence* in \begin{...}...\end{...}
+// (often `split`, which KaTeX cannot even typeset standalone). Strip the
+// environment shell and its alignment markers so the sentence can be rendered
+// as ordinary wrapping text instead of an overflowing KaTeX blob.
+const stripEnvironmentShell = (value) =>
+  String(value)
+    .replace(/\\?begin\s*\{[A-Za-z*]+\}/g, '')
+    .replace(/\\?end\s*\{[A-Za-z*]+\}/g, '')
+    .replace(/\\\\/g, '\n')
+    .replace(/(?<!\\)&/g, ' ')
+
 const renderPlainOrMixed = (source) => {
   const normalizedSource = normalizeMathWrappers(normalizeMixedSource(source))
 
@@ -306,7 +372,7 @@ const renderPlainOrMixed = (source) => {
 }
 
 const renderedHtml = computed(() => {
-  const baseText = normalizeTestText(props.text)
+  const baseText = preprocessTestText(normalizeTestText(props.text))
 
   if (!baseText) {
     return ''
@@ -325,9 +391,14 @@ const renderedHtml = computed(() => {
 
   for (const envMatch of envMatches) {
     const matchIndex = envMatch.index ?? 0
+    const envInner = stripEnvironmentShell(envMatch[0])
 
     result += renderPlainOrMixed(baseText.slice(lastIndex, matchIndex))
-    result += renderEnvFormula(envMatch[0])
+    // A sentence the API wrapped in \begin{...}...\end{...} is prose, not a
+    // formula — render it as wrapping text rather than one KaTeX block.
+    result += looksLikeProseBlock(envInner)
+      ? renderPlainOrMixed(envInner)
+      : renderEnvFormula(envMatch[0])
 
     lastIndex = matchIndex + envMatch[0].length
   }
@@ -353,6 +424,10 @@ const renderedHtml = computed(() => {
 .math-inline-text :deep(.katex) {
   font-size: 1.08em;
   max-width: 100%;
+  display: inline-block;
+  vertical-align: middle;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .math-inline-text :deep(.katex-display) {

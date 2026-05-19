@@ -13,14 +13,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const navItems = computed(() => [
-  { label: t('navbar.items.sat'), href: '#' },
-  { label: t('navbar.items.act'), href: '#' },
   { label: t('navbar.items.math'), to: '/math' },
-  { label: t('navbar.items.psat'), href: '#' },
-  { label: t('navbar.items.shsat'), href: '#' },
-  { label: t('navbar.pricing'), to: '/pricing' },
   { label: t('navbar.result'), to: '/result-exam' },
-  { label: t('navbar.resources'), href: '#', hasDropdown: true },
+  { label: t('navbar.pricing'), to: '/pricing' },
 ])
 
 const userName = computed(() => authStore.userInfo?.fullName || 'Foydalanuvchi')

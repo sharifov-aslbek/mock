@@ -1,7 +1,13 @@
 <script setup>
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import heroImage from '@/assets/hero.jpg'
+import testImage from '@/assets/test.jpg'
 
 const { t } = useI18n()
+
+const activeTab = ref(0)
+const currentImage = computed(() => (activeTab.value === 0 ? heroImage : testImage))
 </script>
 
 <template>
@@ -15,12 +21,18 @@ const { t } = useI18n()
       <div class="flex justify-center mb-10 sm:mb-12">
         <div class="bg-gray-200 rounded-full p-2 flex items-center gap-2">
           <button
-            class="bg-white text-gray-900 px-6 sm:px-10 py-3 rounded-full font-semibold text-sm sm:text-base shadow-sm"
+            type="button"
+            class="px-6 sm:px-10 py-3 rounded-full font-semibold text-sm sm:text-base transition"
+            :class="activeTab === 0 ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-800 hover:bg-white/60'"
+            @click="activeTab = 0"
           >
             {{ t('productShowcase.sat') }}
           </button>
           <button
-            class="text-gray-800 px-6 sm:px-10 py-3 rounded-full font-semibold text-sm sm:text-base transition hover:bg-white/60"
+            type="button"
+            class="px-6 sm:px-10 py-3 rounded-full font-semibold text-sm sm:text-base transition"
+            :class="activeTab === 1 ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-800 hover:bg-white/60'"
+            @click="activeTab = 1"
           >
             {{ t('productShowcase.act') }}
           </button>
@@ -46,10 +58,12 @@ const { t } = useI18n()
           </div>
 
           <!-- Image Place -->
-          <div
-            class="aspect-[16/9] bg-gray-50 flex items-center justify-center text-gray-400 text-base sm:text-lg"
-          >
-           <img src="https://landing.moqups.com/img/_optimized/templates/wireframes/admin-dashboard-wireframe-w400.jpeg" alt="Error Image" class="w-full h-full object-cover">
+          <div class="aspect-[16/9] bg-gray-50">
+            <img
+              :src="currentImage"
+              :alt="t('productShowcase.title')"
+              class="w-full h-full object-cover"
+            />
           </div>
         </div>
       </div>

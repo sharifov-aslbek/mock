@@ -1043,7 +1043,12 @@ function answerFeedbackText(question) {
                     </span>
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-600">
-                    <TestInlineMathText :text="row.title" wrapper-class="line-clamp-2 break-words" />
+                    <div class="max-w-[340px]">
+                      <TestInlineMathText
+                        :text="row.title"
+                        wrapper-class="line-clamp-2 break-words text-[13px] leading-[1.4]"
+                      />
+                    </div>
                   </td>
                   <td class="px-6 py-4">
                     <span class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
@@ -1230,7 +1235,7 @@ function answerFeedbackText(question) {
           <div class="shrink-0 border-b border-[#ebebeb] px-4 py-4 sm:px-8 sm:py-5">
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0 flex-1 pr-4">
-                <p class="text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
+                <p class="line-clamp-2 break-words text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
                   {{ currentQuestion.groupTitle || testStore.currentTest?.title || "Test natijasi" }}
                 </p>
               </div>
@@ -1274,9 +1279,9 @@ function answerFeedbackText(question) {
 
           <div class="flex-1 overflow-hidden">
             <div class="hidden h-full grid-cols-2 sm:grid" style="height: calc(92vh - 140px)">
-              <div class="review-scrollbar overflow-y-auto border-r border-[#ebebeb] bg-white px-8 py-6">
-                <div>
-                  <p v-if="currentQuestion.groupTitle" class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+              <div class="review-scrollbar min-w-0 overflow-y-auto border-r border-[#ebebeb] bg-white px-8 py-6">
+                <div class="min-w-0">
+                  <p v-if="currentQuestion.groupTitle" class="mb-2 break-words text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
                     {{ currentQuestion.groupTitle }}
                   </p>
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
@@ -1284,7 +1289,7 @@ function answerFeedbackText(question) {
                     v-if="currentQuestion.questionText"
                     tag="div"
                     :text="currentQuestion.questionText"
-                    wrapper-class="mb-5 text-sm leading-[1.7] text-gray-600"
+                    wrapper-class="mb-5 break-words text-sm leading-[1.7] text-gray-600"
                   />
                   <p v-else class="mb-5 text-sm italic text-gray-400">
                     Savol matni mavjud emas.
@@ -1303,19 +1308,19 @@ function answerFeedbackText(question) {
                 </div>
               </div>
 
-              <div class="review-scrollbar overflow-y-auto bg-[#fafafa] px-8 py-6">
-                <div>
+              <div class="review-scrollbar min-w-0 overflow-y-auto bg-[#fafafa] px-8 py-6">
+                <div class="min-w-0">
                   <h3 class="mb-4 text-[15px] font-bold text-[#0a0a0a]">Javob variantlari</h3>
 
                   <div v-if="currentQuestion.answerOptions?.length" class="mb-5">
                     <div
                       v-for="option in currentQuestion.answerOptions"
                       :key="option.letter"
-                      class="mb-2 rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
+                      class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
                       :class="answerOptionClass(option)"
                     >
                       <span class="font-bold">{{ option.letter }}.</span>
-                      {{ option.text }}
+                      <TestInlineMathText tag="span" :text="option.text" wrapper-class="break-words" />
                       <span
                         v-if="showAnswer && option.letter === currentQuestion.correctAnswer"
                         class="ml-2 text-xs font-semibold text-green-600"
@@ -1331,7 +1336,7 @@ function answerFeedbackText(question) {
                       <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-gray-400">
                         - (O'tkazilgan)
                       </span>
-                      <span v-else class="text-lg font-bold text-[#0a0a0a]">
+                      <span v-else class="break-words text-lg font-bold text-[#0a0a0a]">
                         {{ currentQuestion.yourAnswer }}
                       </span>
                     </div>
@@ -1358,10 +1363,11 @@ function answerFeedbackText(question) {
                       </p>
 
                       <template v-else-if="hasExplanationContent">
-                        <div
+                        <TestInlineMathText
                           v-if="explanationDisplayText"
-                          class="mb-3 text-[13px] leading-[1.7] text-gray-600"
-                          v-html="explanationDisplayText"
+                          tag="div"
+                          :text="explanationDisplayText"
+                          wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
                         />
                         <div
                           v-if="explanationImageUrl"
@@ -1395,7 +1401,7 @@ function answerFeedbackText(question) {
                     v-if="currentQuestion.questionText"
                     tag="div"
                     :text="currentQuestion.questionText"
-                    wrapper-class="mb-5 text-sm leading-[1.7] text-gray-600"
+                    wrapper-class="mb-5 break-words text-sm leading-[1.7] text-gray-600"
                   />
                   <p v-else class="mb-5 text-sm italic text-gray-400">
                     Savol matni mavjud emas.
@@ -1422,11 +1428,11 @@ function answerFeedbackText(question) {
                     <div
                       v-for="option in currentQuestion.answerOptions"
                       :key="option.letter"
-                      class="mb-2 rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
+                      class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
                       :class="answerOptionClass(option)"
                     >
                       <span class="font-bold">{{ option.letter }}.</span>
-                      {{ option.text }}
+                      <TestInlineMathText tag="span" :text="option.text" wrapper-class="break-words" />
                       <span
                         v-if="showAnswer && option.letter === currentQuestion.correctAnswer"
                         class="ml-2 text-xs font-semibold text-green-600"
@@ -1442,7 +1448,7 @@ function answerFeedbackText(question) {
                       <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-gray-400">
                         - (O'tkazilgan)
                       </span>
-                      <span v-else class="text-lg font-bold text-[#0a0a0a]">
+                      <span v-else class="break-words text-lg font-bold text-[#0a0a0a]">
                         {{ currentQuestion.yourAnswer }}
                       </span>
                     </div>
@@ -1469,10 +1475,11 @@ function answerFeedbackText(question) {
                       </p>
 
                       <template v-else-if="hasExplanationContent">
-                        <div
+                        <TestInlineMathText
                           v-if="explanationDisplayText"
-                          class="mb-3 text-[13px] leading-[1.7] text-gray-600"
-                          v-html="explanationDisplayText"
+                          tag="div"
+                          :text="explanationDisplayText"
+                          wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
                         />
                         <div
                           v-if="explanationImageUrl"

@@ -19,8 +19,9 @@ const cards = computed(() => tm('featureBlocks.cards'))
       <!-- Grid -->
       <div class="grid gap-6 sm:gap-8 md:grid-cols-2">
         <FeatureCard
-          v-for="card in cards"
+          v-for="(card, index) in cards"
           :key="card.title"
+          :index="index"
           :icon="card.icon"
           :title="card.title"
           :description="card.description"
