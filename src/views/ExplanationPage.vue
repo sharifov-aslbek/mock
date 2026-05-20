@@ -233,7 +233,6 @@ const userAnswersByQuestionId = computed(() => {
 
   return map
 })
-
 const filteredQuestions = computed(() => {
   const apiQuestions = submittedQuestions.value || testStore.currentTest?.questions
 
@@ -241,10 +240,16 @@ const filteredQuestions = computed(() => {
     return []
   }
 
+  // SORT QUESTIONS BY ORDER
+  const sortedQuestions = [...apiQuestions].sort((a, b) => {
+    return Number(a?.order || 0) - Number(b?.order || 0)
+  })
+
   const questionGroupsById = new Map(
     (testStore.currentTest?.questionGroups || []).map((group) => [Number(group.id), group]),
   )
-  const groupedQuestionCounts = apiQuestions.reduce((counts, question) => {
+
+  const groupedQuestionCounts = sortedQuestions.reduce((counts, question) => {
     const groupId = Number(question?.questionGroupId || 0)
 
     if (!groupId) {
@@ -252,18 +257,28 @@ const filteredQuestions = computed(() => {
     }
 
     counts.set(groupId, Number(counts.get(groupId) || 0) + 1)
+
     return counts
   }, new Map())
+
   const groupBaseLabels = new Map()
   const groupQuestionIndexes = new Map()
   const shownGroupHeaders = new Set()
+
   let displayCounter = 0
 
-  return apiQuestions.map((apiQuestion) => {
+  return sortedQuestions.map((apiQuestion) => {
     const groupId = Number(apiQuestion?.questionGroupId || 0)
-    const group = groupId ? questionGroupsById.get(groupId) : null
-    const isGroupedQuestion = Boolean(group && Number(groupedQuestionCounts.get(groupId) || 0) > 1)
 
+    const group = groupId
+      ? questionGroupsById.get(groupId)
+      : null
+
+    const isGroupedQuestion = Boolean(
+      group && Number(groupedQuestionCounts.get(groupId) || 0) > 1,
+    )
+
+    // DISPLAY LABEL LOGIC
     if (isGroupedQuestion && !groupBaseLabels.has(groupId)) {
       displayCounter += 1
       groupBaseLabels.set(groupId, String(displayCounter))
@@ -272,33 +287,61 @@ const filteredQuestions = computed(() => {
     }
 
     const groupQuestionIndex = Number(groupQuestionIndexes.get(groupId) || 0)
-    const groupSubLabel = GROUP_SUBORDER_LETTERS[groupQuestionIndex] || String(groupQuestionIndex + 1)
+
+    const groupSubLabel =
+      GROUP_SUBORDER_LETTERS[groupQuestionIndex] ||
+      String(groupQuestionIndex + 1)
+
     const baseDisplayLabel = isGroupedQuestion
       ? groupBaseLabels.get(groupId)
       : String(displayCounter)
-    const displayLabel = isGroupedQuestion ? `${baseDisplayLabel}.${groupSubLabel}` : baseDisplayLabel
-    const showGroupHeader = isGroupedQuestion && !shownGroupHeaders.has(groupId)
+
+    const displayLabel = isGroupedQuestion
+      ? `${baseDisplayLabel}.${groupSubLabel}`
+      : baseDisplayLabel
+
+    const showGroupHeader =
+      isGroupedQuestion && !shownGroupHeaders.has(groupId)
 
     if (isGroupedQuestion) {
       groupQuestionIndexes.set(groupId, groupQuestionIndex + 1)
       shownGroupHeaders.add(groupId)
     }
 
+    // OPTIONS
     const options = Array.isArray(apiQuestion.options)
       ? apiQuestion.options.map((option, optionIndex) => ({
           ...option,
-          letter: option.letter || OPTION_LETTERS[optionIndex] || String(optionIndex + 1),
+          letter:
+            option.letter ||
+            OPTION_LETTERS[optionIndex] ||
+            String(optionIndex + 1),
         }))
       : []
+
     const correctOption = options.find((option) => option.isCorrect)
-    const userAnswer = userAnswersByQuestionId.value.get(Number(apiQuestion.id))
+
+    // USER ANSWER
+    const userAnswer = userAnswersByQuestionId.value.get(
+      Number(apiQuestion.id),
+    )
+
     const answerQuestion = userAnswer?.question || null
+
     const sourceQuestion = answerQuestion || apiQuestion
+
     const selectedOptionId = userAnswer?.selectedOptionId || 0
+
     const selectedOption = selectedOptionId
-      ? options.find((option) => Number(option.id) === Number(selectedOptionId))
+      ? options.find(
+          (option) => Number(option.id) === Number(selectedOptionId),
+        )
       : null
-    const textAnswer = typeof userAnswer?.textAnswer === 'string' ? userAnswer.textAnswer.trim() : ''
+
+    const textAnswer =
+      typeof userAnswer?.textAnswer === 'string'
+        ? userAnswer.textAnswer.trim()
+        : ''
 
     let status = 'omitted'
     let yourAnswer = '-'
@@ -311,31 +354,61 @@ const filteredQuestions = computed(() => {
       status = 'incorrect'
     }
 
-    const groupTitle = isGroupedQuestion ? stripHtml(getEntityText(group)) : ''
+    // QUESTION TEXT
+    const groupTitle = isGroupedQuestion
+      ? stripHtml(getEntityText(group))
+      : ''
+
     const questionTextRaw = getEntityText(sourceQuestion)
-    const titleSource = stripHtml(questionTextRaw) || `Savol ${displayLabel}`
+
+    const titleSource =
+      stripHtml(questionTextRaw) || `Savol ${displayLabel}`
+
     const questionPlain = stripHtml(questionTextRaw)
 
     return {
       id: Number(apiQuestion.id),
+      order: Number(apiQuestion?.order || 0),
+
       displayIndex: displayLabel,
+
       title: titleSource,
+
       groupId: isGroupedQuestion ? groupId : null,
+
       groupTitle,
+
       groupDisplayLabel: baseDisplayLabel,
+
       showGroupHeader,
+
       questionText: questionTextRaw,
-      questionExplanation: sourceQuestion.questionExplanation || null,
-      imageUrl: sourceQuestion.imageUrl || buildAssetUrl(sourceQuestion.imagePath),
+
+      questionExplanation:
+        sourceQuestion.questionExplanation || null,
+
+      imageUrl:
+        sourceQuestion.imageUrl ||
+        buildAssetUrl(sourceQuestion.imagePath),
+
       correctAnswer: correctOption?.letter || '-',
+
       yourAnswer,
+
       attemptedAnswer: yourAnswer,
+
       complexity: complexityFromScore(apiQuestion.score),
+
       status,
+
       answerOptions: options.map((option) => ({
         ...option,
-        text: sanitizeOptionText(getEntityText(option) || option.text || '', questionPlain),
+        text: sanitizeOptionText(
+          getEntityText(option) || option.text || '',
+          questionPlain,
+        ),
       })),
+
       type: apiQuestion.type,
     }
   })
