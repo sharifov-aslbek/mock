@@ -14,6 +14,8 @@ const authStore = useAuthStore()
 
 const navItems = computed(() => [
   { label: t('navbar.items.math'), to: '/math' },
+  { label: t('navbar.items.physics'), to: '/fizika' },
+  { label: t('navbar.items.chemistry'), to: '/kimyo' },
   { label: t('navbar.result'), to: '/result-exam' },
   { label: t('navbar.pricing'), to: '/pricing' },
 ])

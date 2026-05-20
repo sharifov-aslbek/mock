@@ -13,6 +13,8 @@ const messages = {
         sat: 'SAT',
         act: 'ACT',
         math: 'Matematika',
+        physics: 'Fizika',
+        chemistry: 'Kimyo',
         psat: 'PSAT',
         shsat: 'SHSAT'
       }
@@ -315,6 +317,8 @@ const messages = {
         sat: 'SAT',
         act: 'ACT',
         math: 'Математика',
+        physics: 'Физика',
+        chemistry: 'Химия',
         psat: 'PSAT',
         shsat: 'SHSAT'
       }

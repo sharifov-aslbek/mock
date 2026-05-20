@@ -25,12 +25,22 @@ const normalizeSpacing = (value) =>
     .replace(/^\s*\/+\s*$/gm, '')
     .trim()
 
+// Some upstream JSON deserializers turn `\text{...}` into `<TAB>ext{...}` -
+// the `\t` was interpreted as the JSON escape for a horizontal tab and stopped
+// being a LaTeX command. Restore the `\` prefix before whitespace normalization
+// collapses the tab and we lose the only signal that this was originally math.
+// Also covers `\textbf`, `\textit`, `\textrm`, etc.
+const restoreLatexEscapes = (value) =>
+  String(value)
+    .replace(/\text([a-z]*)\{/g, '\\text$1{')
+    .replace(/(?<![\\A-Za-z])ext([a-z]*)\{/g, '\\text$1{')
+
 export const normalizeTestText = (value) => {
   if (typeof value !== 'string') {
     return ''
   }
 
-  let normalizedValue = value.trim()
+  let normalizedValue = restoreLatexEscapes(value).trim()
 
   if (!normalizedValue) {
     return ''
