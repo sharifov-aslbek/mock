@@ -45,7 +45,7 @@ defineEmits(['submit'])
       <button
         type="button"
         @click="$emit('submit')"
-        class="font-mono-custom w-full rounded-[18px] bg-[#1a1814] px-6 py-3.5 text-[12px] font-medium uppercase tracking-[0.22em] text-white transition hover:bg-black sm:w-auto sm:rounded-[4px] sm:px-8 sm:py-3 sm:text-sm sm:tracking-[0.18em]"
+        class="font-mono-custom w-full rounded-[18px] bg-[#1a1814] px-6 py-3.5 text-[12px] font-medium uppercase tracking-[0.22em] text-white transition hover:bg-black sm:w-auto sm:rounded-[10px] sm:px-8 sm:py-3 sm:text-sm sm:tracking-[0.18em]"
       >
         {{ submitLabel }}
       </button>

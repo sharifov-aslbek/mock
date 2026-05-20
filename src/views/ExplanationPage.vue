@@ -179,6 +179,28 @@ const stripHtml = (value) => {
   return (container.textContent || '').replace(/\s+/g, ' ').trim()
 }
 
+// Some API responses bleed the question text into an option's text field — a
+// backend join concatenates the question column onto the option, so the last
+// option ends up showing the entire question (sometimes duplicated). Detect
+// the corruption by checking whether the option's plain text contains the
+// full question, and if so keep only the prefix preceding the question — that
+// is the real option value (e.g. "12").
+const sanitizeOptionText = (optionText, questionPlain) => {
+  if (!optionText || !questionPlain || questionPlain.length < 10) {
+    return optionText
+  }
+
+  const optionPlain = stripHtml(optionText)
+  const questionIndex = optionPlain.indexOf(questionPlain)
+
+  if (questionIndex < 0) {
+    return optionText
+  }
+
+  const cleanedPrefix = optionPlain.slice(0, questionIndex).trim()
+  return cleanedPrefix || optionPlain.replace(questionPlain, '').trim()
+}
+
 const complexityFromScore = (score) => {
   const numericScore = Number(score) || 0
 
@@ -290,7 +312,9 @@ const filteredQuestions = computed(() => {
     }
 
     const groupTitle = isGroupedQuestion ? stripHtml(getEntityText(group)) : ''
-    const titleSource = stripHtml(getEntityText(sourceQuestion)) || `Savol ${displayLabel}`
+    const questionTextRaw = getEntityText(sourceQuestion)
+    const titleSource = stripHtml(questionTextRaw) || `Savol ${displayLabel}`
+    const questionPlain = stripHtml(questionTextRaw)
 
     return {
       id: Number(apiQuestion.id),
@@ -300,7 +324,7 @@ const filteredQuestions = computed(() => {
       groupTitle,
       groupDisplayLabel: baseDisplayLabel,
       showGroupHeader,
-      questionText: getEntityText(sourceQuestion),
+      questionText: questionTextRaw,
       questionExplanation: sourceQuestion.questionExplanation || null,
       imageUrl: sourceQuestion.imageUrl || buildAssetUrl(sourceQuestion.imagePath),
       correctAnswer: correctOption?.letter || '-',
@@ -310,7 +334,7 @@ const filteredQuestions = computed(() => {
       status,
       answerOptions: options.map((option) => ({
         ...option,
-        text: option.text || '',
+        text: sanitizeOptionText(getEntityText(option) || option.text || '', questionPlain),
       })),
       type: apiQuestion.type,
     }
@@ -1370,7 +1394,7 @@ function answerFeedbackText(question) {
                       class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
                       :class="answerOptionClass(option)"
                     >
-                      <span class="font-bold">{{ option.letter }}.</span>
+                      <span class="mr-1.5 font-bold">{{ option.letter }}.</span>
                       <TestInlineMathText tag="span" :text="option.text" wrapper-class="break-words" />
                       <span
                         v-if="showAnswer && option.letter === currentQuestion.correctAnswer"
@@ -1490,7 +1514,7 @@ function answerFeedbackText(question) {
                       class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
                       :class="answerOptionClass(option)"
                     >
-                      <span class="font-bold">{{ option.letter }}.</span>
+                      <span class="mr-1.5 font-bold">{{ option.letter }}.</span>
                       <TestInlineMathText tag="span" :text="option.text" wrapper-class="break-words" />
                       <span
                         v-if="showAnswer && option.letter === currentQuestion.correctAnswer"
