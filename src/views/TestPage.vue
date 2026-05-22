@@ -817,6 +817,7 @@ const buildCreateAnswerPayload = (action) => {
 
 const buildUpdateAnswerPayload = (action) => {
   return {
+    userTestAttemptId: Number(action.attemptId || 0),
     questionId: Number(action.questionId),
     selectedOptionId: Number(action.selectedOptionId || 0),
     textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
@@ -1028,14 +1029,12 @@ const fillProfileForm = (userInfo) => {
 
 const ensureEntryProfile = async () => {
   if (isGuestUser.value) {
-    if (authStore.tempUserId) {
-      hasCompletedEntryProfile.value = true
+    if (hasCompletedEntryProfile.value) {
       showProfileModal.value = false
       profileError.value = ''
       return true
     }
 
-    hasCompletedEntryProfile.value = false
     fillProfileForm(authStore.tempUser)
     showProfileModal.value = true
     return false
@@ -1288,7 +1287,18 @@ const submitEntryProfile = async () => {
       await authStore.createTempUser({ firstName, lastName, fatherName })
       hasCompletedEntryProfile.value = true
       showProfileModal.value = false
-      await loadTest(requestedTestId.value)
+
+      // Fresh identity → start a brand-new attempt, drop any progress left over from a prior temp user.
+      const currentTestId = requestedTestId.value
+      if (currentTestId) {
+        clearAnswers()
+        activeAttemptId.value = null
+        dirtyQuestionIds.clear()
+        testProgressStore.clearProgress(currentTestId)
+        clearAnswerActionsForTest(currentTestId)
+      }
+
+      await loadTest(currentTestId)
       return
     }
 
