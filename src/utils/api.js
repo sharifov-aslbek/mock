@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = 'https://milliymock.uz/api'
+const DEFAULT_API_BASE_URL = 'https://api.milliymock.uz/api'
 
 function resolveApiBaseUrl() {
   return (
