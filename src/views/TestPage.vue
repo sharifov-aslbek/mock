@@ -253,10 +253,13 @@ const loginRoute = computed(() => ({
 
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
 const canAccessTest = computed(() => currentTest.value && hasCompletedEntryProfile.value)
+const isGuestUser = computed(() => !authStore.isAuthenticated)
 
 const totalQuestions = computed(() => renderedQuestions.value.length)
 
-const totalDurationMinutes = computed(() => Number(totalQuestions.value || 0) * 2)
+const TEST_DURATION_MINUTES = 60
+const TEST_DURATION_SECONDS = TEST_DURATION_MINUTES * 60
+const totalDurationMinutes = computed(() => TEST_DURATION_MINUTES)
 
 const hasFreeAnswerContent = (value) => {
   if (typeof value !== 'string') {
@@ -646,17 +649,12 @@ const stopTimer = () => {
   }
 }
 
-// Each question is allotted 120 seconds (2 minutes).
-const SECONDS_PER_QUESTION = 120
-
-const startTimer = (questionCount, initialRemainingSeconds = null) => {
+const startTimer = (_questionCount, initialRemainingSeconds = null) => {
   stopTimer()
 
-  const questionCountNumber = Math.max(Number(questionCount) || 0, 0)
-  const totalDurationSeconds = questionCountNumber * SECONDS_PER_QUESTION
   const resumeSeconds = Number(initialRemainingSeconds)
   const canResume = Number.isFinite(resumeSeconds) && resumeSeconds > 0
-  const durationInSeconds = canResume ? resumeSeconds : totalDurationSeconds
+  const durationInSeconds = canResume ? resumeSeconds : TEST_DURATION_SECONDS
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
 
@@ -969,16 +967,6 @@ const loadTest = async (testId) => {
     return
   }
 
-  if (!authStore.isAuthenticated) {
-    clearAnswers()
-    activeAttemptId.value = null
-    dirtyQuestionIds.clear()
-    closeReferenceWindow()
-    testStore.clearCurrentTest()
-    pageErrorKey.value = 'testPage.authRequired'
-    return
-  }
-
   if (!(await ensureEntryProfile())) {
     clearAnswers()
     activeAttemptId.value = null
@@ -1039,6 +1027,20 @@ const fillProfileForm = (userInfo) => {
 }
 
 const ensureEntryProfile = async () => {
+  if (isGuestUser.value) {
+    if (authStore.tempUserId) {
+      hasCompletedEntryProfile.value = true
+      showProfileModal.value = false
+      profileError.value = ''
+      return true
+    }
+
+    hasCompletedEntryProfile.value = false
+    fillProfileForm(authStore.tempUser)
+    showProfileModal.value = true
+    return false
+  }
+
   if (hasCompletedEntryProfile.value && hasRequiredUserProfile(authStore.userInfo)) {
     return true
   }
@@ -1216,7 +1218,9 @@ watch(
 
     if (!shouldStartFresh) {
       await restoreProgress(test.id)
-      await restoreProgressFromApi(test.id)
+      if (!isGuestUser.value) {
+        await restoreProgressFromApi(test.id)
+      }
     }
 
     await ensureAttemptStarted(test)
@@ -1267,7 +1271,6 @@ const confirmSubmitTest = async () => {
 }
 
 const submitEntryProfile = async () => {
-  const apiBaseUrl = getTestApiBaseUrl()
   const firstName = profileForm.firstName.trim()
   const lastName = profileForm.lastName.trim()
   const fatherName = profileForm.fatherName.trim()
@@ -1281,24 +1284,24 @@ const submitEntryProfile = async () => {
   profileError.value = ''
 
   try {
-    const headers = {
-      accept: '*/*',
-      'Content-Type': 'application/json',
+    if (isGuestUser.value) {
+      await authStore.createTempUser({ firstName, lastName, fatherName })
+      hasCompletedEntryProfile.value = true
+      showProfileModal.value = false
+      await loadTest(requestedTestId.value)
+      return
     }
 
-    if (authStore.token) {
-      headers.Authorization = `Bearer ${authStore.token}`
-    }
-
-const response = await fetch(`${apiBaseUrl}/user`, {
-  method: 'PUT',
-  headers,
-  body: JSON.stringify({
-    firstName,
-    lastName,
-    fatherName,
-  }),
-})
+    const apiBaseUrl = getTestApiBaseUrl()
+    const response = await fetch(`${apiBaseUrl}/user`, {
+      method: 'PUT',
+      headers: {
+        accept: '*/*',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authStore.token}`,
+      },
+      body: JSON.stringify({ firstName, lastName, fatherName }),
+    })
 
     const payload = await response.json().catch(() => null)
 

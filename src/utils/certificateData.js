@@ -73,6 +73,10 @@ export function buildCertificateViewModel({
       incorrectCount,
   )
 
+  // Prefer identity returned by the submission itself (tempUser for guests, user for logged-in)
+  // so the certificate reflects exactly what was submitted to the backend.
+  const identity = submission?.tempUser || submission?.user || user || null
+
   const certificateNumber = attemptId
     ? `UZ25 ${String(attemptId).padStart(6, '0')}`
     : '—'
@@ -80,13 +84,13 @@ export function buildCertificateViewModel({
   return {
     certificateNumber,
     personalCode:
-      user?.personalCode ||
-      user?.pinfl ||
-      user?.jshshir ||
-      (user?.id != null ? String(user.id) : '—'),
-    lastName: String(user?.lastName || '—').toUpperCase(),
-    firstName: String(user?.firstName || '—').toUpperCase(),
-    fatherName: String(user?.fatherName || '—').toUpperCase(),
+      identity?.personalCode ||
+      identity?.pinfl ||
+      identity?.jshshir ||
+      (identity?.id != null ? String(identity.id) : '—'),
+    lastName: String(identity?.lastName || '—').toUpperCase(),
+    firstName: String(identity?.firstName || '—').toUpperCase(),
+    fatherName: String(identity?.fatherName || '—').toUpperCase(),
     subject: resolveTestSubject(test),
     totalScore: formatScore(totalScore),
     maxScore: formatScore(maxScore),

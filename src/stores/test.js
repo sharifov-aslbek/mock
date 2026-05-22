@@ -91,16 +91,51 @@ export const useTestStore = defineStore('test', () => {
   const isLoading = ref(false)
   const errorMessage = ref('')
 
+  function buildAuthHeaders(extraHeaders = {}) {
+    const authStore = useAuthStore()
+    const headers = { accept: '*/*', ...extraHeaders }
+
+    if (authStore.token) {
+      headers.Authorization = `Bearer ${authStore.token}`
+    }
+
+    return headers
+  }
+
+  function appendTempUserParam(url) {
+    const authStore = useAuthStore()
+
+    if (authStore.token || !authStore.tempUserId) {
+      return url
+    }
+
+    const separator = url.includes('?') ? '&' : '?'
+    return `${url}${separator}tempUserId=${Number(authStore.tempUserId)}`
+  }
+
+  function withTempUserField(body) {
+    const authStore = useAuthStore()
+
+    if (authStore.token || !authStore.tempUserId) {
+      return body
+    }
+
+    return { ...body, tempUserId: Number(authStore.tempUserId) }
+  }
+
+  function ensureGuestOrAuth() {
+    const authStore = useAuthStore()
+
+    if (!authStore.token && !authStore.tempUserId) {
+      throw new Error('Authentication or temp user is required.')
+    }
+  }
+
   async function fetchTestById(testId) {
     const apiBaseUrl = getTestApiBaseUrl()
-    const authStore = useAuthStore()
 
     if (!apiBaseUrl) {
       throw new Error('API base URL is missing.')
-    }
-
-    if (!authStore.token) {
-      throw new Error('Authentication token is missing.')
     }
 
     isLoading.value = true
@@ -108,10 +143,7 @@ export const useTestStore = defineStore('test', () => {
 
     try {
       const response = await fetch(`${apiBaseUrl}/test/${testId}`, {
-        headers: {
-          accept: '*/*',
-          Authorization: `Bearer ${authStore.token}`,
-        },
+        headers: buildAuthHeaders(),
       })
 
       const payload = await response.json()
@@ -134,29 +166,20 @@ export const useTestStore = defineStore('test', () => {
 
   async function startTestAttempt(testId) {
     const apiBaseUrl = getTestApiBaseUrl()
-    const authStore = useAuthStore()
 
     if (!apiBaseUrl) {
       throw new Error('Test API base URL is missing.')
     }
 
-    if (!authStore.token) {
-      throw new Error('Authentication token is missing.')
-    }
+    ensureGuestOrAuth()
 
     errorMessage.value = ''
 
     try {
       const response = await fetch(`${apiBaseUrl}/user-test-attempt`, {
         method: 'POST',
-        headers: {
-          accept: '*/*',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.token}`,
-        },
-        body: JSON.stringify({
-          testId: Number(testId),
-        }),
+        headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(withTempUserField({ testId: Number(testId) })),
       })
 
       const payload = await response.json()
@@ -174,43 +197,21 @@ export const useTestStore = defineStore('test', () => {
     }
   }
 
-  function resolveToken() {
-    const authStore = useAuthStore()
-
-    if (authStore.token) {
-      return authStore.token
-    }
-
-    if (typeof window === 'undefined') {
-      return ''
-    }
-
-    return (
-      window.localStorage.getItem('milliymock_token') ||
-      window.localStorage.getItem('milliymock-token') ||
-      ''
-    )
-  }
-
   async function fetchTestProgress(testId) {
     const apiBaseUrl = getTestApiBaseUrl()
-    const token = resolveToken()
 
     if (!apiBaseUrl) {
       throw new Error('Test API base URL is missing.')
     }
 
-    if (!token) {
-      throw new Error('Authentication token is missing.')
-    }
+    ensureGuestOrAuth()
 
     const response = await fetch(
-      `${apiBaseUrl}/user-test-attempt/get-progress?testId=${Number(testId)}`,
+      appendTempUserParam(
+        `${apiBaseUrl}/user-test-attempt/get-progress?testId=${Number(testId)}`,
+      ),
       {
-        headers: {
-          accept: '*/*',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: buildAuthHeaders(),
       },
     )
 
@@ -225,24 +226,18 @@ export const useTestStore = defineStore('test', () => {
 
   async function submitTestAttempt(testId, testAttemptId) {
     const apiBaseUrl = getTestApiBaseUrl()
-    const token = resolveToken()
 
     if (!apiBaseUrl) {
       throw new Error('Test API base URL is missing.')
     }
 
-    if (!token) {
-      throw new Error('Authentication token is missing.')
-    }
+    ensureGuestOrAuth()
 
     const response = await fetch(
       `${apiBaseUrl}/user-test-attempt/submit?testId=${Number(testId)}&testAttemptId=${Number(testAttemptId)}`,
       {
         method: 'POST',
-        headers: {
-          accept: '*/*',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: buildAuthHeaders(),
       },
     )
 
@@ -259,23 +254,17 @@ export const useTestStore = defineStore('test', () => {
 
   async function fetchQuestionExplanation(questionId) {
     const apiBaseUrl = getTestApiBaseUrl()
-    const token = resolveToken()
 
     if (!apiBaseUrl) {
       throw new Error('Test API base URL is missing.')
     }
 
-    if (!token) {
-      throw new Error('Authentication token is missing.')
-    }
-
     const response = await fetch(
-      `${apiBaseUrl}/question-explanation?questionId=${Number(questionId)}`,
+      appendTempUserParam(
+        `${apiBaseUrl}/question-explanation?questionId=${Number(questionId)}`,
+      ),
       {
-        headers: {
-          accept: '*/*',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: buildAuthHeaders(),
       },
     )
 
@@ -290,23 +279,16 @@ export const useTestStore = defineStore('test', () => {
 
   async function requestUserAnswer(method, answerPayload) {
     const apiBaseUrl = getTestApiBaseUrl()
-    const authStore = useAuthStore()
 
     if (!apiBaseUrl) {
       throw new Error('Test API base URL is missing.')
     }
 
-    if (!authStore.token) {
-      throw new Error('Authentication token is missing.')
-    }
+    ensureGuestOrAuth()
 
     const response = await fetch(`${apiBaseUrl}/user-answer`, {
       method,
-      headers: {
-        accept: '*/*',
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(answerPayload),
     })
 

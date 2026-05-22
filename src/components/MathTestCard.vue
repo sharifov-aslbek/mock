@@ -3,7 +3,6 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NCard, NModal, NButton } from 'naive-ui'
-import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 
 const props = defineProps({
@@ -19,7 +18,6 @@ const props = defineProps({
 
 const router = useRouter()
 const { t } = useI18n()
-const authStore = useAuthStore()
 const testStore = useTestStore()
 const isStarting = ref(false)
 const startError = ref('')
@@ -27,29 +25,10 @@ const showStartModal = ref(false)
 const showAttemptChoiceModal = ref(false)
 const isInProgressCard = computed(() => Boolean(props.test.isInProgressCard))
 
-const ensureAuth = async (redirectTarget) => {
-  if (authStore.isAuthenticated) {
-    return true
-  }
-
-  await router.push({
-    path: '/login',
-    query: {
-      redirect: redirectTarget,
-    },
-  })
-
-  return false
-}
-
 const openTest = async () => {
   const redirectTarget = props.isAttemptedCard
     ? `/test?testId=${props.test.id}&restart=1`
     : `/test?testId=${props.test.id}`
-
-  if (!(await ensureAuth(redirectTarget))) {
-    return
-  }
 
   isStarting.value = true
   startError.value = ''
@@ -79,14 +58,8 @@ const confirmStartTest = async () => {
 }
 
 const openLastResult = async () => {
-  const redirectTarget = `/explanation?testId=${props.test.id}`
-
-  if (!(await ensureAuth(redirectTarget))) {
-    return
-  }
-
   showAttemptChoiceModal.value = false
-  await router.push(redirectTarget)
+  await router.push(`/explanation?testId=${props.test.id}`)
 }
 
 const restartAttemptedTest = async () => {

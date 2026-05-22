@@ -565,7 +565,16 @@ function submissionBelongsToTest(submission, testId) {
     return false
   }
 
-  if (Number(submission.testId || submission?.test?.id || 0) === Number(testId)) {
+  const numericTestId = Number(testId)
+
+  if (Number(submission.testId || submission?.test?.id || 0) === numericTestId) {
+    return true
+  }
+
+  if (
+    Array.isArray(submission.questions) &&
+    submission.questions.some((question) => Number(question?.testId) === numericTestId)
+  ) {
     return true
   }
 
@@ -878,12 +887,56 @@ function closeResultModal() {
   showResultModal.value = false
 }
 
-function downloadCertificate() {
+async function downloadCertificate() {
   if (typeof window === 'undefined') {
     return
   }
 
-  window.print()
+  const certEl = document.querySelector('.certificate-modal-inner .certificate-page, .result-modal-inner .certificate-page')
+
+  if (!certEl) {
+    return
+  }
+
+  const scaledParent = certEl.parentElement
+  const previousTransform = scaledParent?.style.transform || ''
+  const previousTransition = scaledParent?.style.transition || ''
+
+  if (scaledParent) {
+    scaledParent.style.transition = 'none'
+    scaledParent.style.transform = 'translate(-50%, -50%)'
+  }
+
+  const { default: html2pdf } = await import('html2pdf.js')
+  const data = certificateViewModel.value || {}
+  const filenameParts = [data.lastName, data.firstName, data.certificateNumber]
+    .filter(Boolean)
+    .map((part) => String(part).trim().replace(/\s+/g, '_'))
+  const filename = `${filenameParts.join('_') || 'sertifikat'}.pdf`
+
+  try {
+    await html2pdf()
+      .from(certEl)
+      .set({
+        margin: 0,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          windowWidth: CERT_FRAME_WIDTH,
+          windowHeight: CERT_FRAME_HEIGHT,
+        },
+        jsPDF: { unit: 'px', format: [CERT_FRAME_WIDTH, CERT_FRAME_HEIGHT], orientation: 'portrait' },
+      })
+      .save()
+  } finally {
+    if (scaledParent) {
+      scaledParent.style.transform = previousTransform
+      scaledParent.style.transition = previousTransition
+    }
+  }
 }
 
 function clearReportTimeout() {
@@ -1845,19 +1898,6 @@ function answerFeedbackText(question) {
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                class="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#0a0a0a] px-4 text-xs font-semibold text-white transition hover:bg-[#1a1a1a]"
-                @click="downloadCertificate"
-              >
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3v12" stroke-linecap="round" />
-                  <path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 21h14" stroke-linecap="round" />
-                </svg>
-                <span class="hidden sm:inline">Yuklab olish</span>
-              </button>
-
               <button
                 type="button"
                 class="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"

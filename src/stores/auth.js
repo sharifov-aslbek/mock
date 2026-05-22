@@ -3,14 +3,41 @@ import { defineStore } from 'pinia'
 import { getTestApiBaseUrl } from '@/utils/api'
 
 const TOKEN_KEY = 'milliymock_token'
+const TEMP_USER_KEY = 'milliymock_temp_user'
+
+function loadStoredTempUser() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(TEMP_USER_KEY)
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw)
+
+    if (!parsed || !parsed.id) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '')
   const isLoading = ref(false)
   const errorMessage = ref('')
   const userInfo = ref(null)
+  const tempUser = ref(loadStoredTempUser())
 
   const isAuthenticated = computed(() => Boolean(token.value))
+  const tempUserId = computed(() => tempUser.value?.id || null)
 
   async function login(email, password) {
     const apiBaseUrl = getTestApiBaseUrl()
@@ -43,6 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       token.value = payload.data.token
       localStorage.setItem(TOKEN_KEY, payload.data.token)
+      setTempUser(null)
 
       return payload
     } catch (error) {
@@ -92,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
 
             token.value = payload.data.token
             localStorage.setItem(TOKEN_KEY, payload.data.token)
+            setTempUser(null)
 
         } catch (error) {
             errorMessage.value =
@@ -134,6 +163,47 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function setTempUser(value) {
+    if (!value || !value.id) {
+      tempUser.value = null
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(TEMP_USER_KEY)
+      }
+      return
+    }
+
+    tempUser.value = value
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(TEMP_USER_KEY, JSON.stringify(value))
+    }
+  }
+
+  async function createTempUser({ firstName, lastName, fatherName }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    const response = await fetch(`${apiBaseUrl}/temp-user`, {
+      method: 'POST',
+      headers: {
+        accept: '*/*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ firstName, lastName, fatherName }),
+    })
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || payload?.code !== 200 || !payload?.data?.id) {
+      throw new Error(payload?.message || 'Could not create temp user.')
+    }
+
+    setTempUser(payload.data)
+    return payload.data
+  }
+
   function logout() {
     token.value = ''
     errorMessage.value = ''
@@ -149,6 +219,10 @@ export const useAuthStore = defineStore('auth', () => {
     telegramLogin,
     getUserInfo,
     userInfo,
+    tempUser,
+    tempUserId,
+    createTempUser,
+    setTempUser,
     logout,
   }
 })
