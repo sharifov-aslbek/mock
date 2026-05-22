@@ -6,17 +6,8 @@ import { getTestApiBaseUrl } from '@/utils/api'
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
 function shuffleItems(items) {
-  const result = [...items]
-
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1))
-    const currentItem = result[index]
-
-    result[index] = result[swapIndex]
-    result[swapIndex] = currentItem
-  }
-
-  return result
+  // Shuffle disabled until the option-id mismatch is root-caused; preserve backend order.
+  return [...items]
 }
 
 function withOptionLetters(options) {
