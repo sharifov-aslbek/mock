@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 // Import your page components
 import HomaPage from '@/views/HomaPage.vue'
 
@@ -26,7 +27,8 @@ const routes = [
   {
     path: '/test',
     name: 'test',
-    component: () => import('@/views/TestPage.vue')
+    component: () => import('@/views/TestPage.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/dashboard',
@@ -41,7 +43,8 @@ const routes = [
   {
     path: '/explanation',
     name: 'explanation',
-    component: () => import('@/views/ExplanationPage.vue')
+    component: () => import('@/views/ExplanationPage.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',
@@ -53,6 +56,23 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to) => {
+  if (!to.meta?.requiresAuth) {
+    return true
+  }
+
+  const authStore = useAuthStore()
+
+  if (authStore.isAuthenticated) {
+    return true
+  }
+
+  return {
+    name: 'login',
+    query: { redirect: to.fullPath },
+  }
 })
 
 export default router

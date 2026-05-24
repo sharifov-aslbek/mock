@@ -93,32 +93,11 @@ export const useTestStore = defineStore('test', () => {
     return headers
   }
 
-  function appendTempUserParam(url) {
+  function ensureAuth() {
     const authStore = useAuthStore()
 
-    if (authStore.token || !authStore.tempUserId) {
-      return url
-    }
-
-    const separator = url.includes('?') ? '&' : '?'
-    return `${url}${separator}tempUserId=${Number(authStore.tempUserId)}`
-  }
-
-  function withTempUserField(body) {
-    const authStore = useAuthStore()
-
-    if (authStore.token || !authStore.tempUserId) {
-      return body
-    }
-
-    return { ...body, tempUserId: Number(authStore.tempUserId) }
-  }
-
-  function ensureGuestOrAuth() {
-    const authStore = useAuthStore()
-
-    if (!authStore.token && !authStore.tempUserId) {
-      throw new Error('Authentication or temp user is required.')
+    if (!authStore.token) {
+      throw new Error('Authentication is required.')
     }
   }
 
@@ -162,7 +141,7 @@ export const useTestStore = defineStore('test', () => {
       throw new Error('Test API base URL is missing.')
     }
 
-    ensureGuestOrAuth()
+    ensureAuth()
 
     errorMessage.value = ''
 
@@ -170,7 +149,7 @@ export const useTestStore = defineStore('test', () => {
       const response = await fetch(`${apiBaseUrl}/user-test-attempt`, {
         method: 'POST',
         headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(withTempUserField({ testId: Number(testId) })),
+        body: JSON.stringify({ testId: Number(testId) }),
       })
 
       const payload = await response.json()
@@ -195,12 +174,10 @@ export const useTestStore = defineStore('test', () => {
       throw new Error('Test API base URL is missing.')
     }
 
-    ensureGuestOrAuth()
+    ensureAuth()
 
     const response = await fetch(
-      appendTempUserParam(
-        `${apiBaseUrl}/user-test-attempt/get-progress?testId=${Number(testId)}`,
-      ),
+      `${apiBaseUrl}/user-test-attempt/get-progress?testId=${Number(testId)}`,
       {
         headers: buildAuthHeaders(),
       },
@@ -222,7 +199,7 @@ export const useTestStore = defineStore('test', () => {
       throw new Error('Test API base URL is missing.')
     }
 
-    ensureGuestOrAuth()
+    ensureAuth()
 
     const response = await fetch(
       `${apiBaseUrl}/user-test-attempt/submit?testId=${Number(testId)}&testAttemptId=${Number(testAttemptId)}`,
@@ -251,9 +228,7 @@ export const useTestStore = defineStore('test', () => {
     }
 
     const response = await fetch(
-      appendTempUserParam(
-        `${apiBaseUrl}/question-explanation?questionId=${Number(questionId)}`,
-      ),
+      `${apiBaseUrl}/question-explanation?questionId=${Number(questionId)}`,
       {
         headers: buildAuthHeaders(),
       },
@@ -275,7 +250,7 @@ export const useTestStore = defineStore('test', () => {
       throw new Error('Test API base URL is missing.')
     }
 
-    ensureGuestOrAuth()
+    ensureAuth()
 
     const response = await fetch(`${apiBaseUrl}/user-answer`, {
       method,

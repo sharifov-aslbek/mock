@@ -253,7 +253,6 @@ const loginRoute = computed(() => ({
 
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
 const canAccessTest = computed(() => currentTest.value && hasCompletedEntryProfile.value)
-const isGuestUser = computed(() => !authStore.isAuthenticated)
 
 const totalQuestions = computed(() => renderedQuestions.value.length)
 
@@ -672,6 +671,7 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
 
     if (nextDurationMs <= 0) {
       stopTimer()
+      void autoSubmitOnTimeUp()
     }
   }
 
@@ -968,6 +968,16 @@ const loadTest = async (testId) => {
     return
   }
 
+  if (!authStore.isAuthenticated) {
+    clearAnswers()
+    activeAttemptId.value = null
+    dirtyQuestionIds.clear()
+    closeReferenceWindow()
+    testStore.clearCurrentTest()
+    pageErrorKey.value = 'testPage.authRequired'
+    return
+  }
+
   if (!(await ensureEntryProfile())) {
     clearAnswers()
     activeAttemptId.value = null
@@ -1028,18 +1038,6 @@ const fillProfileForm = (userInfo) => {
 }
 
 const ensureEntryProfile = async () => {
-  if (isGuestUser.value) {
-    if (hasCompletedEntryProfile.value) {
-      showProfileModal.value = false
-      profileError.value = ''
-      return true
-    }
-
-    fillProfileForm(authStore.tempUser)
-    showProfileModal.value = true
-    return false
-  }
-
   if (hasCompletedEntryProfile.value && hasRequiredUserProfile(authStore.userInfo)) {
     return true
   }
@@ -1217,9 +1215,7 @@ watch(
 
     if (!shouldStartFresh) {
       await restoreProgress(test.id)
-      if (!isGuestUser.value) {
-        await restoreProgressFromApi(test.id)
-      }
+      await restoreProgressFromApi(test.id)
     }
 
     await ensureAttemptStarted(test)
@@ -1269,6 +1265,30 @@ const confirmSubmitTest = async () => {
   }
 }
 
+async function autoSubmitOnTimeUp() {
+  if (
+    isSubmittingTest.value ||
+    isCompletingTest.value ||
+    !currentTest.value?.id ||
+    !activeAttemptId.value
+  ) {
+    return
+  }
+
+  isSubmittingTest.value = true
+  isCompletingTest.value = true
+  showSubmitModal.value = false
+
+  try {
+    await finishTestAndGoToExplanation()
+  } catch (error) {
+    console.error(error)
+    isCompletingTest.value = false
+  } finally {
+    isSubmittingTest.value = false
+  }
+}
+
 const submitEntryProfile = async () => {
   const firstName = profileForm.firstName.trim()
   const lastName = profileForm.lastName.trim()
@@ -1283,25 +1303,6 @@ const submitEntryProfile = async () => {
   profileError.value = ''
 
   try {
-    if (isGuestUser.value) {
-      await authStore.createTempUser({ firstName, lastName, fatherName })
-      hasCompletedEntryProfile.value = true
-      showProfileModal.value = false
-
-      // Fresh identity → start a brand-new attempt, drop any progress left over from a prior temp user.
-      const currentTestId = requestedTestId.value
-      if (currentTestId) {
-        clearAnswers()
-        activeAttemptId.value = null
-        dirtyQuestionIds.clear()
-        testProgressStore.clearProgress(currentTestId)
-        clearAnswerActionsForTest(currentTestId)
-      }
-
-      await loadTest(currentTestId)
-      return
-    }
-
     const apiBaseUrl = getTestApiBaseUrl()
     const response = await fetch(`${apiBaseUrl}/user`, {
       method: 'PUT',

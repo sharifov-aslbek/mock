@@ -359,7 +359,8 @@ const filteredQuestions = computed(() => {
       ? stripHtml(getEntityText(group))
       : ''
 
-    const questionTextRaw = getEntityText(sourceQuestion)
+    const questionTranslation = getLocalizedTranslation(sourceQuestion)
+    const questionTextRaw = questionTranslation?.text || getEntityText(sourceQuestion)
 
     const titleSource =
       stripHtml(questionTextRaw) || `Savol ${displayLabel}`
@@ -389,7 +390,7 @@ const filteredQuestions = computed(() => {
 
       imageUrl:
         sourceQuestion.imageUrl ||
-        buildAssetUrl(sourceQuestion.imagePath),
+        buildAssetUrl(questionTranslation?.imagePath || sourceQuestion.imagePath),
 
       correctAnswer: correctOption?.letter || '-',
 
@@ -1249,6 +1250,7 @@ function answerFeedbackText(question) {
                         :text="row.title"
                         wrapper-class="line-clamp-2 break-words text-[13px] leading-[1.4]"
                       />
+                      
                     </div>
                   </td>
                   <td class="px-6 py-4">
@@ -1496,7 +1498,7 @@ function answerFeedbackText(question) {
                     Savol matni mavjud emas.
                   </p>
 
-                  <div
+                  <!-- <div
                     v-if="currentQuestion.imageUrl"
                     class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4 sm:p-6"
                   >
@@ -1505,7 +1507,7 @@ function answerFeedbackText(question) {
                       :alt="`Savol ${currentQuestion.displayIndex}`"
                       class="max-h-[420px] w-auto max-w-full"
                     />
-                  </div>
+                  </div> -->
                 </div>
               </div>
 
@@ -1580,12 +1582,12 @@ function answerFeedbackText(question) {
                         <span>Video izohni ko'rish</span>
                       </a>
                       <div
-                        v-if="explanationImageUrl"
+                        v-if="currentQuestion.imageUrl"
                         class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
                       >
                         <img
-                          :src="explanationImageUrl"
-                          alt="Tushuntirish rasmi"
+                          :src="currentQuestion.imageUrl"
+                          :alt="`Savol ${currentQuestion.displayIndex}`"
                           class="block h-auto w-full"
                         />
                       </div>
@@ -1700,12 +1702,12 @@ function answerFeedbackText(question) {
                         <span>Video izohni ko'rish</span>
                       </a>
                       <div
-                        v-if="explanationImageUrl"
+                        v-if="currentQuestion.imageUrl"
                         class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
                       >
                         <img
-                          :src="explanationImageUrl"
-                          alt="Tushuntirish rasmi"
+                          :src="currentQuestion.imageUrl"
+                          :alt="`Savol ${currentQuestion.displayIndex}`"
                           class="block h-auto w-full"
                         />
                       </div>

@@ -73,9 +73,7 @@ export function buildCertificateViewModel({
       incorrectCount,
   )
 
-  // Prefer identity returned by the submission itself (tempUser for guests, user for logged-in)
-  // so the certificate reflects exactly what was submitted to the backend.
-  const identity = submission?.tempUser || submission?.user || user || null
+  const identity = submission?.user || user || null
 
   const certificateNumber = attemptId
     ? `UZ25 ${String(attemptId).padStart(6, '0')}`
