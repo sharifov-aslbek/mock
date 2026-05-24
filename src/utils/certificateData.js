@@ -9,23 +9,27 @@ function formatScore(value) {
 }
 
 function gradeFromPercentage(percentage) {
-  if (percentage >= 90) {
+  if (percentage >= 70) {
+    return 'A+'
+  }
+
+  if (percentage >= 65) {
     return 'A'
   }
 
-  if (percentage >= 80) {
+  if (percentage >= 60) {
+    return 'B+'
+  }
+
+  if (percentage >= 50) {
     return 'B'
   }
 
-  if (percentage >= 70) {
+  if (percentage >= 46) {
     return 'C'
   }
 
-  if (percentage >= 60) {
-    return 'D'
-  }
-
-  return 'F'
+  return 'Sertifikatga tavsiya etilmadingiz'
 }
 
 function formatIssuedDate(date) {
