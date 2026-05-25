@@ -20,7 +20,19 @@ const navItems = computed(() => [
   { label: t('navbar.pricing'), to: '/pricing' },
 ])
 
-const userName = computed(() => authStore.userInfo?.fullName || 'Foydalanuvchi')
+const currentUser = computed(
+  () => authStore.userInfo as { firstName?: string; fullName?: string } | null,
+)
+
+const userName = computed(
+  () => currentUser.value?.firstName || currentUser.value?.fullName || 'Foydalanuvchi',
+)
+
+const userInitial = computed(() => {
+  const source = currentUser.value?.firstName || currentUser.value?.fullName || ''
+  const trimmed = source.trim()
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
+})
 
 const localeModel = computed({
   get: () => locale.value,
@@ -125,10 +137,8 @@ onMounted(() => {
             class="flex items-center gap-2.5 rounded-full border border-[#333] bg-[#1e1e1e] px-3.5 py-2 transition hover:opacity-90"
             @click="toggleUserMenu"
           >
-            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2563eb]">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
-              </svg>
+            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-[12px] font-semibold uppercase text-white">
+              {{ userInitial }}
             </span>
             <span class="max-w-[180px] truncate text-[14px] font-medium text-white">{{ userName }}</span>
           </button>
@@ -161,11 +171,9 @@ onMounted(() => {
         <router-link
           v-if="authStore.userInfo"
           to="/profile"
-          class="flex h-9 w-9 items-center justify-center rounded-full bg-[#2563eb] sm:hidden"
+          class="flex h-9 w-9 items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold uppercase text-white sm:hidden"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
-          </svg>
+          {{ userInitial }}
         </router-link>
 
         <button
@@ -218,10 +226,8 @@ onMounted(() => {
 
         <div class="border-b border-[#1a1a1a] px-5 py-4">
           <div v-if="authStore.userInfo" class="flex items-center gap-3">
-            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
-              </svg>
+            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-[16px] font-semibold uppercase text-white">
+              {{ userInitial }}
             </span>
             <div class="min-w-0">
               <p class="truncate text-[14px] font-semibold text-white">{{ userName }}</p>
