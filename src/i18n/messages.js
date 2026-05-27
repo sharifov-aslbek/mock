@@ -15,6 +15,7 @@ const messages = {
         math: 'Matematika',
         physics: 'Fizika',
         chemistry: 'Kimyo',
+        mashq: 'Mashq',
         psat: 'PSAT',
         shsat: 'SHSAT'
       }
@@ -319,6 +320,7 @@ const messages = {
         math: 'Математика',
         physics: 'Физика',
         chemistry: 'Химия',
+        mashq: 'Практика',
         psat: 'PSAT',
         shsat: 'SHSAT'
       }

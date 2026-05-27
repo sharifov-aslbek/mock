@@ -20,6 +20,11 @@ const routes = [
     component: () => import('@/views/MathPage.vue')
   },
   {
+    path: '/mashq',
+    name: 'mashq',
+    component: () => import('@/views/MashqPage.vue')
+  },
+  {
     path: '/result-exam',
     name: 'result-exam',
     component: () => import('@/views/ResultExamPage.vue')
