@@ -17,41 +17,50 @@ import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
+// testni boshlashidan oldin foydalanuvchi profilidan talab qilinadigan maydonlar ro'yxati
 const REQUIRED_PROFILE_FIELDS = ['firstName', 'lastName', 'fatherName']
+
+// framework / store'lardan kelgan hook'lar
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
-const answers = reactive({})
-const freeAnswers = reactive({})
-const pageErrorKey = ref('')
-const remainingSeconds = ref(0)
-const isReferenceOpen = ref(false)
-const showSubmitModal = ref(false)
-const showProfileModal = ref(false)
-const showLeaveModal = ref(false)
-let pendingNavigationCallback = null
-const isSubmittingTest = ref(false)
-const isSavingProfile = ref(false)
-const shouldPersistProgress = ref(true)
-const activeAttemptId = ref(null)
-const hasCompletedEntryProfile = ref(false)
-const profileError = ref('')
-const profileForm = reactive({
+
+// script ichida saqlanadigan sahifa holati
+const answers = reactive({})                  // questionId -> selectedOptionId ko'rinishidagi map
+const freeAnswers = reactive({})              // questionId -> erkin javob HTML/matni ko'rinishidagi map
+const pageErrorKey = ref('')                  // sahifa ochilmaganda ko'rsatiladigan i18n kalit
+const remainingSeconds = ref(0)               // test taymerida qolgan sekundlar
+const isReferenceOpen = ref(false)            // algebra/geometriya yordam paneli ochiqmi
+const showSubmitModal = ref(false)            // "testni topshirish" tasdiq modali ochiqmi
+const showProfileModal = ref(false)           // profil kiritish modali ochiqmi
+const showLeaveModal = ref(false)             // navigatsiyani tasdiqlash modali ochiqmi
+let pendingNavigationCallback = null          // onBeforeRouteLeave'dan kelgan next() funksiyasini saqlaydi
+const isSubmittingTest = ref(false)           // hozir test topshirilyaptimi
+const isSavingProfile = ref(false)            // hozir profil saqlanyaptimi
+const shouldPersistProgress = ref(true)       // jarayonni localStorage ga saqlash kerakmi
+const activeAttemptId = ref(null)             // API'dan kelgan user-test-attempt id si
+const hasCompletedEntryProfile = ref(false)   // profilning to'liqligini allaqachon tekshirdikmi
+const profileError = ref('')                  // profil modali ichida ko'rsatiladigan xato matni
+const profileForm = reactive({                // profil modali input'lariga bog'langan
   firstName: '',
   lastName: '',
   fatherName: '',
 })
+
+// reactive bo'lmasligi mumkin bo'lgan timer id va flag'lar
 let timerIntervalId = null
 let isSyncingAnswers = false
 let pendingSyncRequested = false
 let isStartingAttempt = false
 let isCompletingTest = ref(false)
-const dirtyQuestionIds = new Set()
+const dirtyQuestionIds = new Set()            // oxirgi sinxronizatsiyadan keyin tahrirlangan savol id'lari
 const ANSWER_ACTIONS_STORAGE_KEY = 'test_answer_actions'
-const answerActions = ref([])
+const answerActions = ref([])                 // javob create/update so'rovlarining navbati
+
+// tabriklash animatsiyasi uchun konfetti bo'laklari
 const confettiPieces = [
   { left: '-22px', top: '22px', color: '#ef4444', delay: '0s', rotate: '18deg' },
   { left: '-34px', top: '118px', color: '#f59e0b', delay: '0.18s', rotate: '-24deg' },
@@ -63,24 +72,14 @@ const confettiPieces = [
   { right: '-16px', top: '282px', color: '#f97316', delay: '0.28s', rotate: '-18deg' },
 ]
 
+// algebra/geometriya/trigonometriya yordam panelida ko'rsatiladigan varaqlar
 const referenceSheets = [
-  {
-    id: 1,
-    title: 'Algebra',
-    src: referenceImage1,
-  },
-  {
-    id: 2,
-    title: 'Geometry',
-    src: referenceImage2,
-  },
-  {
-    id: 3,
-    title: 'Trigonometry',
-    src: referenceImage3,
-  },
+  { id: 1, title: 'Algebra', src: referenceImage1 },
+  { id: 2, title: 'Geometry', src: referenceImage2 },
+  { id: 3, title: 'Trigonometry', src: referenceImage3 },
 ]
 
+// URL'dagi ?testId= query string'dan test id ni o'qiymiz
 const requestedTestId = computed(() => {
   if (typeof route.query.testId === 'string') {
     return route.query.testId
@@ -89,107 +88,207 @@ const requestedTestId = computed(() => {
   return ''
 })
 
+// URL'da ?restart=1 bo'lsa true (foydalanuvchi yangi urinish boshlamoqchi)
 const shouldRestartTest = computed(() => route.query.restart === '1')
 
+// pinia store'dan kelgan test ma'lumotlari
 const currentTest = computed(() => testStore.currentTest)
 const testApiBaseUrl = getTestApiBaseUrl()
 
+// locale kodi -> API translations ichida ishlatadigan til nomi
 const LANGUAGE_BY_LOCALE = {
   uz: 'Uzbek',
   ru: 'Russian',
 }
 
+// guruhli savollar uchun ichki tartib label'lari (a, b, c, ...)
 const GROUP_SUBORDER_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('')
 
+// joriy locale uchun mos tarjimani olamiz, topilmasa uz ga qaytamiz
 const getLocalizedTranslation = (entity) => {
-  const translations = Array.isArray(entity?.translations) ? entity.translations : []
+  // translations massivini xavfsiz olib chiqamiz
+  let translations = []
+  if (entity && Array.isArray(entity.translations)) {
+    translations = entity.translations
+  }
 
-  if (!translations.length) {
+  if (translations.length === 0) {
     return null
   }
 
-  const preferredLanguage = LANGUAGE_BY_LOCALE[locale.value] || LANGUAGE_BY_LOCALE.uz
+  // qaysi til kerakligini aniqlaymiz
+  let preferredLanguage = LANGUAGE_BY_LOCALE[locale.value]
+  if (!preferredLanguage) {
+    preferredLanguage = LANGUAGE_BY_LOCALE.uz
+  }
 
-  return (
-    translations.find((item) => item?.language === preferredLanguage) ||
-    translations.find((item) => item?.language === LANGUAGE_BY_LOCALE.uz) ||
-    translations[0] ||
-    null
-  )
+  // tartib: tanlangan til -> uz -> birinchi mavjud bo'lgan
+  const preferredMatch = translations.find((item) => item && item.language === preferredLanguage)
+  if (preferredMatch) {
+    return preferredMatch
+  }
+
+  const uzMatch = translations.find((item) => item && item.language === LANGUAGE_BY_LOCALE.uz)
+  if (uzMatch) {
+    return uzMatch
+  }
+
+  if (translations[0]) {
+    return translations[0]
+  }
+
+  return null
 }
 
+// savol/guruh/va h.k. uchun ko'rsatiladigan matnni olamiz
 const getEntityText = (entity) => {
   const translation = getLocalizedTranslation(entity)
 
-  return translation?.text || entity?.text || entity?.title || ''
+  if (translation && translation.text) {
+    return translation.text
+  }
+
+  if (entity && entity.text) {
+    return entity.text
+  }
+
+  if (entity && entity.title) {
+    return entity.title
+  }
+
+  return ''
 }
 
+// API'dan kelgan rasm yo'lini to'liq URL ga aylantiramiz
 const buildEntityImageUrl = (imagePath) => {
   if (!imagePath) {
     return null
   }
 
+  // allaqachon to'liq URL
   if (/^https?:\/\//i.test(imagePath)) {
     return imagePath
   }
 
+  // base URL hali ma'lum emas, yo'lni o'zgartirmasdan qaytaramiz
   if (!testApiBaseUrl) {
     return imagePath
   }
 
   try {
-    return `${new URL(testApiBaseUrl).origin}/${String(imagePath).replace(/^\/+/, '')}`
+    const origin = new URL(testApiBaseUrl).origin
+    const cleanedPath = String(imagePath).replace(/^\/+/, '')
+    return `${origin}/${cleanedPath}`
   } catch {
     return imagePath
   }
 }
 
+// savol/guruh/va h.k. uchun to'g'ri rasm URL'ini aniqlaymiz
 const getEntityImageUrl = (entity) => {
   const translation = getLocalizedTranslation(entity)
-  const imagePath = translation?.imagePath || entity?.imagePath || null
 
-  return entity?.imageUrl || buildEntityImageUrl(imagePath)
+  // avval lokalizatsiya qilingan rasm yo'lini olamiz, bo'lmasa entity'dagisini
+  let imagePath = null
+  if (translation && translation.imagePath) {
+    imagePath = translation.imagePath
+  } else if (entity && entity.imagePath) {
+    imagePath = entity.imagePath
+  }
+
+  // backend ba'zida tayyor imageUrl yuboradi
+  if (entity && entity.imageUrl) {
+    return entity.imageUrl
+  }
+
+  return buildEntityImageUrl(imagePath)
 }
 
-const questionGroupsById = computed(
-  () =>
-    new Map(
-      (currentTest.value?.questionGroups || []).map((group) => [Number(group.id), group]),
-    ),
-)
+// savol guruhlarini id bo'yicha qidirish uchun map
+const questionGroupsById = computed(() => {
+  const map = new Map()
+  let groups = []
+  if (currentTest.value && currentTest.value.questionGroups) {
+    groups = currentTest.value.questionGroups
+  }
 
-const renderedQuestionsById = computed(
-  () => new Map(renderedQuestions.value.map((question) => [Number(question.id), question])),
-)
+  for (const group of groups) {
+    map.set(Number(group.id), group)
+  }
+  return map
+})
 
+// render qilingan savollarni id bo'yicha qidirish uchun map
+const renderedQuestionsById = computed(() => {
+  const map = new Map()
+  for (const question of renderedQuestions.value) {
+    map.set(Number(question.id), question)
+  }
+  return map
+})
+
+// har bir savol guruhi uchun render modelini quramiz (template ishlatadi)
 const groupRenderModels = computed(() => {
   const models = new Map()
 
-  for (const group of currentTest.value?.questionGroups || []) {
+  let groups = []
+  if (currentTest.value && currentTest.value.questionGroups) {
+    groups = currentTest.value.questionGroups
+  }
+
+  for (const group of groups) {
     const normalizedGroupId = Number(group.id)
     const groupedQuestions = getGroupedQuestions(normalizedGroupId)
-    const distinctOrders = [
-      ...new Set(
-        groupedQuestions
-          .map((question) => String(question.displayOrder || question.order || '').trim())
-          .filter(Boolean),
-      ),
-    ]
-    const useSharedGroupOrder = groupedQuestions.length > 1 && distinctOrders.length === 1
-    const orderLabel = useSharedGroupOrder ? distinctOrders[0] : ''
-    const questions = groupedQuestions.map((question, index) => ({
-      ...question,
-      groupSubLabel: useSharedGroupOrder
-        ? GROUP_SUBORDER_LETTERS[index] || String(index + 1)
-        : question.showOrder
-          ? String(question.displayOrder)
-          : '',
-      shouldSeparate: shouldSeparateGroupedQuestion(normalizedGroupId, question.id),
-      matchingOptions:
-        question.type === 'Matching'
-          ? getAvailableMatchingOptions(normalizedGroupId, question.id)
-          : [],
-    }))
+
+    // shu guruh ichida ko'rsatilgan turli tartib raqamlarini yig'amiz
+    const orderStrings = []
+    for (const question of groupedQuestions) {
+      let raw = ''
+      if (question.displayOrder) {
+        raw = String(question.displayOrder)
+      } else if (question.order) {
+        raw = String(question.order)
+      }
+
+      const trimmed = raw.trim()
+      if (trimmed && !orderStrings.includes(trimmed)) {
+        orderStrings.push(trimmed)
+      }
+    }
+
+    // butun guruh bitta tartib raqamiga ega bo'lsa, bitta label va a/b/c ichki tartiblarni ishlatamiz
+    const useSharedGroupOrder = groupedQuestions.length > 1 && orderStrings.length === 1
+    let orderLabel = ''
+    if (useSharedGroupOrder) {
+      orderLabel = orderStrings[0]
+    }
+
+    // har bir savolga guruh-ga oid qo'shimchalarni biriktiramiz
+    const questions = groupedQuestions.map((question, index) => {
+      let groupSubLabel = ''
+      if (useSharedGroupOrder) {
+        if (GROUP_SUBORDER_LETTERS[index]) {
+          groupSubLabel = GROUP_SUBORDER_LETTERS[index]
+        } else {
+          groupSubLabel = String(index + 1)
+        }
+      } else if (question.showOrder) {
+        groupSubLabel = String(question.displayOrder)
+      }
+
+      // matching turidagi savollar qaysi variantlar hali bo'sh ekanini bilishi kerak
+      let matchingOptions = []
+      if (question.type === 'Matching') {
+        matchingOptions = getAvailableMatchingOptions(normalizedGroupId, question.id)
+      }
+
+      return {
+        ...question,
+        groupSubLabel,
+        shouldSeparate: shouldSeparateGroupedQuestion(normalizedGroupId, question.id),
+        matchingOptions,
+      }
+    })
 
     models.set(normalizedGroupId, {
       orderLabel,
@@ -201,22 +300,38 @@ const groupRenderModels = computed(() => {
   return models
 })
 
-
-
-
+// render uchun tayyor savollar massivini quramiz (tartib va guruh flag'lari bilan)
 const renderedQuestions = computed(() => {
   const shownGroups = new Set()
   let previousOrderLabel = null
 
-  return (currentTest.value?.questions || []).map((question, index) => {
-    const group = question.questionGroupId
-      ? questionGroupsById.value.get(Number(question.questionGroupId))
-      : null
+  let sourceQuestions = []
+  if (currentTest.value && currentTest.value.questions) {
+    sourceQuestions = currentTest.value.questions
+  }
+
+  return sourceQuestions.map((question, index) => {
+    // bu savol qaysi guruhga tegishli ekanini topamiz (agar bor bo'lsa)
+    let group = null
+    if (question.questionGroupId) {
+      group = questionGroupsById.value.get(Number(question.questionGroupId))
+    }
+
+    // bu savolga qaysi raqam ko'rsatilishini hal qilamiz
     const normalizedOrder = Number(question.order)
-    const displayOrder =
-      Number.isFinite(normalizedOrder) && normalizedOrder > 0 ? normalizedOrder : index + 1
+    let displayOrder = index + 1
+    if (Number.isFinite(normalizedOrder) && normalizedOrder > 0) {
+      displayOrder = normalizedOrder
+    }
     const orderLabel = String(displayOrder)
-    const showGroupBlock = Boolean(group && !shownGroups.has(Number(group.id)))
+
+    // bu guruhning birinchi uchrashuvi? unda guruh sarlavhasini chiqaramiz
+    let showGroupBlock = false
+    if (group && !shownGroups.has(Number(group.id))) {
+      showGroupBlock = true
+    }
+
+    // ketma-ket ikki savol bir xil raqamga ega bo'lsa, ikkinchisida raqamni ko'rsatmaymiz
     const showOrder = orderLabel !== previousOrderLabel
 
     if (showGroupBlock) {
@@ -238,6 +353,7 @@ const renderedQuestions = computed(() => {
   })
 })
 
+// sahifada ko'rsatiladigan xato matnini tanlaymiz
 const resolvedErrorMessage = computed(() => {
   if (pageErrorKey.value) {
     return t(pageErrorKey.value)
@@ -246,6 +362,7 @@ const resolvedErrorMessage = computed(() => {
   return testStore.errorMessage
 })
 
+// xato holatidagi login havolasi uchun route obyekti
 const loginRoute = computed(() => ({
   path: '/login',
   query: {
@@ -253,108 +370,166 @@ const loginRoute = computed(() => ({
   },
 }))
 
+// xato aynan "tizimga kirish kerak" turidagimi?
 const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
-const canAccessTest = computed(() => currentTest.value && hasCompletedEntryProfile.value)
+
+// testni ko'rsatishimiz mumkinmi? bizga ma'lumot HAM to'liq profil kerak
+const canAccessTest = computed(() => {
+  if (!currentTest.value) {
+    return false
+  }
+  if (!hasCompletedEntryProfile.value) {
+    return false
+  }
+  return true
+})
 
 const totalQuestions = computed(() => renderedQuestions.value.length)
 
+// test har doim 60 daqiqa davom etadi
 const TEST_DURATION_MINUTES = 60
 const TEST_DURATION_SECONDS = TEST_DURATION_MINUTES * 60
 const totalDurationMinutes = computed(() => TEST_DURATION_MINUTES)
 
+// erkin javob HTML satrida haqiqiy mazmun (matn yoki inline math) borligini tekshiramiz
 const hasFreeAnswerContent = (value) => {
   if (typeof value !== 'string') {
     return false
   }
 
   const normalizedValue = value.trim()
-
   if (!normalizedValue) {
     return false
   }
 
+  // inline-math element matni bo'sh bo'lsa ham mazmun sifatida hisoblanadi
   if (/data-type=["']inline-math["']/i.test(normalizedValue)) {
     return true
   }
 
-  const textContent = normalizedValue
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/p>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .trim()
+  // HTML teglarini olib tashlab, ko'rinadigan matn qolganini tekshiramiz
+  let textContent = normalizedValue
+  textContent = textContent.replace(/<br\s*\/?>/gi, ' ')
+  textContent = textContent.replace(/<\/p>/gi, ' ')
+  textContent = textContent.replace(/<[^>]+>/g, '')
+  textContent = textContent.replace(/&nbsp;/gi, ' ')
+  textContent = textContent.trim()
 
-  return Boolean(textContent)
+  if (textContent) {
+    return true
+  }
+  return false
 }
 
-const answeredCount = computed(() =>
-  renderedQuestions.value.reduce((count, question) => {
+// foydalanuvchi nechta savolga javob berganini sanaymiz
+const answeredCount = computed(() => {
+  let count = 0
+  for (const question of renderedQuestions.value) {
     if (question.type === 'FreeAnswer') {
-      return count + (hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ? 1 : 0)
+      // erkin javoblar faqat ko'rinadigan mazmun bo'lsa hisoblanadi
+      if (hasFreeAnswerContent(getResolvedFreeAnswer(question.id))) {
+        count += 1
+      }
+    } else {
+      // multiple-choice / matching turlari biror qiymat tanlangan bo'lsa hisoblanadi
+      if (answers[question.id]) {
+        count += 1
+      }
+    }
+  }
+  return count
+})
+
+// barcha javoblarning JSON snapshot'i — saqlash qatlami uchun watch trigger sifatida ishlatiladi
+const serializedAnswers = computed(() => {
+  const result = {}
+
+  for (const question of renderedQuestions.value) {
+    let answer
+    if (question.type === 'FreeAnswer') {
+      answer = getResolvedFreeAnswer(question.id)
+    } else {
+      answer = answers[question.id]
     }
 
-    const answer = answers[question.id]
-    return count + (answer ? 1 : 0)
-  }, 0),
-)
-
-const serializedAnswers = computed(() =>
-  JSON.stringify(
-    renderedQuestions.value.reduce((result, question) => {
-      const answer =
-        question.type === 'FreeAnswer'
-          ? getResolvedFreeAnswer(question.id)
-          : answers[question.id]
-
-      if (typeof answer === 'string') {
-        if (question.type === 'FreeAnswer' ? hasFreeAnswerContent(answer) : answer.trim()) {
-          result[question.id] = answer
-        }
-      } else if (answer !== undefined && answer !== null && answer !== '') {
-        result[question.id] = answer
+    if (typeof answer === 'string') {
+      // satrlar uchun bo'shlarni tashlab yuboramiz, erkin javoblar mazmunli ekaniga ishonch hosil qilamiz
+      let isMeaningful = false
+      if (question.type === 'FreeAnswer') {
+        isMeaningful = hasFreeAnswerContent(answer)
+      } else {
+        isMeaningful = Boolean(answer.trim())
       }
 
-      return result
-    }, {}),
-  ),
-)
+      if (isMeaningful) {
+        result[question.id] = answer
+      }
+    } else if (answer !== undefined && answer !== null && answer !== '') {
+      // raqamlar / variant id'lari
+      result[question.id] = answer
+    }
+  }
 
+  return JSON.stringify(result)
+})
+
+// savolning erkin javobini xavfsiz olish uchun getter
 const getResolvedFreeAnswer = (questionId) => {
-  return typeof freeAnswers[questionId] === 'string' ? freeAnswers[questionId] : ''
+  if (typeof freeAnswers[questionId] === 'string') {
+    return freeAnswers[questionId]
+  }
+  return ''
 }
 
+// HTML bo'lishi mumkin bo'lgan satrni oddiy matnga aylantiramiz, inline-math'larni LaTeX'iga yoyamiz
 const extractTextAnswer = (value) => {
   if (typeof value !== 'string') {
     return ''
   }
 
   const normalizedValue = value.trim()
-
   if (!normalizedValue) {
     return ''
   }
 
+  // HTML ham, DOM ham yo'q: boshqa hech narsa qilmaymiz
   if (!normalizedValue.includes('<') || typeof document === 'undefined') {
     return normalizedValue
   }
 
+  // DOM orqali tahlil qilamiz, shunda inline-math span'larini olib tashlay olamiz
   const container = document.createElement('div')
   container.innerHTML = normalizedValue
 
-  container.querySelectorAll('[data-type="inline-math"]').forEach((node) => {
-    const latexValue =
-      node.getAttribute('data-latex') ||
-      node.getAttribute('data-math-latex') ||
-      node.getAttribute('data-math') ||
-      node.textContent ||
-      ''
+  const mathNodes = container.querySelectorAll('[data-type="inline-math"]')
+  mathNodes.forEach((node) => {
+    // editor ishlatishi mumkin bo'lgan turli atributlarni sinab ko'ramiz
+    let latexValue = node.getAttribute('data-latex')
+    if (!latexValue) {
+      latexValue = node.getAttribute('data-math-latex')
+    }
+    if (!latexValue) {
+      latexValue = node.getAttribute('data-math')
+    }
+    if (!latexValue) {
+      latexValue = node.textContent
+    }
+    if (!latexValue) {
+      latexValue = ''
+    }
 
     node.replaceWith(document.createTextNode(` ${latexValue} `))
   })
 
-  return (container.textContent || '').replace(/\s+/g, ' ').trim()
+  let text = container.textContent
+  if (!text) {
+    text = ''
+  }
+
+  return text.replace(/\s+/g, ' ').trim()
 }
 
+// guruh ichidagi savollarni qaytaramiz, tartib bo'yicha, keyin id bo'yicha saralangan
 const getGroupedQuestions = (groupId) => {
   const normalizedGroupId = Number(groupId)
   const group = questionGroupsById.value.get(normalizedGroupId)
@@ -363,25 +538,41 @@ const getGroupedQuestions = (groupId) => {
     return []
   }
 
-  const groupQuestions =
-    Array.isArray(group.questions) && group.questions.length
-      ? group.questions
-      : (currentTest.value?.questions || []).filter(
-          (question) => Number(question.questionGroupId) === normalizedGroupId,
-        )
-
-  return [...groupQuestions]
-    .sort(
-      (firstQuestion, secondQuestion) =>
-        Number(firstQuestion.order) - Number(secondQuestion.order) ||
-        Number(firstQuestion.id) - Number(secondQuestion.id),
+  // avval guruhning o'z savollar massivini olamiz, bo'lmasa umumiy ro'yxatdan filtrlaymiz
+  let groupQuestions
+  if (Array.isArray(group.questions) && group.questions.length > 0) {
+    groupQuestions = group.questions
+  } else {
+    let allQuestions = []
+    if (currentTest.value && currentTest.value.questions) {
+      allQuestions = currentTest.value.questions
+    }
+    groupQuestions = allQuestions.filter(
+      (question) => Number(question.questionGroupId) === normalizedGroupId,
     )
-    .map((question) => {
-      const renderedQuestion = renderedQuestionsById.value.get(Number(question.id))
-      return renderedQuestion || question
-    })
+  }
+
+  // tartib bo'yicha o'sish tartibida, teng bo'lsa id bo'yicha o'sish tartibida
+  const sortedGroup = [...groupQuestions].sort((firstQuestion, secondQuestion) => {
+    const orderDifference = Number(firstQuestion.order) - Number(secondQuestion.order)
+    if (orderDifference !== 0) {
+      return orderDifference
+    }
+    return Number(firstQuestion.id) - Number(secondQuestion.id)
+  })
+
+  // har birini render qilingan ekvivalentiga aylantiramiz (agar mavjud bo'lsa)
+  return sortedGroup.map((question) => {
+    const renderedQuestion = renderedQuestionsById.value.get(Number(question.id))
+    if (renderedQuestion) {
+      return renderedQuestion
+    }
+    return question
+  })
 }
 
+// guruh ichida matching savoldan keyin keladigan boshqa turdagi savolga
+// vizual ajratish kerak
 const shouldSeparateGroupedQuestion = (groupId, questionId) => {
   const groupedQuestions = getGroupedQuestions(groupId)
   const currentIndex = groupedQuestions.findIndex(
@@ -395,9 +586,17 @@ const shouldSeparateGroupedQuestion = (groupId, questionId) => {
   const previousQuestion = groupedQuestions[currentIndex - 1]
   const currentQuestion = groupedQuestions[currentIndex]
 
-  return previousQuestion?.type === 'Matching' && currentQuestion?.type !== 'Matching'
+  if (!previousQuestion || !currentQuestion) {
+    return false
+  }
+
+  if (previousQuestion.type === 'Matching' && currentQuestion.type !== 'Matching') {
+    return true
+  }
+  return false
 }
 
+// matching savollar uchun: option-bank'dan qaysi elementlar hali bo'shligini aniqlaymiz
 const getAvailableMatchingOptions = (groupId, currentQuestionId = null) => {
   const group = questionGroupsById.value.get(Number(groupId))
 
@@ -405,65 +604,139 @@ const getAvailableMatchingOptions = (groupId, currentQuestionId = null) => {
     return []
   }
 
-  const takenOptionIds = new Set(
-    getGroupedQuestions(groupId)
-      .filter(
-        (question) =>
-          question.type === 'Matching' && Number(question.id) !== Number(currentQuestionId),
-      )
-      .map((question) => answers[question.id])
-      .filter((value) => value !== undefined && value !== null && value !== ''),
-  )
+  // guruhdagi BOSHQA matching savollar tomonidan tanlangan variant id'larini yig'amiz
+  const takenOptionIds = new Set()
+  for (const question of getGroupedQuestions(groupId)) {
+    if (question.type !== 'Matching') {
+      continue
+    }
+    if (Number(question.id) === Number(currentQuestionId)) {
+      continue
+    }
 
-  return (group.options || []).filter(
-    (option) =>
-      !takenOptionIds.has(option.id) || Number(answers[currentQuestionId]) === Number(option.id),
-  )
+    const pickedAnswer = answers[question.id]
+    if (pickedAnswer !== undefined && pickedAnswer !== null && pickedAnswer !== '') {
+      takenOptionIds.add(pickedAnswer)
+    }
+  }
+
+  // bo'sh variantlar yoki joriy savolning o'zi tanlagan variantni qoldiramiz
+  let options = []
+  if (group.options) {
+    options = group.options
+  }
+
+  return options.filter((option) => {
+    if (!takenOptionIds.has(option.id)) {
+      return true
+    }
+
+    // joriy savolning o'z tanlovi unga ko'rinib turishi kerak
+    if (Number(answers[currentQuestionId]) === Number(option.id)) {
+      return true
+    }
+
+    return false
+  })
 }
 
+// localStorage'dagi ishonchsiz ma'lumotdan action obyektini qayta quramiz
 const normalizeStoredAnswerAction = (action) => {
-  const testId = Number(action?.testId)
-  const questionId = Number(action?.questionId)
+  let testId = 0
+  if (action) {
+    testId = Number(action.testId)
+  }
+
+  let questionId = 0
+  if (action) {
+    questionId = Number(action.questionId)
+  }
 
   if (!testId || !questionId) {
     return null
   }
 
+  // attempt id null bo'lishi mumkin
+  let attemptId = null
+  if (action && action.attemptId) {
+    attemptId = Number(action.attemptId)
+  }
+
+  let selectedOptionId = 0
+  if (action && action.selectedOptionId) {
+    selectedOptionId = Number(action.selectedOptionId)
+  }
+
+  let textAnswer = null
+  if (action && typeof action.textAnswer === 'string') {
+    textAnswer = action.textAnswer
+  }
+
+  // faqat PUT saqlanib qoladi; qolgan hamma narsa (undefined ham) POST bo'ladi
+  let requestMethod = 'POST'
+  if (action && action.requestMethod === 'PUT') {
+    requestMethod = 'PUT'
+  }
+
+  let hasCreatedRemoteRecord = false
+  if (action && action.hasCreatedRemoteRecord) {
+    hasCreatedRemoteRecord = true
+  }
+
+  // isPending default true bo'ladi, faqat aniq false bo'lsagina false
+  let isPending = true
+  if (action && action.isPending === false) {
+    isPending = false
+  }
+
+  const now = Date.now()
+  let createdAt = now
+  if (action && action.createdAt) {
+    createdAt = Number(action.createdAt)
+  }
+
+  let updatedAt = now
+  if (action && action.updatedAt) {
+    updatedAt = Number(action.updatedAt)
+  }
+
   return {
     testId,
-    attemptId: action?.attemptId ? Number(action.attemptId) : null,
+    attemptId,
     questionId,
-    selectedOptionId: Number(action?.selectedOptionId || 0),
-    textAnswer: typeof action?.textAnswer === 'string' ? action.textAnswer : null,
-    requestMethod: action?.requestMethod === 'PUT' ? 'PUT' : 'POST',
-    hasCreatedRemoteRecord: Boolean(action?.hasCreatedRemoteRecord),
-    isPending: action?.isPending !== false,
-    createdAt: Number(action?.createdAt || Date.now()),
-    updatedAt: Number(action?.updatedAt || Date.now()),
+    selectedOptionId,
+    textAnswer,
+    requestMethod,
+    hasCreatedRemoteRecord,
+    isPending,
+    createdAt,
+    updatedAt,
   }
 }
 
+// navbatdagi action'larni localStorage'ga yozamiz
 const persistAnswerActions = () => {
   if (typeof window === 'undefined') {
     return
   }
 
-  console.log("i dont wanna it")
-  // window.localStorage.setItem(ANSWER_ACTIONS_STORAGE_KEY, JSON.stringify(answerActions.value))
+  window.localStorage.setItem(ANSWER_ACTIONS_STORAGE_KEY, JSON.stringify(answerActions.value))
 }
 
+// xotiradagi navbatni yangilaymiz HAM saqlaymiz
 const setAnswerActions = (nextActions) => {
   answerActions.value = nextActions
-  // persistAnswerActions()
+  persistAnswerActions()
 }
 
+// startup paytida localStorage'dan navbatdagi action'larni yuklaymiz
 const hydrateAnswerActions = () => {
   if (typeof window === 'undefined') {
     return
   }
 
   try {
-    const storedValue = null;
+    const storedValue = window.localStorage.getItem(ANSWER_ACTIONS_STORAGE_KEY)
 
     if (!storedValue) {
       answerActions.value = []
@@ -477,39 +750,64 @@ const hydrateAnswerActions = () => {
       return
     }
 
-    answerActions.value = parsedValue.map(normalizeStoredAnswerAction).filter(Boolean)
+    // normallashtiramiz va validatsiyadan o'tmagan qatorlarni tashlab yuboramiz
+    const normalized = []
+    for (const raw of parsedValue) {
+      const cleaned = normalizeStoredAnswerAction(raw)
+      if (cleaned) {
+        normalized.push(cleaned)
+      }
+    }
+    answerActions.value = normalized
   } catch (error) {
     console.error(error)
     setAnswerActions([])
   }
 }
 
+// berilgan savol uchun javob payload'ining draft'ini quramiz
 const buildAnswerActionDraft = (questionId) => {
   const question = renderedQuestionsById.value.get(Number(questionId))
 
-  if (!question || !currentTest.value?.id) {
+  if (!question) {
+    return null
+  }
+  if (!currentTest.value || !currentTest.value.id) {
     return null
   }
 
+  // draft bosqichida attempt id majburiy emas
+  let attemptId = null
+  if (activeAttemptId.value) {
+    attemptId = Number(activeAttemptId.value)
+  }
+
+  // erkin javoblar matn olib yuradi; qolganlari variant id'sini olib yuradi
   if (question.type === 'FreeAnswer') {
     return {
       testId: Number(currentTest.value.id),
-      attemptId: activeAttemptId.value ? Number(activeAttemptId.value) : null,
+      attemptId,
       questionId: Number(question.id),
       selectedOptionId: 0,
       textAnswer: extractTextAnswer(getResolvedFreeAnswer(question.id)),
     }
   }
 
+  let selectedOptionId = 0
+  if (answers[question.id]) {
+    selectedOptionId = Number(answers[question.id])
+  }
+
   return {
     testId: Number(currentTest.value.id),
-    attemptId: activeAttemptId.value ? Number(activeAttemptId.value) : null,
+    attemptId,
     questionId: Number(question.id),
-    selectedOptionId: answers[question.id] ? Number(answers[question.id]) : 0,
+    selectedOptionId,
     textAnswer: null,
   }
 }
 
+// savol uchun navbatdagi action'ni qo'shamiz yoki almashtiramiz
 const upsertAnswerAction = (questionId) => {
   const draft = buildAnswerActionDraft(questionId)
 
@@ -525,6 +823,7 @@ const upsertAnswerAction = (questionId) => {
   )
   const timestamp = Date.now()
 
+  // qator hali yo'q — yangi POST action qo'shamiz
   if (existingActionIndex < 0) {
     nextActions.push({
       ...draft,
@@ -540,11 +839,25 @@ const upsertAnswerAction = (questionId) => {
 
   const existingAction = nextActions[existingActionIndex]
 
+  // eng aniq ma'lum attempt id'ni tanlaymiz (avval draft, keyin mavjudi, keyin null)
+  let nextAttemptId = null
+  if (draft.attemptId !== null && draft.attemptId !== undefined) {
+    nextAttemptId = draft.attemptId
+  } else if (existingAction.attemptId !== null && existingAction.attemptId !== undefined) {
+    nextAttemptId = existingAction.attemptId
+  }
+
+  // serverda qator yaratilgach, keyingi yangilashlar uchun PUT'ga o'tamiz
+  let requestMethod = 'POST'
+  if (existingAction.hasCreatedRemoteRecord) {
+    requestMethod = 'PUT'
+  }
+
   nextActions[existingActionIndex] = {
     ...existingAction,
     ...draft,
-    attemptId: draft.attemptId ?? existingAction.attemptId ?? null,
-    requestMethod: existingAction.hasCreatedRemoteRecord ? 'PUT' : 'POST',
+    attemptId: nextAttemptId,
+    requestMethod,
     isPending: true,
     updatedAt: timestamp,
   }
@@ -552,8 +865,12 @@ const upsertAnswerAction = (questionId) => {
   setAnswerActions(nextActions)
 }
 
+// haqiqiy attempt id ma'lum bo'lgach, uni bu testning barcha navbatdagi action'lariga yozamiz
 const syncAnswerActionAttemptIds = () => {
-  if (!currentTest.value?.id || !activeAttemptId.value) {
+  if (!currentTest.value || !currentTest.value.id) {
+    return
+  }
+  if (!activeAttemptId.value) {
     return
   }
 
@@ -566,7 +883,12 @@ const syncAnswerActionAttemptIds = () => {
       return action
     }
 
-    if (Number(action.attemptId || 0) === normalizedAttemptId) {
+    let currentAttempt = 0
+    if (action.attemptId) {
+      currentAttempt = Number(action.attemptId)
+    }
+
+    if (currentAttempt === normalizedAttemptId) {
       return action
     }
 
@@ -583,6 +905,7 @@ const syncAnswerActionAttemptIds = () => {
   }
 }
 
+// berilgan testga tegishli barcha navbatdagi action'larni o'chiramiz (restart paytida)
 const clearAnswerActionsForTest = (testId) => {
   if (!testId) {
     return
@@ -595,13 +918,19 @@ const clearAnswerActionsForTest = (testId) => {
   )
 }
 
+// matching savol variant tanladi
 const updateMatchingAnswer = (questionId, value) => {
-  answers[questionId] = value ? Number(value) : ''
+  if (value) {
+    answers[questionId] = Number(value)
+  } else {
+    answers[questionId] = ''
+  }
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
   void syncDirtyAnswers()
 }
 
+// multiple-choice savol variant tanladi
 const updateOptionAnswer = (questionId, value) => {
   answers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
@@ -609,6 +938,7 @@ const updateOptionAnswer = (questionId, value) => {
   void syncDirtyAnswers()
 }
 
+// xotiradagi barcha javoblarni tozalaymiz (test o'zgarsa yoki restart bo'lsa)
 const clearAnswers = () => {
   for (const answerKey of Object.keys(answers)) {
     delete answers[answerKey]
@@ -619,6 +949,7 @@ const clearAnswers = () => {
   }
 }
 
+// erkin javob input'i o'zgardi
 const updateFreeAnswer = (questionId, value) => {
   freeAnswers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
@@ -626,6 +957,7 @@ const updateFreeAnswer = (questionId, value) => {
   void syncDirtyAnswers()
 }
 
+// yordam oynasini ochish/yopish
 const toggleReferenceWindow = () => {
   isReferenceOpen.value = !isReferenceOpen.value
 }
@@ -634,6 +966,7 @@ const closeReferenceWindow = () => {
   isReferenceOpen.value = false
 }
 
+// test yuklangach, URL'dan ?restart=1 flag'ini olib tashlaymiz
 const clearRestartQuery = async () => {
   if (!shouldRestartTest.value) {
     return
@@ -644,6 +977,7 @@ const clearRestartQuery = async () => {
   await router.replace({ query: nextQuery })
 }
 
+// sanoq taymerni to'xtatamiz
 const stopTimer = () => {
   if (timerIntervalId) {
     clearInterval(timerIntervalId)
@@ -651,12 +985,22 @@ const stopTimer = () => {
   }
 }
 
+// sanoq taymerni ishga tushiramiz; istasak saqlangan qolgan sekundlardan davom etamiz
 const startTimer = (_questionCount, initialRemainingSeconds = null) => {
   stopTimer()
 
   const resumeSeconds = Number(initialRemainingSeconds)
-  const canResume = Number.isFinite(resumeSeconds) && resumeSeconds > 0
-  const durationInSeconds = canResume ? resumeSeconds : TEST_DURATION_SECONDS
+  // saqlangan jarayonni davom ettiryapmizmi?
+  let canResume = false
+  if (Number.isFinite(resumeSeconds) && resumeSeconds > 0) {
+    canResume = true
+  }
+
+  let durationInSeconds = TEST_DURATION_SECONDS
+  if (canResume) {
+    durationInSeconds = resumeSeconds
+  }
+
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
 
@@ -666,6 +1010,7 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
     return durationInMilliseconds
   }
 
+  // asosiy tick — har sekundda bajariladi, 0 ga yetganda auto-submit'ni ishga tushiradi
   const tick = () => {
     const elapsedMilliseconds = Date.now() - startedAt
     const nextDurationMs = Math.max(durationInMilliseconds - elapsedMilliseconds, 0)
@@ -684,6 +1029,7 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
   return durationInMilliseconds
 }
 
+// localStorage'dan javoblar + scroll holatini qaytaramiz
 const restoreProgress = async (testId) => {
   const savedProgress = testProgressStore.getProgress(testId)
 
@@ -695,13 +1041,20 @@ const restoreProgress = async (testId) => {
     const questionId = String(question.id)
 
     if (question.type === 'FreeAnswer') {
-      const savedFreeAnswer =
-        savedProgress.freeAnswers?.[questionId] ||
-        savedProgress.mathAnswers?.[questionId] ||
-        savedProgress.textAnswers?.[questionId] ||
-        (typeof savedProgress.answers?.[questionId] === 'string'
-          ? savedProgress.answers[questionId]
-          : '')
+      // erkin javoblar uchun avval bir nechta kalit ishlatgan edik — ularni tartib bilan tekshiramiz
+      let savedFreeAnswer = ''
+      if (savedProgress.freeAnswers && savedProgress.freeAnswers[questionId]) {
+        savedFreeAnswer = savedProgress.freeAnswers[questionId]
+      } else if (savedProgress.mathAnswers && savedProgress.mathAnswers[questionId]) {
+        savedFreeAnswer = savedProgress.mathAnswers[questionId]
+      } else if (savedProgress.textAnswers && savedProgress.textAnswers[questionId]) {
+        savedFreeAnswer = savedProgress.textAnswers[questionId]
+      } else if (
+        savedProgress.answers &&
+        typeof savedProgress.answers[questionId] === 'string'
+      ) {
+        savedFreeAnswer = savedProgress.answers[questionId]
+      }
 
       if (typeof savedFreeAnswer === 'string' && savedFreeAnswer.trim()) {
         freeAnswers[questionId] = savedFreeAnswer
@@ -710,7 +1063,11 @@ const restoreProgress = async (testId) => {
       return
     }
 
-    const savedAnswer = savedProgress.answers?.[questionId]
+    // multiple choice / matching — saqlangan variant id'ni yuklaymiz
+    let savedAnswer
+    if (savedProgress.answers) {
+      savedAnswer = savedProgress.answers[questionId]
+    }
 
     if (savedAnswer !== undefined && savedAnswer !== null && savedAnswer !== '') {
       answers[questionId] = savedAnswer
@@ -719,6 +1076,7 @@ const restoreProgress = async (testId) => {
 
   await nextTick()
 
+  // foydalanuvchi to'xtagan joyda paydo bo'lishi uchun scroll holatini qaytaramiz
   if (typeof savedProgress.scrollY === 'number') {
     window.scrollTo({
       top: savedProgress.scrollY,
@@ -727,6 +1085,7 @@ const restoreProgress = async (testId) => {
   }
 }
 
+// API'dan eng so'nggi javoblar + attempt id'ni olamiz (yangi qurilmada davom ettirilganda)
 const restoreProgressFromApi = async (testId) => {
   if (!testId) {
     return
@@ -748,10 +1107,16 @@ const restoreProgressFromApi = async (testId) => {
   activeAttemptId.value = Number(progress.id)
   syncAnswerActionAttemptIds()
 
-  const userAnswers = Array.isArray(progress.userAnswers) ? progress.userAnswers : []
+  let userAnswers = []
+  if (Array.isArray(progress.userAnswers)) {
+    userAnswers = progress.userAnswers
+  }
 
   for (const userAnswer of userAnswers) {
-    const normalizedQuestionId = Number(userAnswer?.questionId)
+    let normalizedQuestionId = 0
+    if (userAnswer) {
+      normalizedQuestionId = Number(userAnswer.questionId)
+    }
 
     if (!normalizedQuestionId) {
       continue
@@ -760,14 +1125,19 @@ const restoreProgressFromApi = async (testId) => {
     const questionKey = String(normalizedQuestionId)
     const question = renderedQuestionsById.value.get(normalizedQuestionId)
 
-    if (question?.type === 'FreeAnswer') {
+    // erkin javob matni freeAnswers'ga tushadi
+    if (question && question.type === 'FreeAnswer') {
       if (typeof userAnswer.textAnswer === 'string' && userAnswer.textAnswer.trim()) {
         freeAnswers[questionKey] = userAnswer.textAnswer
       }
       continue
     }
 
-    const selectedOptionId = Number(userAnswer?.selectedOptionId || 0)
+    // variant tipidagi javoblar answers map'iga tushadi
+    let selectedOptionId = 0
+    if (userAnswer && userAnswer.selectedOptionId) {
+      selectedOptionId = Number(userAnswer.selectedOptionId)
+    }
 
     if (selectedOptionId > 0) {
       answers[questionKey] = selectedOptionId
@@ -775,16 +1145,26 @@ const restoreProgressFromApi = async (testId) => {
   }
 }
 
+// joriy sahifa holatini localStorage'ga saqlaymiz, refresh paytida test o'rtasidan davom etish uchun
 const persistCurrentProgress = () => {
-  if (!shouldPersistProgress.value || !currentTest.value) {
+  if (!shouldPersistProgress.value) {
+    return
+  }
+  if (!currentTest.value) {
     return
   }
 
   const savedAnswers = JSON.parse(serializedAnswers.value)
-  const hasMeaningfulProgress =
-    Boolean(activeAttemptId.value) ||
-    Object.keys(savedAnswers).length > 0 ||
-    remainingSeconds.value > 0
+
+  // agar haqiqatan ham hech narsa yo'q bo'lsa, saqlamaymiz
+  let hasMeaningfulProgress = false
+  if (activeAttemptId.value) {
+    hasMeaningfulProgress = true
+  } else if (Object.keys(savedAnswers).length > 0) {
+    hasMeaningfulProgress = true
+  } else if (remainingSeconds.value > 0) {
+    hasMeaningfulProgress = true
+  }
 
   if (!hasMeaningfulProgress) {
     testProgressStore.clearProgress(currentTest.value.id)
@@ -805,28 +1185,56 @@ const persistCurrentProgress = () => {
   })
 }
 
+// create-answer POST so'rovi uchun body quramiz
 const buildCreateAnswerPayload = (action) => {
-  if (!action?.attemptId) {
+  if (!action || !action.attemptId) {
     return null
+  }
+
+  let selectedOptionId = 0
+  if (action.selectedOptionId) {
+    selectedOptionId = Number(action.selectedOptionId)
+  }
+
+  let textAnswer = null
+  if (typeof action.textAnswer === 'string') {
+    textAnswer = action.textAnswer
   }
 
   return {
     userTestAttemptId: Number(action.attemptId),
     questionId: Number(action.questionId),
-    selectedOptionId: Number(action.selectedOptionId || 0),
-    textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
+    selectedOptionId,
+    textAnswer,
   }
 }
 
+// update-answer PUT so'rovi uchun body quramiz
 const buildUpdateAnswerPayload = (action) => {
+  let attemptId = 0
+  if (action.attemptId) {
+    attemptId = Number(action.attemptId)
+  }
+
+  let selectedOptionId = 0
+  if (action.selectedOptionId) {
+    selectedOptionId = Number(action.selectedOptionId)
+  }
+
+  let textAnswer = null
+  if (typeof action.textAnswer === 'string') {
+    textAnswer = action.textAnswer
+  }
+
   return {
-    userTestAttemptId: Number(action.attemptId || 0),
+    userTestAttemptId: attemptId,
     questionId: Number(action.questionId),
-    selectedOptionId: Number(action.selectedOptionId || 0),
-    textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
+    selectedOptionId,
+    textAnswer,
   }
 }
 
+// action'ni pending->synced'ga o'tkazamiz; sync paytida foydalanuvchi tahrir qilgan bo'lsa, pending qoldiramiz
 const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
   const nextActions = answerActions.value.map((action) => {
     if (
@@ -838,9 +1246,17 @@ const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
 
     const wasEditedDuringSync = Number(action.updatedAt) !== Number(syncedUpdatedAt)
 
+    // qaysi attempt id'ni saqlab qolishni aniqlaymiz
+    let attemptId = null
+    if (syncedAction.attemptId !== null && syncedAction.attemptId !== undefined) {
+      attemptId = syncedAction.attemptId
+    } else if (action.attemptId !== null && action.attemptId !== undefined) {
+      attemptId = action.attemptId
+    }
+
     return {
       ...action,
-      attemptId: syncedAction.attemptId ?? action.attemptId ?? null,
+      attemptId,
       hasCreatedRemoteRecord: true,
       requestMethod: 'PUT',
       isPending: wasEditedDuringSync,
@@ -849,6 +1265,7 @@ const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
 
   setAnswerActions(nextActions)
 
+  // sync paytida hech narsa o'zgarmagan bo'lsa, bu savolni dirty deb kuzatishni to'xtatamiz
   const latestAction = nextActions.find(
     (action) =>
       Number(action.testId) === Number(syncedAction.testId) &&
@@ -860,12 +1277,16 @@ const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
   }
 }
 
+// navbatdagi barcha action'larni serverga jo'natamiz, tartib bilan, bittadan
 const syncDirtyAnswers = async () => {
-  if (!activeAttemptId.value || !currentTest.value?.id) {
+  if (!activeAttemptId.value) {
+    return
+  }
+  if (!currentTest.value || !currentTest.value.id) {
     return
   }
 
-  // A sync is already running; queue one more pass so the latest edit is sent.
+  // Sync allaqachon ishlayapti; oxirgi tahrirning yuborilishi uchun yana bir o'tishni navbatga qo'yamiz.
   if (isSyncingAnswers) {
     pendingSyncRequested = true
     return
@@ -873,11 +1294,15 @@ const syncDirtyAnswers = async () => {
 
   syncAnswerActionAttemptIds()
 
-  const pendingActions = answerActions.value.filter(
-    (action) => Number(action.testId) === Number(currentTest.value.id) && action.isPending,
-  )
+  // shu testga tegishli pending action'larni yig'amiz
+  const pendingActions = []
+  for (const action of answerActions.value) {
+    if (Number(action.testId) === Number(currentTest.value.id) && action.isPending) {
+      pendingActions.push(action)
+    }
+  }
 
-  if (!pendingActions.length) {
+  if (pendingActions.length === 0) {
     return
   }
 
@@ -887,26 +1312,35 @@ const syncDirtyAnswers = async () => {
     for (const action of pendingActions) {
       try {
         const syncedUpdatedAt = action.updatedAt
-        const requestMethod =
-          action.hasCreatedRemoteRecord || action.requestMethod === 'PUT' ? 'PUT' : 'POST'
-        const payload =
-          requestMethod === 'PUT'
-            ? buildUpdateAnswerPayload(action)
-            : buildCreateAnswerPayload(action)
+
+        // PUT faqat serverda qator yaratilgandan keyin
+        let requestMethod = 'POST'
+        if (action.hasCreatedRemoteRecord || action.requestMethod === 'PUT') {
+          requestMethod = 'PUT'
+        }
+
+        let payload
+        if (requestMethod === 'PUT') {
+          console.log("working put")
+          // payload = buildUpdateAnswerPayload(action)
+        } else {
+          payload = buildCreateAnswerPayload(action)
+        }
 
         if (!payload) {
           continue
         }
 
         if (requestMethod === 'PUT') {
-        console.log("working put");
-          await testStore.updateUserAnswer(payload)
+          console.log("working put")
+          // await testStore.updateUserAnswer(payload)
         } else {
           await testStore.createUserAnswer(payload)
         }
 
         markAnswerActionAsSynced(action, syncedUpdatedAt)
       } catch (error) {
+        // muvaffaqiyatsiz sync dirty bo'lib qoladi, keyingi safar qayta urinamiz
         dirtyQuestionIds.add(String(action.questionId))
         console.error(error)
       }
@@ -917,14 +1351,16 @@ const syncDirtyAnswers = async () => {
     isSyncingAnswers = false
   }
 
+  // biz band paytimizda yana sync so'ralgan bo'lsa, hozir bajaramiz
   if (pendingSyncRequested) {
     pendingSyncRequested = false
     void syncDirtyAnswers()
   }
 }
 
+// bu test uchun user-test-attempt mavjudligini ta'minlaymiz
 const ensureAttemptStarted = async (test) => {
-  if (!test?.id) {
+  if (!test || !test.id) {
     activeAttemptId.value = null
     return
   }
@@ -935,7 +1371,8 @@ const ensureAttemptStarted = async (test) => {
 
   const savedProgress = testProgressStore.getProgress(test.id)
 
-  if (savedProgress?.attemptId) {
+  // oldingi sessionda allaqachon attempt boshlagan edik — uni qayta olamiz
+  if (savedProgress && savedProgress.attemptId) {
     activeAttemptId.value = Number(savedProgress.attemptId)
     syncAnswerActionAttemptIds()
     persistCurrentProgress()
@@ -943,6 +1380,7 @@ const ensureAttemptStarted = async (test) => {
     return
   }
 
+  // API'dan yangi attempt boshlashni so'raymiz
   try {
     isStartingAttempt = true
     const attempt = await testStore.startTestAttempt(test.id)
@@ -957,11 +1395,13 @@ const ensureAttemptStarted = async (test) => {
   }
 }
 
+// asosiy "shu testni ochish" oqimi
 const loadTest = async (testId) => {
   shouldPersistProgress.value = true
   pageErrorKey.value = ''
   testStore.clearError()
 
+  // chiqish: id yo'q → missing-id xatosi
   if (!testId) {
     clearAnswers()
     activeAttemptId.value = null
@@ -972,6 +1412,7 @@ const loadTest = async (testId) => {
     return
   }
 
+  // chiqish: tizimga kirilmagan → auth-required xatosi (sahifa Login tugmasini ko'rsatadi)
   if (!authStore.isAuthenticated) {
     clearAnswers()
     activeAttemptId.value = null
@@ -982,7 +1423,9 @@ const loadTest = async (testId) => {
     return
   }
 
-  if (!(await ensureEntryProfile())) {
+  // chiqish: profil to'liq emas → profil modalini ochib, to'xtaymiz
+  const profileReady = await ensureEntryProfile()
+  if (!profileReady) {
     clearAnswers()
     activeAttemptId.value = null
     dirtyQuestionIds.clear()
@@ -992,30 +1435,56 @@ const loadTest = async (testId) => {
     return
   }
 
-  if (Number(currentTest.value?.id) === Number(testId)) {
+  // kerakli test allaqachon yuklangan — qayta fetch qilmasdan restart / resume holatlarini hal qilamiz
+  if (currentTest.value && Number(currentTest.value.id) === Number(testId)) {
     if (shouldRestartTest.value && currentTest.value) {
+      // boshidan boshlaymiz
       clearAnswers()
       activeAttemptId.value = null
       dirtyQuestionIds.clear()
       testProgressStore.clearProgress(testId)
       clearAnswerActionsForTest(testId)
-      const savedProgress = testProgressStore.getProgress(testId)
-      const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
+
+      let questionCount = totalQuestions.value
+      if (!questionCount) {
+        let length = 0
+        if (currentTest.value.questions) {
+          length = currentTest.value.questions.length
+        }
+        questionCount = Number(length)
+      }
+
       startTimer(questionCount, null)
       await ensureAttemptStarted(currentTest.value)
       await clearRestartQuery()
       return
     }
 
+    // hali attempt yo'q — agar bo'lsa, saqlangan jarayondan davom etamiz
     if (!activeAttemptId.value && currentTest.value) {
       const savedProgress = testProgressStore.getProgress(testId)
       await ensureAttemptStarted(currentTest.value)
-      const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
-      startTimer(questionCount, savedProgress?.remainingSeconds ?? null)
+
+      let questionCount = totalQuestions.value
+      if (!questionCount) {
+        let length = 0
+        if (currentTest.value.questions) {
+          length = currentTest.value.questions.length
+        }
+        questionCount = Number(length)
+      }
+
+      let resumeSeconds = null
+      if (savedProgress && savedProgress.remainingSeconds !== undefined && savedProgress.remainingSeconds !== null) {
+        resumeSeconds = savedProgress.remainingSeconds
+      }
+
+      startTimer(questionCount, resumeSeconds)
     }
     return
   }
 
+  // boshqa test — tozalab, yangidan fetch qilamiz
   clearAnswers()
   activeAttemptId.value = null
   dirtyQuestionIds.clear()
@@ -1028,19 +1497,48 @@ const loadTest = async (testId) => {
   }
 }
 
-const hasRequiredUserProfile = (userInfo) =>
-  REQUIRED_PROFILE_FIELDS.every((field) => {
-    const value = userInfo?.[field]
+// foydalanuvchi profilida kerakli barcha maydonlar borligini tekshiramiz
+const hasRequiredUserProfile = (userInfo) => {
+  for (const field of REQUIRED_PROFILE_FIELDS) {
+    let value
+    if (userInfo) {
+      value = userInfo[field]
+    }
 
-    return typeof value === 'string' ? Boolean(value.trim()) : Boolean(value)
-  })
-
-const fillProfileForm = (userInfo) => {
-  profileForm.firstName = typeof userInfo?.firstName === 'string' ? userInfo.firstName : ''
-  profileForm.lastName = typeof userInfo?.lastName === 'string' ? userInfo.lastName : ''
-  profileForm.fatherName = typeof userInfo?.fatherName === 'string' ? userInfo.fatherName : ''
+    // satrlar trim qilingach bo'sh bo'lmasligi kerak
+    if (typeof value === 'string') {
+      if (!value.trim()) {
+        return false
+      }
+    } else if (!value) {
+      return false
+    }
+  }
+  return true
 }
 
+// modal formani foydalanuvchi haqida bizda bor ma'lumotlar bilan to'ldiramiz
+const fillProfileForm = (userInfo) => {
+  if (userInfo && typeof userInfo.firstName === 'string') {
+    profileForm.firstName = userInfo.firstName
+  } else {
+    profileForm.firstName = ''
+  }
+
+  if (userInfo && typeof userInfo.lastName === 'string') {
+    profileForm.lastName = userInfo.lastName
+  } else {
+    profileForm.lastName = ''
+  }
+
+  if (userInfo && typeof userInfo.fatherName === 'string') {
+    profileForm.fatherName = userInfo.fatherName
+  } else {
+    profileForm.fatherName = ''
+  }
+}
+
+// profil to'liq va davom etishimiz mumkin bo'lsa true qaytaradi
 const ensureEntryProfile = async () => {
   if (hasCompletedEntryProfile.value && hasRequiredUserProfile(authStore.userInfo)) {
     return true
@@ -1048,6 +1546,7 @@ const ensureEntryProfile = async () => {
 
   let userInfo = authStore.userInfo
 
+  // mahalliy versiya to'liq bo'lmasa, boshqa joyda yangilangan bo'lishi mumkin, serverdan qayta olamiz
   if (!hasRequiredUserProfile(userInfo)) {
     try {
       userInfo = await authStore.getUserInfo()
@@ -1063,20 +1562,28 @@ const ensureEntryProfile = async () => {
     return true
   }
 
+  // baribir yetarli emas → foydalanuvchi to'ldirishi uchun modalni ochamiz
   hasCompletedEntryProfile.value = false
   fillProfileForm(userInfo)
   showProfileModal.value = true
   return false
 }
 
+// brauzerdan sahifani fullscreen rejimiga o'tkazishni so'raymiz
 const enterFullscreen = async () => {
   if (typeof document === 'undefined' || document.fullscreenElement) {
     return
   }
 
   const element = document.documentElement
-  const request =
-    element.requestFullscreen || element.webkitRequestFullscreen || element.msRequestFullscreen
+  // brauzerlar uzoq yillar bu metodni har xil nomlab kelgan
+  let request = element.requestFullscreen
+  if (!request) {
+    request = element.webkitRequestFullscreen
+  }
+  if (!request) {
+    request = element.msRequestFullscreen
+  }
 
   if (typeof request !== 'function') {
     return
@@ -1089,13 +1596,19 @@ const enterFullscreen = async () => {
   }
 }
 
+// fullscreen'dan chiqamiz
 const exitFullscreen = () => {
   if (typeof document === 'undefined' || !document.fullscreenElement) {
     return
   }
 
-  const exit =
-    document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen
+  let exit = document.exitFullscreen
+  if (!exit) {
+    exit = document.webkitExitFullscreen
+  }
+  if (!exit) {
+    exit = document.msExitFullscreen
+  }
 
   if (typeof exit !== 'function') {
     return
@@ -1108,6 +1621,7 @@ const exitFullscreen = () => {
   }
 }
 
+// "birinchi gesture" fullscreen listener'larini olib tashlaymiz
 function removeFullscreenGestureListeners() {
   if (typeof window === 'undefined') {
     return
@@ -1117,11 +1631,13 @@ function removeFullscreenGestureListeners() {
   window.removeEventListener('keydown', handleFullscreenGesture)
 }
 
+// foydalanuvchining birinchi harakati paytida bir marta chaqiriladi, fullscreen so'rashimiz uchun
 const handleFullscreenGesture = () => {
   removeFullscreenGestureListeners()
   void enterFullscreen()
 }
 
+// yakuniy topshirish oqimi → explanation sahifasiga o'tamiz
 const finishTestAndGoToExplanation = async () => {
   await syncDirtyAnswers()
   stopTimer()
@@ -1138,8 +1654,8 @@ const finishTestAndGoToExplanation = async () => {
   })
 }
 
-// Browsers only allow fullscreen from a user gesture, so try immediately and
-// fall back to entering on the test taker's first interaction with the page.
+// Brauzerlar fullscreen'ga faqat foydalanuvchi harakatidan keyin ruxsat beradi, shuning uchun
+// darrov urinib ko'ramiz, bo'lmasa foydalanuvchining sahifa bilan birinchi muomalasini kutamiz.
 const armFullscreen = () => {
   if (typeof window === 'undefined') {
     return
@@ -1151,6 +1667,7 @@ const armFullscreen = () => {
   window.addEventListener('keydown', handleFullscreenGesture)
 }
 
+// foydalanuvchi test o'rtasida fullscreen'dan chiqsa, keyingi harakatda qayta kirish uchun tayyorlaymiz
 const handleFullscreenChange = () => {
   if (!currentTest.value || isCompletingTest.value) {
     return
@@ -1161,6 +1678,7 @@ const handleFullscreenChange = () => {
   }
 }
 
+// test yuklangach fullscreen bilan ishlashni o'rnatamiz
 const setupFullscreen = () => {
   if (typeof window === 'undefined') {
     return
@@ -1170,6 +1688,7 @@ const setupFullscreen = () => {
   armFullscreen()
 }
 
+// fullscreen bilan ishlashni butunlay olib tashlaymiz
 const teardownFullscreen = () => {
   if (typeof window === 'undefined') {
     return
@@ -1180,25 +1699,25 @@ const teardownFullscreen = () => {
   exitFullscreen()
 }
 
-// True whenever the test is loaded and the user has not finished it. We do
-// NOT require an active attempt id — the API call that creates it can be
-// in-flight when the user hits refresh, and we still want the browser's
-// native "Leave site?" dialog to appear in that window.
+// test yuklangan va hali yakunlanmagan har qanday paytda navigatsiyada ogohlantiramiz.
+// activeAttemptId'ni shart qilmaymiz — API attempt qaytarmasdan oldin foydalanuvchi
+// refresh bossa ham brauzer'ning "Leave site?" dialogi chiqishi kerak.
 const shouldBlockNavigation = computed(
   () => Boolean(currentTest.value) && !isCompletingTest.value && !isSubmittingTest.value,
 )
 
+// brauzer tab/oyna yopilishi yoki refresh bo'lishidan oldin ogohlantirish
+// (zamonaviy brauzerlar maxsus matnni e'tiborsiz qoldiradi va o'z dialogi bilan so'raydi).
 const handleBeforeUnload = (event) => {
   if (!shouldBlockNavigation.value) {
     return undefined
   }
-  // Modern browsers ignore custom text and show their own dialog — we just
-  // need to set returnValue to trigger it.
   event.preventDefault()
   event.returnValue = ''
   return ''
 }
 
+// modaldagi "Chiqish" tugmasi — kechiktirilgan next()'ni davom ettiramiz
 const confirmLeave = () => {
   showLeaveModal.value = false
   const callback = pendingNavigationCallback
@@ -1208,6 +1727,7 @@ const confirmLeave = () => {
   }
 }
 
+// modaldagi "Testga qaytish" tugmasi — navigatsiyani bekor qilamiz
 const cancelLeave = () => {
   showLeaveModal.value = false
   const callback = pendingNavigationCallback
@@ -1217,6 +1737,7 @@ const cancelLeave = () => {
   }
 }
 
+// vue-router'ning ichki navigatsiyasini ushlaymiz — modal chiqaramiz va foydalanuvchi javobini kutamiz
 onBeforeRouteLeave((_to, _from, next) => {
   if (!shouldBlockNavigation.value) {
     next()
@@ -1226,6 +1747,7 @@ onBeforeRouteLeave((_to, _from, next) => {
   showLeaveModal.value = true
 })
 
+// URL'dagi testId o'zgarishlarini kuzatamiz (mount paytida bir marta ham ishlaydi)
 watch(
   requestedTestId,
   (testId) => {
@@ -1236,10 +1758,12 @@ watch(
   },
 )
 
+// test ma'lumoti yuklanib bo'lgandagi reaktsiya
 watch(
   currentTest,
   async (test) => {
     if (!test) {
+      // test yo'q → hammasini tozalaymiz
       closeReferenceWindow()
       stopTimer()
       teardownFullscreen()
@@ -1252,6 +1776,7 @@ watch(
     const savedProgress = testProgressStore.getProgress(test.id)
     const shouldStartFresh = shouldRestartTest.value
 
+    // URL'da restart=1 → bu testning mahalliy holatini butunlay tozalaymiz
     if (shouldStartFresh) {
       clearAnswers()
       activeAttemptId.value = null
@@ -1260,8 +1785,22 @@ watch(
       clearAnswerActionsForTest(test.id)
     }
 
-    const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
-    startTimer(questionCount, shouldStartFresh ? null : savedProgress?.remainingSeconds ?? null)
+    let questionCount = totalQuestions.value
+    if (!questionCount) {
+      let length = 0
+      if (test.questions) {
+        length = test.questions.length
+      }
+      questionCount = Number(length)
+    }
+
+    // restart paytida saqlangan vaqtni e'tiborsiz qoldiramiz; aks holda davom ettiramiz
+    let resumeSeconds = null
+    if (!shouldStartFresh && savedProgress && savedProgress.remainingSeconds !== undefined && savedProgress.remainingSeconds !== null) {
+      resumeSeconds = savedProgress.remainingSeconds
+    }
+
+    startTimer(questionCount, resumeSeconds)
 
     if (!shouldStartFresh) {
       await restoreProgress(test.id)
@@ -1276,14 +1815,17 @@ watch(
   },
 )
 
+// javoblar / taymer / attempt id o'zgarganda, jarayonni localStorage'ga saqlaymiz
 watch([serializedAnswers, remainingSeconds, activeAttemptId], () => {
   persistCurrentProgress()
 })
 
+// topshirish tasdiq modalini ochamiz
 const handleSubmitTest = () => {
   showSubmitModal.value = true
 }
 
+// topshirish tasdiq modalini yopamiz (agar topshirilayotgan bo'lmasa)
 const closeSubmitModal = () => {
   if (isSubmittingTest.value) {
     return
@@ -1292,12 +1834,13 @@ const closeSubmitModal = () => {
   showSubmitModal.value = false
 }
 
+// foydalanuvchi "Ha, topshirish"ni bosdi
 const confirmSubmitTest = async () => {
   if (isSubmittingTest.value) {
     return
   }
 
-  if (!currentTest.value?.id || !activeAttemptId.value) {
+  if (!currentTest.value || !currentTest.value.id || !activeAttemptId.value) {
     showSubmitModal.value = false
     return
   }
@@ -1315,13 +1858,18 @@ const confirmSubmitTest = async () => {
   }
 }
 
+// vaqt tugadi → avtomatik tarzda topshiramiz
 async function autoSubmitOnTimeUp() {
-  if (
-    isSubmittingTest.value ||
-    isCompletingTest.value ||
-    !currentTest.value?.id ||
-    !activeAttemptId.value
-  ) {
+  if (isSubmittingTest.value) {
+    return
+  }
+  if (isCompletingTest.value) {
+    return
+  }
+  if (!currentTest.value || !currentTest.value.id) {
+    return
+  }
+  if (!activeAttemptId.value) {
     return
   }
 
@@ -1339,6 +1887,7 @@ async function autoSubmitOnTimeUp() {
   }
 }
 
+// foydalanuvchi profil modalini to'ldirdi — saqlab, testni qayta yuklaymiz
 const submitEntryProfile = async () => {
   const firstName = profileForm.firstName.trim()
   const lastName = profileForm.lastName.trim()
@@ -1364,31 +1913,59 @@ const submitEntryProfile = async () => {
       body: JSON.stringify({ firstName, lastName, fatherName }),
     })
 
-    const payload = await response.json().catch(() => null)
-
-    if (!response.ok || (payload && payload.code && payload.code !== 200)) {
-      throw new Error(payload?.message || t('testPage.profileSaveError'))
+    let payload = null
+    try {
+      payload = await response.json()
+    } catch {
+      payload = null
     }
 
-    authStore.userInfo =
-      payload?.data || {
-        ...(authStore.userInfo || {}),
+    // javob xato ekanini aniqlaymiz
+    let isFailure = !response.ok
+    if (!isFailure && payload && payload.code && payload.code !== 200) {
+      isFailure = true
+    }
+
+    if (isFailure) {
+      let errorMessage = t('testPage.profileSaveError')
+      if (payload && payload.message) {
+        errorMessage = payload.message
+      }
+      throw new Error(errorMessage)
+    }
+
+    // mahalliy user info'ni yangilaymiz, shunda navbar va boshqalar o'zgarishni ko'rsatadi
+    if (payload && payload.data) {
+      authStore.userInfo = payload.data
+    } else {
+      let existing = {}
+      if (authStore.userInfo) {
+        existing = authStore.userInfo
+      }
+      authStore.userInfo = {
+        ...existing,
         fullName: `${firstName} ${lastName}`,
         firstName,
         lastName,
         fatherName,
       }
+    }
+
     hasCompletedEntryProfile.value = true
     showProfileModal.value = false
     await loadTest(requestedTestId.value)
   } catch (error) {
-    profileError.value =
-      error instanceof Error ? error.message : t('testPage.profileSaveError')
+    if (error instanceof Error) {
+      profileError.value = error.message
+    } else {
+      profileError.value = t('testPage.profileSaveError')
+    }
   } finally {
     isSavingProfile.value = false
   }
 }
 
+// lifecycle
 onMounted(() => {
   testProgressStore.hydrate()
   hydrateAnswerActions()

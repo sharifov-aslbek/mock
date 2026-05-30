@@ -105,13 +105,138 @@ const normalizeMathWrappers = (value) =>
     .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, '$1')
     .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, '$1')
 
-const normalizeLatex = (value) =>
+const TRIG_ALIAS_NAMES = ['sin', 'cos', 'tan', 'cot', 'ctg', 'tg']
+const DUPLICATED_TRIG_ALIAS_PATTERN = new RegExp(
+  `\\b(${TRIG_ALIAS_NAMES.join('|')})\\s+\\1(?=\\s*\\d)`,
+  'gi',
+)
+const DEGREE_MARK_PATTERN = String.raw`(?:∘|°|º|˚|ᵒ|o|о|\\circ)`
+const DUPLICATED_DEGREE_POWER_PATTERN = new RegExp(
+  String.raw`\^\s*\{\s*${DEGREE_MARK_PATTERN}(?:\s*${DEGREE_MARK_PATTERN})+\s*\}`,
+  'gi',
+)
+const DEGREE_POWER_PATTERN = new RegExp(
+  String.raw`\^\s*\{\s*${DEGREE_MARK_PATTERN}\s*\}`,
+  'gi',
+)
+const BRACED_DEGREE_AFTER_NUMBER_PATTERN = new RegExp(
+  String.raw`(\d)\s*\{\s*${DEGREE_MARK_PATTERN}\s*\}`,
+  'gi',
+)
+const BARE_DEGREE_POWER_PATTERN = new RegExp(
+  String.raw`\^\s*${DEGREE_MARK_PATTERN}\b`,
+  'gi',
+)
+const VISIBLE_DEGREE_MARK_PATTERN = String.raw`(?:∘|°|º|˚|ᵒ|\\circ)`
+const NUMBER_DEGREE_MARK_PATTERN = new RegExp(
+  String.raw`(\d)\s*${VISIBLE_DEGREE_MARK_PATTERN}`,
+  'gi',
+)
+
+const normalizeMangledTrigExpressions = (value) =>
   String(value)
-    .replace(/\\aplha\b/g, '\\alpha')
-    .replace(/\\{2,}(?=(alpha|approx|beta|cdot|cdots|cos|cot|div|dots|frac|gamma|ge|int|lambda|ldots|le|left|lim|ln|log|max|min|mu|neq|phi|pi|placeholder|pm|prod|quad|qquad|right|sin|sqrt|sum|tan|theta|times)\b)/g, '\\')
-    .replace(/\\\s+/g, ' ')
-    .replace(/\\placeholder\s*\{[^}]*\}/g, '\\square')
-    .replace(/\\placeholder\b/g, '\\square')
+    .replace(/\u2061/g, ' ')
+    .replace(DUPLICATED_TRIG_ALIAS_PATTERN, '$1')
+    .replace(DUPLICATED_DEGREE_POWER_PATTERN, '^{\\circ}')
+    .replace(DEGREE_POWER_PATTERN, '^{\\circ}')
+    .replace(BRACED_DEGREE_AFTER_NUMBER_PATTERN, '$1^{\\circ}')
+    .replace(BARE_DEGREE_POWER_PATTERN, '^{\\circ}')
+    .replace(NUMBER_DEGREE_MARK_PATTERN, '$1^{\\circ}')
+
+const SQRT_SHORTHAND_PATTERN = /\\sqrt\s*([A-Za-z0-9])/g
+const BARE_SQRT_SHORTHAND_PATTERN = /(?<![\\A-Za-z])sqrt\s*([A-Za-z0-9])/gi
+const BARE_FRAC_COMMAND_PATTERN = /(?<![\\A-Za-z])frac(?=\s*(?:\{|[A-Za-z0-9]))/gi
+
+const normalizeMalformedLatexCommands = (value) =>
+  String(value)
+    .replace(BARE_FRAC_COMMAND_PATTERN, '\\frac')
+    .replace(BARE_SQRT_SHORTHAND_PATTERN, '\\sqrt{$1}')
+    .replace(SQRT_SHORTHAND_PATTERN, '\\sqrt{$1}')
+
+// Trig / log functions and Greek letter names used by `detachGreekFromCommands`
+// to repair commands like `\sinalpha` (one stuck token) into `\sin\alpha`.
+const TRIG_AND_LOG_FUNCTIONS = [
+  'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
+  'arcsin', 'arccos', 'arctan',
+  'sinh', 'cosh', 'tanh',
+  'log', 'ln',
+]
+const GREEK_LETTER_NAMES = [
+  'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta',
+  'theta', 'vartheta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'pi',
+  'varpi', 'rho', 'varrho', 'sigma', 'varsigma', 'tau', 'upsilon', 'phi',
+  'varphi', 'chi', 'psi', 'omega',
+]
+const STUCK_TRIG_GREEK_PATTERN = new RegExp(
+  `\\\\(${TRIG_AND_LOG_FUNCTIONS.join('|')})(${GREEK_LETTER_NAMES.join('|')})\\b`,
+  'g',
+)
+
+// API text sometimes glues a trig command and a Greek letter together as a
+// single token (e.g. `\sinalpha`, `\cosalpha`). KaTeX cannot resolve that —
+// reinsert the missing backslash so the formula renders as `\sin\alpha`.
+const detachGreekFromCommands = (value) =>
+  String(value).replace(STUCK_TRIG_GREEK_PATTERN, '\\$1\\$2 ')
+
+// API text often contains math function names without the leading backslash
+// (e.g. `sin810^{o}`, `sqrt{2}`, `ctg45`). KaTeX then renders each letter as a
+// separate italic variable instead of as a single operator — `sin810` becomes
+// `s·i·n·810`, which overflows narrow columns and reads as garbage. Reinsert
+// the missing backslash so the operator renders as one semantic unit, and
+// translate the Russian/Uzbek aliases (ctg, tg, sh, ch, th) at the same time.
+const BARE_MATH_FUNCTION_PATTERN = /(?<![\\A-Za-z])(arcsin|arccos|arctan|sinh|cosh|tanh|sqrt|sin|cos|tan|cot|sec|csc|log|ln|lim|max|min|ctg|tg|sh|ch|th)(?![A-Za-z])/g
+const BARE_MATH_FUNCTION_REPLACEMENTS = {
+  sin: '\\sin', cos: '\\cos', tan: '\\tan', cot: '\\cot', sec: '\\sec', csc: '\\csc',
+  arcsin: '\\arcsin', arccos: '\\arccos', arctan: '\\arctan',
+  sinh: '\\sinh', cosh: '\\cosh', tanh: '\\tanh',
+  log: '\\log', ln: '\\ln', lim: '\\lim', max: '\\max', min: '\\min',
+  sqrt: '\\sqrt',
+  ctg: '\\operatorname{ctg}', tg: '\\tan', sh: '\\sinh', ch: '\\cosh', th: '\\tanh',
+}
+
+const normalizeBareMathFunctions = (value) =>
+  String(value).replace(
+    BARE_MATH_FUNCTION_PATTERN,
+    (_, name) => `${BARE_MATH_FUNCTION_REPLACEMENTS[name]} `,
+  )
+
+// Map Unicode math glyphs the API ships inside formulas to their LaTeX
+// equivalents. KaTeX throws on `∘` (U+2218 RING OPERATOR) and `°` (U+00B0
+// DEGREE SIGN) in math mode, which causes the whole formula to fall back
+// to raw text. Replacing them with `\circ` keeps the formula renderable.
+const UNICODE_MATH_GLYPH_REPLACEMENTS = [
+  [/∘/g, '\\circ '],
+  [/°/g, '\\circ '],
+  [/×/g, '\\times '],
+  [/÷/g, '\\div '],
+  [/≤/g, '\\le '],
+  [/≥/g, '\\ge '],
+  [/≠/g, '\\ne '],
+  [/√/g, '\\sqrt '],
+  [/·/g, '\\cdot '],
+  [/…/g, '\\ldots '],
+  [/∞/g, '\\infty '],
+]
+
+const normalizeUnicodeMathGlyphs = (value) => {
+  let result = String(value)
+  for (const [pattern, replacement] of UNICODE_MATH_GLYPH_REPLACEMENTS) {
+    result = result.replace(pattern, replacement)
+  }
+  return result
+}
+
+const normalizeLatex = (value) =>
+  detachGreekFromCommands(
+    normalizeMalformedLatexCommands(
+      normalizeBareMathFunctions(normalizeUnicodeMathGlyphs(String(value))),
+    )
+      .replace(/\\aplha\b/g, '\\alpha')
+      .replace(/\\{2,}(?=(alpha|approx|beta|cdot|cdots|cos|cot|div|dots|frac|gamma|ge|int|lambda|ldots|le|left|lim|ln|log|max|min|mu|neq|phi|pi|placeholder|pm|prod|quad|qquad|right|sin|sqrt|sum|tan|theta|times)\b)/g, '\\')
+      .replace(/\\\s+/g, ' ')
+      .replace(/\\placeholder\s*\{[^}]*\}/g, '\\square')
+      .replace(/\\placeholder\b/g, '\\square'),
+  )
 
 const renderFormula = (value, displayMode = false) => {
   try {
@@ -225,8 +350,96 @@ const renderMathSegment = (value) => {
   )
 }
 
+// Tokenize the source while keeping `\command{...}{...}` runs as single
+// tokens, even when their interior contains whitespace. The naive whitespace
+// tokenizer would split `\frac{3\sin\alpha + 2}{...}` into two halves that
+// KaTeX cannot render — so each half falls back to plain text and the
+// formula breaks. Balancing braces here keeps the LaTeX expression intact.
+const tokenizeWithBalancedBraces = (source) => {
+  const text = String(source)
+  const tokens = []
+  const length = text.length
+  let index = 0
+
+  const skipBalancedBraces = (startIndex) => {
+    if (text[startIndex] !== '{') {
+      return startIndex
+    }
+
+    let depth = 1
+    let cursor = startIndex + 1
+
+    while (cursor < length && depth > 0) {
+      const character = text[cursor]
+      if (character === '{') {
+        depth += 1
+      } else if (character === '}') {
+        depth -= 1
+      }
+      cursor += 1
+    }
+
+    return cursor
+  }
+
+  while (index < length) {
+    const character = text[index]
+
+    if (/\s/.test(character)) {
+      let cursor = index + 1
+      while (cursor < length && /\s/.test(text[cursor])) {
+        cursor += 1
+      }
+      tokens.push(text.slice(index, cursor))
+      index = cursor
+      continue
+    }
+
+    // \command possibly followed by one or more {...} brace groups
+    if (character === '\\' && /[A-Za-z]/.test(text[index + 1] || '')) {
+      let cursor = index + 1
+      while (cursor < length && /[A-Za-z]/.test(text[cursor])) {
+        cursor += 1
+      }
+
+      while (cursor < length) {
+        let lookahead = cursor
+        while (lookahead < length && /\s/.test(text[lookahead])) {
+          lookahead += 1
+        }
+        if (text[lookahead] !== '{') {
+          break
+        }
+        const afterBrace = skipBalancedBraces(lookahead)
+        if (afterBrace === lookahead) {
+          break
+        }
+        cursor = afterBrace
+      }
+
+      tokens.push(text.slice(index, cursor))
+      index = cursor
+      continue
+    }
+
+    let cursor = index + 1
+    while (cursor < length && !/\s/.test(text[cursor])) {
+      // Stop before a fresh \command so it can become its own token and pick
+      // up its trailing brace groups in the next iteration.
+      if (text[cursor] === '\\' && /[A-Za-z]/.test(text[cursor + 1] || '')) {
+        break
+      }
+      cursor += 1
+    }
+    tokens.push(text.slice(index, cursor))
+    index = cursor
+  }
+
+  return tokens
+}
+
 const renderLooseContent = (source) =>
-  (String(source).match(/\s+|[^\s]+/g) || [])
+  tokenizeWithBalancedBraces(source)
     .map((token) => {
       if (/^\s+$/.test(token)) {
         return escapeTextSegment(token)
@@ -296,8 +509,10 @@ const demangleSemicolons = (value) =>
     .trim()
 
 const preprocessTestText = (value) =>
-  demangleSemicolons(
-    String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+  normalizeMangledTrigExpressions(
+    demangleSemicolons(
+      String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+    ),
   )
 
 // Full LaTeX environments such as \begin{cases}...\end{cases} or \begin{matrix}.

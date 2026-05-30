@@ -36,6 +36,17 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/test-junior',
+    name: 'test-junior',
+    component: () => import('@/views/TestJuniorLevelPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/mashq-junior',
+    name: 'mashq-junior',
+    component: () => import('@/views/MashqJuniorLevelPage.vue')
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('@/views/DashboardPage.vue')
