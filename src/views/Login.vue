@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { onMounted, onUnmounted, ref } from 'vue'
+import logoBlack from '@/assets/logo-black.jpg'
 
 const telegramContainer = ref<HTMLElement | null>(null)
 
@@ -128,10 +129,9 @@ const handleLogin = async () => {
     <div class="mx-auto flex min-h-screen max-w-7xl items-center justify-center">
       <div class="w-full max-w-md">
         <div class="mb-8 text-center">
-          <div
-            class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-black text-sm font-semibold text-white"
-          >
-            M
+          <div class="mb-4 flex items-center justify-center gap-2">
+            <img :src="logoBlack" alt="MilliyMock" class="h-10 w-auto object-contain" />
+            <span class="text-[18px] font-bold tracking-[-0.025em] text-black">MilliyMock</span>
           </div>
           <h1 class="text-3xl font-semibold tracking-tight text-black">
             {{ t('login.title') }}

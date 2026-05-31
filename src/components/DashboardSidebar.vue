@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import DashboardIcon from '@/components/DashboardIcon.vue'
+import logoBlack from '@/assets/logo-black.jpg'
 
 const props = defineProps({
   collapsed: {
@@ -56,9 +57,9 @@ const handleChildClick = (parentKey, child) => {
 <template>
   <aside class="flex h-full flex-col border-r border-black/10 bg-white/90 backdrop-blur-xl">
     <div class="border-b border-black/10 px-6 py-7">
-      <div class="flex items-center gap-2 text-black">
-        <span class="text-[18px] font-black tracking-[0.45em]">{{ brandLabel }}</span>
-        <span class="text-xs font-bold tracking-[0.22em]">{{ roleLabel }}</span>
+      <div class="flex items-center gap-3 text-black">
+        <img :src="logoBlack" :alt="brandLabel" class="h-9 w-auto object-contain" />
+        <span v-if="!collapsed" class="text-xs font-bold tracking-[0.22em]">{{ roleLabel }}</span>
       </div>
     </div>
 

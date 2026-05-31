@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { setLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import logoWhite from '@/assets/logo-white.jpg'
 
 const isMobileMenuOpen = ref(false)
 const isUserMenuOpen = ref(false)
@@ -81,14 +82,7 @@ onMounted(() => {
   <header class="sticky top-0 z-[100] h-16 w-full border-b border-[#1a1a1a] bg-[#0a0a0a] text-white">
     <div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
       <router-link to="/" class="flex shrink-0 items-center gap-2" @click="closeMobileMenu">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#2a2a2a] bg-[#1e1e1e]">
-          <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <rect x="1" y="1" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.9" />
-            <rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.4" />
-            <rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.4" />
-            <rect x="8" y="8" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.9" />
-          </svg>
-        </span>
+        <img :src="logoWhite" alt="MilliyMock" class="h-9 w-auto object-contain" />
         <span class="text-[17px] font-bold tracking-[-0.025em] text-white">MilliyMock</span>
       </router-link>
 
@@ -203,14 +197,7 @@ onMounted(() => {
       >
         <div class="flex items-center justify-between border-b border-[#1a1a1a] px-5 py-4">
           <router-link to="/" class="flex items-center gap-2" @click="closeMobileMenu">
-            <span class="flex h-7 w-7 items-center justify-center rounded-md border border-[#2a2a2a] bg-[#1e1e1e]">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <rect x="1" y="1" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.9" />
-                <rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.4" />
-                <rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.4" />
-                <rect x="8" y="8" width="5" height="5" rx="1" fill="#fff" fill-opacity="0.9" />
-              </svg>
-            </span>
+            <img :src="logoWhite" alt="MilliyMock" class="h-8 w-auto object-contain" />
             <span class="text-base font-bold text-white">MilliyMock</span>
           </router-link>
           <button

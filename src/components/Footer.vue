@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import logoWhite from '@/assets/logo-white.jpg'
 
 const { t, tm } = useI18n()
 const columns = computed(() => tm('footer.columns'))
@@ -37,7 +38,10 @@ const columns = computed(() => tm('footer.columns'))
       <div class="border-t border-gray-700 mb-8"></div>
 
       <div class="flex flex-col md:flex-row items-center justify-between gap-8">
-        <div class="text-2xl font-bold text-white">{{ t('footer.brand') }}</div>
+        <div class="flex items-center gap-3">
+          <img :src="logoWhite" :alt="t('footer.brand')" class="h-10 w-auto object-contain" />
+          <span class="text-2xl font-bold text-white">MilliyMock</span>
+        </div>
 
         <div class="flex items-center space-x-6 text-gray-400">
           <a href="#" class="hover:text-white transition">f</a>
