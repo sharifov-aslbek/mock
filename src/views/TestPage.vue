@@ -176,7 +176,22 @@ const groupRenderModels = computed(() => {
       ),
     ]
     const useSharedGroupOrder = groupedQuestions.length > 1 && distinctOrders.length === 1
-    const orderLabel = useSharedGroupOrder ? distinctOrders[0] : ''
+    // When sub-questions share an order we show that single number and label
+    // sub-questions as a/b/c. When they have different orders we still want a
+    // group header — fall back to the lowest order, or a range if there is
+    // more than one.
+    const numericOrders = distinctOrders
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+      .sort((firstOrder, secondOrder) => firstOrder - secondOrder)
+    let orderLabel = ''
+    if (useSharedGroupOrder) {
+      orderLabel = distinctOrders[0]
+    } else if (numericOrders.length > 1) {
+      orderLabel = `${numericOrders[0]}-${numericOrders[numericOrders.length - 1]}`
+    } else if (numericOrders.length === 1) {
+      orderLabel = String(numericOrders[0])
+    }
     const questions = groupedQuestions.map((question, index) => ({
       ...question,
       groupSubLabel: useSharedGroupOrder
@@ -208,7 +223,22 @@ const renderedQuestions = computed(() => {
   const shownGroups = new Set()
   let previousOrderLabel = null
 
-  return (currentTest.value?.questions || []).map((question, index) => {
+  // Backend may return questions in arbitrary order — sort ascending by
+  // `order`, falling back to `id` so identical orders remain stable.
+  const sortedQuestions = [...(currentTest.value?.questions || [])].sort(
+    (firstQuestion, secondQuestion) => {
+      const firstOrder = Number(firstQuestion.order)
+      const secondOrder = Number(secondQuestion.order)
+      const safeFirstOrder = Number.isFinite(firstOrder) ? firstOrder : Number.POSITIVE_INFINITY
+      const safeSecondOrder = Number.isFinite(secondOrder) ? secondOrder : Number.POSITIVE_INFINITY
+      if (safeFirstOrder !== safeSecondOrder) {
+        return safeFirstOrder - safeSecondOrder
+      }
+      return Number(firstQuestion.id) - Number(secondQuestion.id)
+    },
+  )
+
+  return sortedQuestions.map((question, index) => {
     const group = question.questionGroupId
       ? questionGroupsById.value.get(Number(question.questionGroupId))
       : null
@@ -371,11 +401,16 @@ const getGroupedQuestions = (groupId) => {
         )
 
   return [...groupQuestions]
-    .sort(
-      (firstQuestion, secondQuestion) =>
-        Number(firstQuestion.order) - Number(secondQuestion.order) ||
-        Number(firstQuestion.id) - Number(secondQuestion.id),
-    )
+    .sort((firstQuestion, secondQuestion) => {
+      const firstOrder = Number(firstQuestion.order)
+      const secondOrder = Number(secondQuestion.order)
+      const safeFirstOrder = Number.isFinite(firstOrder) ? firstOrder : Number.POSITIVE_INFINITY
+      const safeSecondOrder = Number.isFinite(secondOrder) ? secondOrder : Number.POSITIVE_INFINITY
+      if (safeFirstOrder !== safeSecondOrder) {
+        return safeFirstOrder - safeSecondOrder
+      }
+      return Number(firstQuestion.id) - Number(secondQuestion.id)
+    })
     .map((question) => {
       const renderedQuestion = renderedQuestionsById.value.get(Number(question.id))
       return renderedQuestion || question

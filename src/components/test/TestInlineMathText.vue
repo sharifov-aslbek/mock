@@ -184,10 +184,11 @@ const detachGreekFromCommands = (value) =>
 // `s·i·n·810`, which overflows narrow columns and reads as garbage. Reinsert
 // the missing backslash so the operator renders as one semantic unit, and
 // translate the Russian/Uzbek aliases (ctg, tg, sh, ch, th) at the same time.
-const BARE_MATH_FUNCTION_PATTERN = /(?<![\\A-Za-z])(arcsin|arccos|arctan|sinh|cosh|tanh|sqrt|sin|cos|tan|cot|sec|csc|log|ln|lim|max|min|ctg|tg|sh|ch|th)(?![A-Za-z])/g
+const BARE_MATH_FUNCTION_PATTERN = /(?<![\\A-Za-z])(arcsin|arccos|arctan|arcctg|arctg|sinh|cosh|tanh|sqrt|sin|cos|tan|cot|sec|csc|log|ln|lim|max|min|ctg|tg|sh|ch|th)(?![A-Za-z])/g
 const BARE_MATH_FUNCTION_REPLACEMENTS = {
   sin: '\\sin', cos: '\\cos', tan: '\\tan', cot: '\\cot', sec: '\\sec', csc: '\\csc',
   arcsin: '\\arcsin', arccos: '\\arccos', arctan: '\\arctan',
+  arctg: '\\arctan', arcctg: '\\operatorname{arcctg}',
   sinh: '\\sinh', cosh: '\\cosh', tanh: '\\tanh',
   log: '\\log', ln: '\\ln', lim: '\\lim', max: '\\max', min: '\\min',
   sqrt: '\\sqrt',
@@ -238,9 +239,23 @@ const normalizeLatex = (value) =>
       .replace(/\\placeholder\b/g, '\\square'),
   )
 
+// Constructs that KaTeX renders cramped in default \textstyle (inline) —
+// fractions especially become unreadably small inside another fraction. For
+// these we prepend `\displaystyle` so the formula keeps its inline flow but
+// uses display-mode sizing (taller numerators, larger subscripts, etc.).
+const DISPLAYSTYLE_TRIGGER_PATTERN =
+  /\\(?:frac|dfrac|sqrt|sum|int|iint|iiint|prod|coprod|lim|binom|cfrac)\b/
+
 const renderFormula = (value, displayMode = false) => {
   try {
-    return katex.renderToString(normalizeLatex(value), {
+    const normalizedValue = normalizeLatex(value)
+    const shouldForceDisplayInline =
+      !displayMode && DISPLAYSTYLE_TRIGGER_PATTERN.test(normalizedValue)
+    const finalValue = shouldForceDisplayInline
+      ? `\\displaystyle ${normalizedValue}`
+      : normalizedValue
+
+    return katex.renderToString(finalValue, {
       throwOnError: true,
       strict: 'ignore',
       displayMode,
@@ -517,11 +532,21 @@ const preprocessTestText = (value) =>
 
 // Full LaTeX environments such as \begin{cases}...\end{cases} or \begin{matrix}.
 // Some API text arrives without the leading backslashes (`begin{cases}...`),
-// so accept both forms and normalize before handing it to KaTeX.
-const ENV_BLOCK_PATTERN = /\\?begin\s*\{[A-Za-z*]+\}[\s\S]*?\\?end\s*\{[A-Za-z*]+\}/g
+// so accept both forms and normalize before handing it to KaTeX. The trailing
+// `*` covers starred variants such as `cases*` or `align*`.
+const ENV_BLOCK_PATTERN = /\\?begin\s*\{[A-Za-z]+\*?\}[\s\S]*?\\?end\s*\{[A-Za-z]+\*?\}/g
+
+// Environments where each row must be separated by `\\`. When the API sends a
+// row-based environment without separators (one long body with multiple `&`),
+// we inject `\\` between conditions so KaTeX renders multi-line correctly.
+const ROW_BASED_ENVIRONMENTS = new Set([
+  'cases', 'cases*', 'aligned', 'matrix', 'pmatrix', 'bmatrix',
+  'Bmatrix', 'vmatrix', 'Vmatrix', 'array', 'gathered', 'split',
+  'align', 'align*', 'eqnarray', 'eqnarray*', 'gather', 'gather*',
+])
 
 const normalizeEnvironmentRows = (environmentName, body) => {
-  if (environmentName !== 'cases' || /\\\\/.test(body)) {
+  if (!ROW_BASED_ENVIRONMENTS.has(environmentName) || /\\\\/.test(body)) {
     return body
   }
 
@@ -545,7 +570,22 @@ const ENV_NAME_FALLBACKS = {
   'eqnarray*': 'aligned',
   gather: 'gathered',
   'gather*': 'gathered',
+  equation: 'aligned',
+  'equation*': 'aligned',
+  multline: 'gathered',
+  'multline*': 'gathered',
+  'cases*': 'cases',
 }
+
+// Normalize an environment body the same way we treat inline formulas (greek
+// detachment, bare trig → `\sin`, unicode glyphs → `\circ`), but WITHOUT the
+// `\\\s+` → ' ' substitution that would eat row separators. Otherwise KaTeX
+// throws on `\sinalpha` / `∘` inside a `cases` and the whole block falls back
+// to raw text.
+const normalizeEnvironmentBody = (value) =>
+  detachGreekFromCommands(
+    normalizeBareMathFunctions(normalizeUnicodeMathGlyphs(String(value))),
+  )
 
 const normalizeEnvironmentFormula = (value) => {
   const normalizedValue = String(value)
@@ -553,11 +593,17 @@ const normalizeEnvironmentFormula = (value) => {
     .replace(/\\?begin\s*\{/g, '\\begin{')
     .replace(/\\?end\s*\{/g, '\\end{')
 
+  // The body of the env (between begin/end) might still contain stuck
+  // commands, bare functions or unicode glyphs that KaTeX rejects. Apply
+  // env-safe normalization to the body, then ensure rows are separated.
   return normalizedValue.replace(
-    /\\begin\s*\{([A-Za-z*]+)\}([\s\S]*?)\\end\s*\{\1\}/g,
+    /\\begin\s*\{([A-Za-z]+\*?)\}([\s\S]*?)\\end\s*\{\1\}/g,
     (_, environmentName, body) => {
       const renderName = ENV_NAME_FALLBACKS[environmentName] || environmentName
-      return `\\begin{${renderName}}${normalizeEnvironmentRows(environmentName, body)}\\end{${renderName}}`
+      const normalizedBody = normalizeEnvironmentBody(
+        normalizeEnvironmentRows(environmentName, body),
+      )
+      return `\\begin{${renderName}}${normalizedBody}\\end{${renderName}}`
     },
   )
 }
@@ -584,8 +630,8 @@ const renderEnvFormula = (value) => {
 // as ordinary wrapping text instead of an overflowing KaTeX blob.
 const stripEnvironmentShell = (value) =>
   String(value)
-    .replace(/\\?begin\s*\{[A-Za-z*]+\}/g, '')
-    .replace(/\\?end\s*\{[A-Za-z*]+\}/g, '')
+    .replace(/\\?begin\s*\{[A-Za-z]+\*?\}/g, '')
+    .replace(/\\?end\s*\{[A-Za-z]+\*?\}/g, '')
     .replace(/\\\\/g, '\n')
     .replace(/(?<!\\)&/g, ' ')
 
@@ -652,17 +698,13 @@ const renderedHtml = computed(() => {
 }
 
 .math-inline-text :deep(.katex) {
-  font-size: 1.08em;
+  font-size: 1.2em;
   max-width: 100%;
   display: inline-block;
   vertical-align: middle;
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 
 .math-inline-text :deep(.katex-display) {
   margin: 0.3em 0;
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 </style>

@@ -119,9 +119,20 @@ const symbolButtons = computed(() =>
         { id: 'nthroot', content: '<span class="relative inline-block text-lg"><span class="absolute -left-2 -top-1 text-[10px]">n</span><span>√</span></span>', isHtml: true, action: { type: 'cmd', arg: '\\nthroot' } },
         { id: 'sqrt', content: '√', action: { type: 'cmd', arg: '\\sqrt' } },
         {
+          id: 'frac',
+          content: '<span class="flex flex-col items-center gap-[2px] leading-none"><span class="text-[11px]">a</span><span class="w-4 border-t border-gray-700"></span><span class="text-[11px]">b</span></span>',
+          isHtml: true,
+          action: { type: 'cmd', arg: '\\frac' },
+        },
+        { id: 'mul', content: '×', action: { type: 'write', arg: '\\cdot' } },
+        { id: 'sub', content: '−', action: { type: 'typed', arg: '-' } },
+        { id: 'add', content: '+', action: { type: 'typed', arg: '+' } },
+        { id: 'dot', content: '.', variant: 'gray', action: { type: 'typed', arg: '.' } },
+        { id: 'eq', content: '=', variant: 'gray', action: { type: 'typed', arg: '=' } },
+        {
           id: 'ABC',
           content: 'A B C',
-          span: 4,
+          span: 2,
           variant: 'gray',
           onClick: () => {
             isAlphabetMode.value = true
@@ -129,30 +140,6 @@ const symbolButtons = computed(() =>
         },
       ],
 )
-
-const numberButtons = [
-  { id: '7', content: '7', variant: 'gray', action: { type: 'typed', arg: '7' } },
-  { id: '8', content: '8', variant: 'gray', action: { type: 'typed', arg: '8' } },
-  { id: '9', content: '9', variant: 'gray', action: { type: 'typed', arg: '9' } },
-  {
-    id: 'frac',
-    content: '<span class="flex flex-col items-center gap-[2px] leading-none"><span class="text-[11px]">a</span><span class="w-4 border-t border-gray-700"></span><span class="text-[11px]">b</span></span>',
-    isHtml: true,
-    action: { type: 'cmd', arg: '\\frac' },
-  },
-  { id: '4', content: '4', variant: 'gray', action: { type: 'typed', arg: '4' } },
-  { id: '5', content: '5', variant: 'gray', action: { type: 'typed', arg: '5' } },
-  { id: '6', content: '6', variant: 'gray', action: { type: 'typed', arg: '6' } },
-  { id: 'mul', content: '×', action: { type: 'write', arg: '\\cdot' } },
-  { id: '1', content: '1', variant: 'gray', action: { type: 'typed', arg: '1' } },
-  { id: '2', content: '2', variant: 'gray', action: { type: 'typed', arg: '2' } },
-  { id: '3', content: '3', variant: 'gray', action: { type: 'typed', arg: '3' } },
-  { id: 'sub', content: '−', action: { type: 'typed', arg: '-' } },
-  { id: '0', content: '0', variant: 'gray', action: { type: 'typed', arg: '0' } },
-  { id: 'dot', content: '.', variant: 'gray', action: { type: 'typed', arg: '.' } },
-  { id: 'eq', content: '=', variant: 'gray', action: { type: 'typed', arg: '=' } },
-  { id: 'add', content: '+', action: { type: 'typed', arg: '+' } },
-]
 
 const controlButtons = [
   { id: 'fn', content: 'functions', span: 2, variant: 'gray' },
@@ -238,26 +225,13 @@ const keyClasses = (button) => {
         </button>
       </div>
 
-      <div class="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1.08fr)_minmax(240px,0.92fr)]">
+      <div class="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[minmax(0,1.5fr)_minmax(240px,1fr)]">
         <div class="grid grid-cols-4 gap-2.5 sm:gap-3">
           <button
             v-for="button in symbolButtons"
             :key="button.id"
             type="button"
             :title="button.title"
-            :class="keyClasses(button)"
-            @mousedown.prevent="fire(button)"
-          >
-            <span v-if="button.isHtml" v-html="button.content"></span>
-            <span v-else>{{ button.content }}</span>
-          </button>
-        </div>
-
-        <div class="grid grid-cols-4 gap-2.5 sm:gap-3">
-          <button
-            v-for="button in numberButtons"
-            :key="button.id"
-            type="button"
             :class="keyClasses(button)"
             @mousedown.prevent="fire(button)"
           >

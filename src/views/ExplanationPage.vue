@@ -23,7 +23,6 @@ const testProgressStore = useTestProgressStore()
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const LANGUAGE_BY_LOCALE = { uz: 'Uzbek', ru: 'Russian' }
-const GROUP_SUBORDER_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('')
 
 const reviewingQuestionId = ref(null)
 const reportingQuestionId = ref(null)
@@ -261,11 +260,35 @@ const filteredQuestions = computed(() => {
     return counts
   }, new Map())
 
-  const groupBaseLabels = new Map()
-  const groupQuestionIndexes = new Map()
-  const shownGroupHeaders = new Set()
+  // For each group: collect the distinct `order` values its sub-questions
+  // carry, the lowest order (its starting number), and the count.
+  // Backend sometimes ships ALL sub-questions of one group with the same
+  // `order` — frontend distributes sequential numbers from the start.
+  const groupOrderInfo = new Map()
+  for (const question of sortedQuestions) {
+    const groupId = Number(question?.questionGroupId || 0)
+    if (!groupId) {
+      continue
+    }
+    const order = Number(question?.order)
+    const existing = groupOrderInfo.get(groupId) || {
+      min: Number.POSITIVE_INFINITY,
+      max: Number.NEGATIVE_INFINITY,
+      distinctOrders: new Set(),
+      count: 0,
+    }
+    existing.count += 1
+    if (Number.isFinite(order)) {
+      existing.distinctOrders.add(order)
+      if (order < existing.min) existing.min = order
+      if (order > existing.max) existing.max = order
+    }
+    groupOrderInfo.set(groupId, existing)
+  }
 
-  let displayCounter = 0
+  const shownGroupHeaders = new Set()
+  const groupSubIndexes = new Map()
+  let fallbackCounter = 0
 
   return sortedQuestions.map((apiQuestion) => {
     const groupId = Number(apiQuestion?.questionGroupId || 0)
@@ -278,33 +301,50 @@ const filteredQuestions = computed(() => {
       group && Number(groupedQuestionCounts.get(groupId) || 0) > 1,
     )
 
-    // DISPLAY LABEL LOGIC
-    if (isGroupedQuestion && !groupBaseLabels.has(groupId)) {
-      displayCounter += 1
-      groupBaseLabels.set(groupId, String(displayCounter))
-    } else if (!isGroupedQuestion) {
-      displayCounter += 1
+    fallbackCounter += 1
+    const order = Number(apiQuestion?.order)
+
+    let displayLabel
+    if (isGroupedQuestion) {
+      const info = groupOrderInfo.get(groupId)
+      const subIndex = groupSubIndexes.get(groupId) || 0
+      // If every sub-question carries the SAME order (backend quirk),
+      // distribute sequentially: start, start+1, start+2…
+      // If they already differ, honour each question's actual order.
+      if (info && info.distinctOrders.size <= 1 && Number.isFinite(info.min)) {
+        displayLabel = String(info.min + subIndex)
+      } else {
+        displayLabel = Number.isFinite(order) && order > 0
+          ? String(order)
+          : String(fallbackCounter)
+      }
+      groupSubIndexes.set(groupId, subIndex + 1)
+    } else {
+      displayLabel = Number.isFinite(order) && order > 0
+        ? String(order)
+        : String(fallbackCounter)
     }
 
-    const groupQuestionIndex = Number(groupQuestionIndexes.get(groupId) || 0)
-
-    const groupSubLabel =
-      GROUP_SUBORDER_LETTERS[groupQuestionIndex] ||
-      String(groupQuestionIndex + 1)
-
-    const baseDisplayLabel = isGroupedQuestion
-      ? groupBaseLabels.get(groupId)
-      : String(displayCounter)
-
-    const displayLabel = isGroupedQuestion
-      ? `${baseDisplayLabel}.${groupSubLabel}`
-      : baseDisplayLabel
+    // Group header label = the sequential range (start..start+count-1) when
+    // sub-questions all share one order, otherwise the actual min-max range.
+    let baseDisplayLabel = displayLabel
+    if (isGroupedQuestion) {
+      const info = groupOrderInfo.get(groupId)
+      if (info && Number.isFinite(info.min)) {
+        const startNumber = info.min
+        const endNumber = info.distinctOrders.size <= 1
+          ? info.min + info.count - 1
+          : info.max
+        baseDisplayLabel = startNumber === endNumber
+          ? String(startNumber)
+          : `${startNumber}-${endNumber}`
+      }
+    }
 
     const showGroupHeader =
       isGroupedQuestion && !shownGroupHeaders.has(groupId)
 
     if (isGroupedQuestion) {
-      groupQuestionIndexes.set(groupId, groupQuestionIndex + 1)
       shownGroupHeaders.add(groupId)
     }
 

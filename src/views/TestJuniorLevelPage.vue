@@ -256,11 +256,21 @@ const groupRenderModels = computed(() => {
       }
     }
 
-    // butun guruh bitta tartib raqamiga ega bo'lsa, bitta label va a/b/c ichki tartiblarni ishlatamiz
+    // butun guruh bitta tartib raqamiga ega bo'lsa, bitta label va a/b/c ichki tartiblarni ishlatamiz.
+    // sub-savollar har xil order'larga ega bo'lsa, eng kichik order'ni yoki diapazon'ni ko'rsatamiz —
+    // shunda guruh sarlavhasida har doim raqam ko'rinadi.
     const useSharedGroupOrder = groupedQuestions.length > 1 && orderStrings.length === 1
+    const numericOrders = orderStrings
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+      .sort((firstOrder, secondOrder) => firstOrder - secondOrder)
     let orderLabel = ''
     if (useSharedGroupOrder) {
       orderLabel = orderStrings[0]
+    } else if (numericOrders.length > 1) {
+      orderLabel = `${numericOrders[0]}-${numericOrders[numericOrders.length - 1]}`
+    } else if (numericOrders.length === 1) {
+      orderLabel = String(numericOrders[0])
     }
 
     // har bir savolga guruh-ga oid qo'shimchalarni biriktiramiz
@@ -310,7 +320,20 @@ const renderedQuestions = computed(() => {
     sourceQuestions = currentTest.value.questions
   }
 
-  return sourceQuestions.map((question, index) => {
+  // backend savollarni har xil tartibda qaytarishi mumkin — `order` bo'yicha
+  // o'sish tartibida saralaymiz, teng bo'lsa `id` bo'yicha barqaror tartib.
+  const sortedQuestions = [...sourceQuestions].sort((firstQuestion, secondQuestion) => {
+    const firstOrder = Number(firstQuestion.order)
+    const secondOrder = Number(secondQuestion.order)
+    const safeFirstOrder = Number.isFinite(firstOrder) ? firstOrder : Number.POSITIVE_INFINITY
+    const safeSecondOrder = Number.isFinite(secondOrder) ? secondOrder : Number.POSITIVE_INFINITY
+    if (safeFirstOrder !== safeSecondOrder) {
+      return safeFirstOrder - safeSecondOrder
+    }
+    return Number(firstQuestion.id) - Number(secondQuestion.id)
+  })
+
+  return sortedQuestions.map((question, index) => {
     // bu savol qaysi guruhga tegishli ekanini topamiz (agar bor bo'lsa)
     let group = null
     if (question.questionGroupId) {
@@ -552,11 +575,15 @@ const getGroupedQuestions = (groupId) => {
     )
   }
 
-  // tartib bo'yicha o'sish tartibida, teng bo'lsa id bo'yicha o'sish tartibida
+  // tartib bo'yicha o'sish tartibida, teng bo'lsa id bo'yicha o'sish tartibida.
+  // NaN xavfsiz: order yo'q yoki noto'g'ri bo'lgan savollar ro'yxat oxiriga tushadi.
   const sortedGroup = [...groupQuestions].sort((firstQuestion, secondQuestion) => {
-    const orderDifference = Number(firstQuestion.order) - Number(secondQuestion.order)
-    if (orderDifference !== 0) {
-      return orderDifference
+    const firstOrder = Number(firstQuestion.order)
+    const secondOrder = Number(secondQuestion.order)
+    const safeFirstOrder = Number.isFinite(firstOrder) ? firstOrder : Number.POSITIVE_INFINITY
+    const safeSecondOrder = Number.isFinite(secondOrder) ? secondOrder : Number.POSITIVE_INFINITY
+    if (safeFirstOrder !== safeSecondOrder) {
+      return safeFirstOrder - safeSecondOrder
     }
     return Number(firstQuestion.id) - Number(secondQuestion.id)
   })
