@@ -69,14 +69,18 @@ const isApplyingExternalUpdate = ref(false)
 let removeFieldListeners = null
 let isUnmounted = false
 
-// MathQuill expects `\text{°}` for the degree symbol. Map the `^{<glyph>}` /
-// `^<glyph>` shorthands and the bare `\circ` command into that canonical form
-// so pasted or API text renders as a real superscript. Note: lowercase `o`
-// is intentionally NOT treated as a degree mark in the catch-all — too many
-// real variable names contain `o`.
+// MathQuill expects `\text{°}` for the degree symbol. Map every degree
+// shorthand we see in the wild to that canonical form so MathQuill renders a
+// real degree mark instead of leaving raw characters / braces visible.
+//
+// Inside a superscript group `^{…}` we also treat a *standalone* `o` (Latin)
+// or `о` (Cyrillic) as a degree, because Uzbek/Russian math text writes
+// angles as `105^{o}`. This is scoped to braces with nothing but the o, so
+// real superscripted variables like `x^{o+1}` are left untouched. Outside a
+// superscript we never reinterpret a lone `o`.
 const normalizeLatexInput = (value) => {
   return String(value || '')
-    .replace(/\^\s*\{\s*(?:∘|°|º|˚|ᵒ|\\circ)\s*\}/g, '^{\\text{°}}')
+    .replace(/\^\s*\{\s*(?:∘|°|º|˚|ᵒ|o|о|\\circ)\s*\}/g, '^{\\text{°}}')
     .replace(/\^\s*(?:∘|°|º|˚|ᵒ|\\circ)\b/g, '^{\\text{°}}')
     .replace(/(\d)\s*(?:∘|°|º|˚|ᵒ)/g, '$1^{\\text{°}}')
     .replace(/\\circ\b/g, '\\text{°}')
