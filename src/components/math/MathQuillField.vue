@@ -360,16 +360,16 @@ defineExpose({
   display: flex !important;
   align-items: center !important;
   width: 100% !important;
-  min-height: 56px !important;
+  min-height: 72px !important;
   max-height: 400px !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  padding: 0 20px !important;
+  padding: 16px 24px !important;
 }
 
 :deep(.mq-compact) {
-  min-height: 56px !important;
-  padding: 0 20px !important;
+  min-height: 72px !important;
+  padding: 16px 24px !important;
 }
 
 :deep(.mq-compact .mq-root-block) {

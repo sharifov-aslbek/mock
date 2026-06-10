@@ -72,9 +72,36 @@ const handleKeyboardAction = (action) => {
     <div class="flex justify-end">
       <button
         type="button"
-        class="inline-flex h-10 w-full items-center justify-center rounded-[16px] border border-[#d1cec7] bg-[#faf8f4] px-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:w-auto sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:whitespace-nowrap"
+        class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[16px] border border-[#d1cec7] bg-[#faf8f4] px-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:w-auto sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:whitespace-nowrap"
         @click="handleFormulaToggle"
       >
+        <svg
+          v-if="isFormulaPanelOpen"
+          class="h-4 w-4 transition-transform duration-200"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M6 18 18 6M6 6l12 12" />
+        </svg>
+        <svg
+          v-else
+          class="h-4 w-4 transition-transform duration-200"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="6" width="18" height="12" rx="2" />
+          <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
+        </svg>
         {{ toggleLabel }}
       </button>
     </div>
