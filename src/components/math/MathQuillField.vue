@@ -80,6 +80,10 @@ let isUnmounted = false
 // superscript we never reinterpret a lone `o`.
 const normalizeLatexInput = (value) => {
   return String(value || '')
+    // A bare brace group right after a number is the API's shorthand for a
+    // degree mark — `94{o}` means 94°. Convert it BEFORE the other patterns
+    // so the `o` inside doesn't get reinterpreted as a variable.
+    .replace(/(\d)\s*\{\s*(?:∘|°|º|˚|ᵒ|o|о|\\circ)\s*\}/g, '$1^{\\text{°}}')
     .replace(/\^\s*\{\s*(?:∘|°|º|˚|ᵒ|o|о|\\circ)\s*\}/g, '^{\\text{°}}')
     .replace(/\^\s*(?:∘|°|º|˚|ᵒ|\\circ)\b/g, '^{\\text{°}}')
     .replace(/(\d)\s*(?:∘|°|º|˚|ᵒ)/g, '$1^{\\text{°}}')
@@ -373,16 +377,16 @@ defineExpose({
   display: flex !important;
   align-items: center !important;
   width: 100% !important;
-  min-height: 72px !important;
+  min-height: 96px !important;
   max-height: 400px !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  padding: 16px 24px !important;
+  padding: 28px 24px !important;
 }
 
 :deep(.mq-compact) {
-  min-height: 72px !important;
-  padding: 16px 24px !important;
+  min-height: 96px !important;
+  padding: 28px 24px !important;
 }
 
 :deep(.mq-compact .mq-root-block) {
