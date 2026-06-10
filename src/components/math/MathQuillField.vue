@@ -321,17 +321,16 @@ defineExpose({
 <template>
   <div class="relative" @focus.capture="emit('focus')">
     <div
-      class="relative overflow-hidden rounded-xl border-2 border-gray-300 bg-white shadow-sm transition-colors duration-150 hover:border-gray-400 focus-within:border-blue-500"
+      class="mq-shell relative rounded-2xl border border-[#e0ddd7] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-all duration-150 hover:border-[#bcb7ad]"
       :class="[
         disabled ? 'pointer-events-none opacity-60' : '',
-        isFocused ? 'border-blue-500' : '',
+        isFocused ? 'border-[#1a1814] shadow-[0_4px_14px_rgba(15,23,42,0.08)]' : '',
       ]"
       @click="focus"
     >
       <span
         v-if="!currentLatex && placeholder"
-        class="pointer-events-none absolute left-4 top-3 text-[14px] text-gray-400"
-        :class="compact ? 'top-3.5' : ''"
+        class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-[15px] font-normal text-[#9b958c]"
       >
         {{ placeholder }}
       </span>
@@ -342,32 +341,9 @@ defineExpose({
         :class="compact ? 'mq-compact' : ''"
       ></div>
 
-      <div
-        class="absolute right-3 z-10 flex items-start gap-2"
-        :class="compact ? 'top-1.5' : 'top-3'"
-      >
-        <button
-          type="button"
-          class="rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-          title="Toggle keyboard"
-          @mousedown.prevent="emit('toggle-keyboard')"
-        >
-          ⌨
-        </button>
-        <button
-          v-if="!compact"
-          type="button"
-          class="rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-          title="Options"
-          @mousedown.prevent
-        >
-          ≡
-        </button>
-      </div>
-
       <span
         v-if="hasLoadError"
-        class="block px-4 pb-3 text-[11px] uppercase tracking-[0.12em] text-[#b91c1c]"
+        class="absolute left-5 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-[0.12em] text-[#b91c1c]"
       >
         Math editor failed to load
       </span>
@@ -376,40 +352,41 @@ defineExpose({
 </template>
 
 <style scoped>
+.mq-shell {
+  cursor: text;
+}
+
 :deep(.mq-field-root) {
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
   width: 100% !important;
-  min-height: 120px !important;
+  min-height: 56px !important;
   max-height: 400px !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  padding-left: 32px !important;
-  padding-right: 90px !important;
+  padding: 0 20px !important;
 }
 
 :deep(.mq-compact) {
   min-height: 56px !important;
-  padding-left: 16px !important;
-  padding-right: 50px !important;
+  padding: 0 20px !important;
 }
 
 :deep(.mq-compact .mq-root-block) {
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
+  padding: 0 !important;
 }
 
 :deep(.mq-field-root.mq-editable-field) {
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
-  display: block !important;
   width: 100% !important;
   min-height: 100% !important;
   max-width: 100% !important;
   padding: 0 !important;
-  font-size: 20px !important;
-  font-weight: 700 !important;
-  color: #111827 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: #1a1814 !important;
   background: transparent !important;
   cursor: text;
   overflow: visible !important;
@@ -418,9 +395,9 @@ defineExpose({
 
 :deep(.mq-field-root .mq-root-block) {
   display: inline-block !important;
-  font-weight: 700 !important;
-  padding-top: 35px !important;
-  padding-bottom: 35px !important;
+  font-weight: 500 !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
 }
 
 :deep(.mq-field-root .mq-nthroot) {
@@ -439,7 +416,9 @@ defineExpose({
 }
 
 :deep(.mq-field-root .mq-cursor) {
-  border-left: 2px solid #2563eb !important;
+  border-left: 1.5px solid #1a1814 !important;
+  vertical-align: middle !important;
+  height: 1.1em !important;
 }
 
 :deep(.mq-field-root .mq-selection),
