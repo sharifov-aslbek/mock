@@ -576,24 +576,35 @@ const isAnyModalOpen = computed(
     showResultModal.value,
 )
 
-const statCards = computed(() => [
-  {
-    label: "To'g'ri Javoblar",
-    value: correctCount.value,
-    colorClass: 'text-green-600',
-    bgClass: 'bg-green-50',
-    percentLabel: `${Math.round((correctCount.value / totalQuestions.value) * 100)}% to'g'ri`,
-    icon: 'check'
-  },
-  {
-    label: "Noto'g'ri Javoblar",
-    value: incorrectCount.value,
-    colorClass: 'text-red-600',
-    bgClass: 'bg-rose-50',
-    percentLabel: `${Math.round((incorrectCount.value / totalQuestions.value) * 100)}% noto'g'ri`,
-    icon: 'cross'
-  }
-])
+const statCards = computed(() => {
+  const total = totalQuestions.value || 1
+  return [
+    {
+      label: "To'g'ri Javoblar",
+      value: correctCount.value,
+      colorClass: 'text-green-600',
+      bgClass: 'bg-green-50',
+      percentLabel: `${Math.round((correctCount.value / total) * 100)}% to'g'ri`,
+      icon: 'check'
+    },
+    {
+      label: "Noto'g'ri Javoblar",
+      value: incorrectCount.value,
+      colorClass: 'text-red-600',
+      bgClass: 'bg-rose-50',
+      percentLabel: `${Math.round((incorrectCount.value / total) * 100)}% noto'g'ri`,
+      icon: 'cross'
+    },
+    {
+      label: "O'tkazib yuborilgan",
+      value: omittedCount.value,
+      colorClass: 'text-gray-600',
+      bgClass: 'bg-gray-50',
+      percentLabel: `${Math.round((omittedCount.value / total) * 100)}% o'tkazilgan`,
+      icon: 'skip'
+    }
+  ]
+})
 
 const progressLegend = computed(() => [
   { colorClass: 'bg-green-600', label: `${correctCount.value} to'g'ri` },
@@ -1164,7 +1175,7 @@ function answerFeedbackText(question) {
         </div>
 
         <div class="flex min-w-0 flex-1 flex-col gap-4">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div
               v-for="card in statCards"
               :key="card.label"
@@ -1187,7 +1198,7 @@ function answerFeedbackText(question) {
                     <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                   <svg
-                    v-else
+                    v-else-if="card.icon === 'cross'"
                     class="h-3.5 w-3.5"
                     viewBox="0 0 24 24"
                     fill="none"
@@ -1196,6 +1207,17 @@ function answerFeedbackText(question) {
                   >
                     <path d="M18 6 6 18" stroke-linecap="round" />
                     <path d="m6 6 12 12" stroke-linecap="round" />
+                  </svg>
+                  <svg
+                    v-else
+                    class="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12h14" stroke-linecap="round" />
                   </svg>
                 </span>
               </div>
