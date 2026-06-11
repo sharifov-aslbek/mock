@@ -377,16 +377,16 @@ defineExpose({
   display: flex !important;
   align-items: center !important;
   width: 100% !important;
-  min-height: 96px !important;
+  min-height: 128px !important;
   max-height: 400px !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  padding: 28px 24px !important;
+  padding: 44px 28px !important;
 }
 
 :deep(.mq-compact) {
-  min-height: 96px !important;
-  padding: 28px 24px !important;
+  min-height: 128px !important;
+  padding: 44px 28px !important;
 }
 
 :deep(.mq-compact .mq-root-block) {
