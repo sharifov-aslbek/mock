@@ -462,10 +462,28 @@ const tokenizeWithBalancedBraces = (source) => {
     }
 
     let cursor = index + 1
+    let braceDepth = text[index] === '{' ? 1 : 0
     while (cursor < length && !/\s/.test(text[cursor])) {
-      // Stop before a fresh \command so it can become its own token and pick
-      // up its trailing brace groups in the next iteration.
-      if (text[cursor] === '\\' && /[A-Za-z]/.test(text[cursor + 1] || '')) {
+      // Track brace depth so we don't split valid `48^{\circ}` (a LaTeX
+      // command inside an exponent group) into three broken pieces.
+      if (text[cursor] === '{') {
+        braceDepth += 1
+        cursor += 1
+        continue
+      }
+      if (text[cursor] === '}') {
+        if (braceDepth > 0) braceDepth -= 1
+        cursor += 1
+        continue
+      }
+      // Only break out at a fresh \command when we're NOT inside braces. A
+      // top-level `\command` should become its own token (and consume its
+      // trailing `{...}`/`[...]` groups in the next iteration).
+      if (
+        braceDepth === 0 &&
+        text[cursor] === '\\' &&
+        /[A-Za-z]/.test(text[cursor + 1] || '')
+      ) {
         break
       }
       cursor += 1
