@@ -417,7 +417,9 @@ const tokenizeWithBalancedBraces = (source) => {
       continue
     }
 
-    // \command possibly followed by one or more {...} brace groups
+    // \command possibly followed by [optional]{required}... groups. We accept
+    // both `{...}` and `[...]` so things like \sqrt[n]{value} stay as one
+    // token (KaTeX needs both arguments together to render nth roots).
     if (character === '\\' && /[A-Za-z]/.test(text[index + 1] || '')) {
       let cursor = index + 1
       while (cursor < length && /[A-Za-z]/.test(text[cursor])) {
@@ -429,14 +431,29 @@ const tokenizeWithBalancedBraces = (source) => {
         while (lookahead < length && /\s/.test(text[lookahead])) {
           lookahead += 1
         }
-        if (text[lookahead] !== '{') {
-          break
+        const nextChar = text[lookahead]
+        if (nextChar === '{') {
+          const afterBrace = skipBalancedBraces(lookahead)
+          if (afterBrace === lookahead) {
+            break
+          }
+          cursor = afterBrace
+          continue
         }
-        const afterBrace = skipBalancedBraces(lookahead)
-        if (afterBrace === lookahead) {
-          break
+        if (nextChar === '[') {
+          // Scan to the matching `]` (no nesting needed — optional args in
+          // LaTeX are flat).
+          let bracketCursor = lookahead + 1
+          while (bracketCursor < length && text[bracketCursor] !== ']') {
+            bracketCursor += 1
+          }
+          if (bracketCursor >= length) {
+            break
+          }
+          cursor = bracketCursor + 1
+          continue
         }
-        cursor = afterBrace
+        break
       }
 
       tokens.push(text.slice(index, cursor))
@@ -530,10 +547,24 @@ const demangleSemicolons = (value) =>
     .replace(/ *\n */g, '\n')
     .trim()
 
+// Collapse whitespace inside `\sqrt[n] value` / `sqrt [n] value` constructs
+// BEFORE tokenisation so the tokenizer keeps the whole expression together.
+// Otherwise `\sqrt [x] 9` becomes three tokens (`\sqrt`, `[x]`, `9`) and the
+// downstream normaliser never sees them as one nth-root.
+const collapseNthRootWhitespace = (value) =>
+  String(value)
+    .replace(/\\sqrt\s*\[([^\]]+)\]\s*([A-Za-z0-9])/g, '\\sqrt[$1]{$2}')
+    .replace(/(?<![\\A-Za-z])sqrt\s*\[([^\]]+)\]\s*([A-Za-z0-9])/gi, '\\sqrt[$1]{$2}')
+    // Also wrap a single-char radicand right after a closed `[…]` whose
+    // value isn't braced, e.g. `\sqrt[3]2x` → `\sqrt[3]{2}x`.
+    .replace(/\\sqrt\[([^\]]+)\]\s+([A-Za-z0-9])/g, '\\sqrt[$1]{$2}')
+
 const preprocessTestText = (value) =>
   normalizeMangledTrigExpressions(
     demangleSemicolons(
-      String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+      collapseNthRootWhitespace(
+        String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+      ),
     ),
   )
 
