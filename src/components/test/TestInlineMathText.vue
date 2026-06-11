@@ -146,10 +146,17 @@ const normalizeMangledTrigExpressions = (value) =>
 const SQRT_SHORTHAND_PATTERN = /\\sqrt\s*([A-Za-z0-9])/g
 const BARE_SQRT_SHORTHAND_PATTERN = /(?<![\\A-Za-z])sqrt\s*([A-Za-z0-9])/gi
 const BARE_FRAC_COMMAND_PATTERN = /(?<![\\A-Za-z])frac(?=\s*(?:\{|[A-Za-z0-9]))/gi
+// `\sqrt[n]value` (or bare `sqrt[n]value`) — KaTeX wants `\sqrt[n]{value}`.
+// Wrap the value in braces so the n-th-root parses reliably even when the
+// argument isn't braced in the source.
+const NTH_ROOT_SHORTHAND_PATTERN = /\\sqrt\s*\[([^\]]+)\]\s*([A-Za-z0-9])/g
+const BARE_NTH_ROOT_SHORTHAND_PATTERN = /(?<![\\A-Za-z])sqrt\s*\[([^\]]+)\]\s*([A-Za-z0-9])/gi
 
 const normalizeMalformedLatexCommands = (value) =>
   String(value)
     .replace(BARE_FRAC_COMMAND_PATTERN, '\\frac')
+    .replace(BARE_NTH_ROOT_SHORTHAND_PATTERN, '\\sqrt[$1]{$2}')
+    .replace(NTH_ROOT_SHORTHAND_PATTERN, '\\sqrt[$1]{$2}')
     .replace(BARE_SQRT_SHORTHAND_PATTERN, '\\sqrt{$1}')
     .replace(SQRT_SHORTHAND_PATTERN, '\\sqrt{$1}')
 
