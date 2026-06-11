@@ -377,16 +377,16 @@ defineExpose({
   display: flex !important;
   align-items: center !important;
   width: 100% !important;
-  min-height: 128px !important;
+  min-height: 96px !important;
   max-height: 400px !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  padding: 44px 28px !important;
+  padding: 28px 24px !important;
 }
 
 :deep(.mq-compact) {
-  min-height: 128px !important;
-  padding: 44px 28px !important;
+  min-height: 96px !important;
+  padding: 28px 24px !important;
 }
 
 :deep(.mq-compact .mq-root-block) {
@@ -398,9 +398,9 @@ defineExpose({
   box-shadow: none !important;
   outline: none !important;
   width: 100% !important;
-  min-height: 128px !important;
+  min-height: 96px !important;
   max-width: 100% !important;
-  padding: 44px 28px !important;
+  padding: 28px 24px !important;
   font-size: 16px !important;
   font-weight: 500 !important;
   color: #1a1814 !important;
