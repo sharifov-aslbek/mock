@@ -398,9 +398,9 @@ defineExpose({
   box-shadow: none !important;
   outline: none !important;
   width: 100% !important;
-  min-height: 100% !important;
+  min-height: 128px !important;
   max-width: 100% !important;
-  padding: 0 !important;
+  padding: 44px 28px !important;
   font-size: 16px !important;
   font-weight: 500 !important;
   color: #1a1814 !important;
