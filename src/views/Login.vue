@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 import { onMounted, onUnmounted, ref } from 'vue'
 import logoBlack from '@/assets/logo-black.jpg'
@@ -87,6 +88,16 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const message = useMessage()
+
+// Pages can redirect here with `?reason=auth-required` to explain why the
+// user landed back on login (typically: tried to open the test page while
+// logged out). Show a small toast so the prompt isn't silent.
+onMounted(() => {
+  if (route.query.reason === 'auth-required') {
+    message.warning(t('testPage.authRequired'), { duration: 3500 })
+  }
+})
 
 
 const handleLogin = async () => {

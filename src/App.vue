@@ -4,6 +4,7 @@ import FinalCTA from '@/components/FinalCTA.vue'
 import Footer from '@/components/Footer.vue'
 import SupportButton from '@/components/SupportButton.vue'
 import NetworkStatusAlert from '@/components/NetworkStatusAlert.vue'
+import { NMessageProvider } from 'naive-ui'
 import { RouterView , useRoute } from 'vue-router'
 
 
@@ -14,14 +15,16 @@ const supportlessRoutes = ['/test', '/explanation']
 
 <template>
 <!--  11-->
-  <main class="w-full">
-    <NetworkStatusAlert />
-     <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
-    <RouterView />
-    <SupportButton v-if="!supportlessRoutes.includes(route.path)" />
-    <FinalCTA v-if="!layoutlessRoutes.includes(route.path)" />
-    <Footer v-if="!layoutlessRoutes.includes(route.path)" />
-  </main>
+  <NMessageProvider placement="top">
+    <main class="w-full">
+      <NetworkStatusAlert />
+       <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
+      <RouterView />
+      <SupportButton v-if="!supportlessRoutes.includes(route.path)" />
+      <FinalCTA v-if="!layoutlessRoutes.includes(route.path)" />
+      <Footer v-if="!layoutlessRoutes.includes(route.path)" />
+    </main>
+  </NMessageProvider>
 </template>
 
 <style>

@@ -17,7 +17,6 @@ import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
 
-const REQUIRED_PROFILE_FIELDS = ['firstName', 'lastName', 'fatherName']
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -30,20 +29,11 @@ const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
 const showSubmitModal = ref(false)
-const showProfileModal = ref(false)
 const showLeaveModal = ref(false)
 let pendingNavigationCallback = null
 const isSubmittingTest = ref(false)
-const isSavingProfile = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
-const hasCompletedEntryProfile = ref(false)
-const profileError = ref('')
-const profileForm = reactive({
-  firstName: '',
-  lastName: '',
-  fatherName: '',
-})
 let timerIntervalId = null
 let isSyncingAnswers = false
 let pendingSyncRequested = false
@@ -276,15 +266,7 @@ const resolvedErrorMessage = computed(() => {
   return testStore.errorMessage
 })
 
-const loginRoute = computed(() => ({
-  path: '/login',
-  query: {
-    redirect: route.fullPath,
-  },
-}))
-
-const isLoginRequired = computed(() => pageErrorKey.value === 'testPage.authRequired')
-const canAccessTest = computed(() => currentTest.value && hasCompletedEntryProfile.value)
+const canAccessTest = computed(() => Boolean(currentTest.value))
 
 const totalQuestions = computed(() => renderedQuestions.value.length)
 
@@ -1013,17 +995,11 @@ const loadTest = async (testId) => {
     dirtyQuestionIds.clear()
     closeReferenceWindow()
     testStore.clearCurrentTest()
-    pageErrorKey.value = 'testPage.authRequired'
-    return
-  }
-
-  if (!(await ensureEntryProfile())) {
-    clearAnswers()
-    activeAttemptId.value = null
-    dirtyQuestionIds.clear()
-    closeReferenceWindow()
-    testStore.clearCurrentTest()
-    showProfileModal.value = true
+    shouldPersistProgress.value = false
+    await router.replace({
+      path: '/login',
+      query: { reason: 'auth-required', redirect: route.fullPath },
+    })
     return
   }
 
@@ -1061,47 +1037,6 @@ const loadTest = async (testId) => {
   } catch (error) {
     console.error(error)
   }
-}
-
-const hasRequiredUserProfile = (userInfo) =>
-  REQUIRED_PROFILE_FIELDS.every((field) => {
-    const value = userInfo?.[field]
-
-    return typeof value === 'string' ? Boolean(value.trim()) : Boolean(value)
-  })
-
-const fillProfileForm = (userInfo) => {
-  profileForm.firstName = typeof userInfo?.firstName === 'string' ? userInfo.firstName : ''
-  profileForm.lastName = typeof userInfo?.lastName === 'string' ? userInfo.lastName : ''
-  profileForm.fatherName = typeof userInfo?.fatherName === 'string' ? userInfo.fatherName : ''
-}
-
-const ensureEntryProfile = async () => {
-  if (hasCompletedEntryProfile.value && hasRequiredUserProfile(authStore.userInfo)) {
-    return true
-  }
-
-  let userInfo = authStore.userInfo
-
-  if (!hasRequiredUserProfile(userInfo)) {
-    try {
-      userInfo = await authStore.getUserInfo()
-    } catch (error) {
-      console.error(error)
-    }
-  }
-
-  if (hasRequiredUserProfile(userInfo)) {
-    hasCompletedEntryProfile.value = true
-    showProfileModal.value = false
-    profileError.value = ''
-    return true
-  }
-
-  hasCompletedEntryProfile.value = false
-  fillProfileForm(userInfo)
-  showProfileModal.value = true
-  return false
 }
 
 const enterFullscreen = async () => {
@@ -1374,56 +1309,6 @@ async function autoSubmitOnTimeUp() {
   }
 }
 
-const submitEntryProfile = async () => {
-  const firstName = profileForm.firstName.trim()
-  const lastName = profileForm.lastName.trim()
-  const fatherName = profileForm.fatherName.trim()
-
-  if (!firstName || !lastName || !fatherName) {
-    profileError.value = t('testPage.profileValidation')
-    return
-  }
-
-  isSavingProfile.value = true
-  profileError.value = ''
-
-  try {
-    const apiBaseUrl = getTestApiBaseUrl()
-    const response = await fetch(`${apiBaseUrl}/user`, {
-      method: 'PUT',
-      headers: {
-        accept: '*/*',
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify({ firstName, lastName, fatherName }),
-    })
-
-    const payload = await response.json().catch(() => null)
-
-    if (!response.ok || (payload && payload.code && payload.code !== 200)) {
-      throw new Error(payload?.message || t('testPage.profileSaveError'))
-    }
-
-    authStore.userInfo =
-      payload?.data || {
-        ...(authStore.userInfo || {}),
-        fullName: `${firstName} ${lastName}`,
-        firstName,
-        lastName,
-        fatherName,
-      }
-    hasCompletedEntryProfile.value = true
-    showProfileModal.value = false
-    await loadTest(requestedTestId.value)
-  } catch (error) {
-    profileError.value =
-      error instanceof Error ? error.message : t('testPage.profileSaveError')
-  } finally {
-    isSavingProfile.value = false
-  }
-}
-
 onMounted(() => {
   testProgressStore.hydrate()
   hydrateAnswerActions()
@@ -1468,9 +1353,6 @@ onBeforeUnmount(() => {
         <TestErrorState
           v-if="resolvedErrorMessage"
           :message="resolvedErrorMessage"
-          :show-login="isLoginRequired"
-          :login-route="loginRoute"
-          :login-label="t('testPage.login')"
           :retry-label="t('testPage.retry')"
           @retry="loadTest(requestedTestId)"
         />
@@ -1644,87 +1526,6 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
-        </NCard>
-      </div>
-    </NModal>
-
-    <NModal
-      v-model:show="showProfileModal"
-      :mask-closable="false"
-      :close-on-esc="false"
-    >
-      <div class="w-[calc(100vw-2rem)] max-w-lg">
-        <NCard :bordered="false" size="large" class="!rounded-[28px]">
-          <form class="space-y-5" @submit.prevent="submitEntryProfile">
-            <div class="space-y-2 text-center">
-              <h4 class="text-xl font-bold tracking-tight text-black">
-                {{ t('testPage.profileTitle') }}
-              </h4>
-              <p class="text-sm text-[#6b6760]">
-                {{ t('testPage.profileDescription') }}
-              </p>
-            </div>
-
-            <div class="grid gap-3">
-              <label class="block">
-                <span class="mb-1.5 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('testPage.firstName') }}
-                </span>
-                <input
-                  v-model="profileForm.firstName"
-                  type="text"
-                  autocomplete="given-name"
-                  class="h-12 w-full rounded-2xl border border-[#e0ddd7] bg-white px-4 text-sm text-black outline-none transition focus:border-black"
-                  :disabled="isSavingProfile"
-                />
-              </label>
-
-              <label class="block">
-                <span class="mb-1.5 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('testPage.lastName') }}
-                </span>
-                <input
-                  v-model="profileForm.lastName"
-                  type="text"
-                  autocomplete="family-name"
-                  class="h-12 w-full rounded-2xl border border-[#e0ddd7] bg-white px-4 text-sm text-black outline-none transition focus:border-black"
-                  :disabled="isSavingProfile"
-                />
-              </label>
-
-              <label class="block">
-                <span class="mb-1.5 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('testPage.fatherName') }}
-                </span>
-                <input
-                  v-model="profileForm.fatherName"
-                  type="text"
-                  class="h-12 w-full rounded-2xl border border-[#e0ddd7] bg-white px-4 text-sm text-black outline-none transition focus:border-black"
-                  :disabled="isSavingProfile"
-                />
-              </label>
-            </div>
-
-            <p
-              v-if="profileError"
-              class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-            >
-              {{ profileError }}
-            </p>
-
-            <button
-              type="submit"
-              :disabled="isSavingProfile"
-              class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-black px-6 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <span
-                v-if="isSavingProfile"
-                class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                aria-hidden="true"
-              ></span>
-              {{ isSavingProfile ? t('testPage.profileSaving') : t('testPage.profileStart') }}
-            </button>
-          </form>
         </NCard>
       </div>
     </NModal>
