@@ -268,7 +268,19 @@ const resolvedErrorMessage = computed(() => {
 
 const canAccessTest = computed(() => Boolean(currentTest.value))
 
-const totalQuestions = computed(() => renderedQuestions.value.length)
+// Bottom-bar count = the highest order in the test. A group's sub-questions
+// share an order, so the user perceives them as part of one numbered slot
+// (e.g. "savol 33" with parts a/b/c), not as separate questions.
+const totalQuestions = computed(() => {
+  let maxOrder = 0
+  for (const question of renderedQuestions.value) {
+    const order = Number(question.order)
+    if (Number.isFinite(order) && order > maxOrder) {
+      maxOrder = order
+    }
+  }
+  return maxOrder || renderedQuestions.value.length
+})
 
 const TEST_DURATION_MINUTES = 60
 const TEST_DURATION_SECONDS = TEST_DURATION_MINUTES * 60
@@ -299,16 +311,32 @@ const hasFreeAnswerContent = (value) => {
   return Boolean(textContent)
 }
 
-const answeredCount = computed(() =>
-  renderedQuestions.value.reduce((count, question) => {
-    if (question.type === 'FreeAnswer') {
-      return count + (hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ? 1 : 0)
-    }
+const isQuestionAnswered = (question) => {
+  if (question.type === 'FreeAnswer') {
+    return hasFreeAnswerContent(getResolvedFreeAnswer(question.id))
+  }
+  return Boolean(answers[question.id])
+}
 
-    const answer = answers[question.id]
-    return count + (answer ? 1 : 0)
-  }, 0),
-)
+// Order slot counts as answered when every sub-question sharing that order
+// has a value — partial completion of a multi-part task doesn't tick the
+// counter up.
+const answeredCount = computed(() => {
+  const buckets = new Map()
+  for (const question of renderedQuestions.value) {
+    const order = Number(question.order)
+    if (!Number.isFinite(order)) continue
+    if (!buckets.has(order)) buckets.set(order, [])
+    buckets.get(order).push(question)
+  }
+  let count = 0
+  for (const questions of buckets.values()) {
+    if (questions.every(isQuestionAnswered)) {
+      count += 1
+    }
+  }
+  return count
+})
 
 const serializedAnswers = computed(() =>
   JSON.stringify(

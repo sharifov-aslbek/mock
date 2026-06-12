@@ -377,7 +377,18 @@ const resolvedErrorMessage = computed(() => {
 // profil tekshiruvi olib tashlangan (login bo'lmasa /login ga yo'naltiriladi).
 const canAccessTest = computed(() => Boolean(currentTest.value))
 
-const totalQuestions = computed(() => renderedQuestions.value.length)
+// Bottom-bar count = eng katta order. Group sub-savollari bitta order'ga
+// tegishli, foydalanuvchi ularni bitta savol (33a/b/c) deb qabul qiladi.
+const totalQuestions = computed(() => {
+  let maxOrder = 0
+  for (const question of renderedQuestions.value) {
+    const order = Number(question.order)
+    if (Number.isFinite(order) && order > maxOrder) {
+      maxOrder = order
+    }
+  }
+  return maxOrder || renderedQuestions.value.length
+})
 
 // test har doim 60 daqiqa davom etadi
 const TEST_DURATION_MINUTES = 60
@@ -414,20 +425,27 @@ const hasFreeAnswerContent = (value) => {
   return false
 }
 
-// foydalanuvchi nechta savolga javob berganini sanaymiz
+const isQuestionAnswered = (question) => {
+  if (question.type === 'FreeAnswer') {
+    return hasFreeAnswerContent(getResolvedFreeAnswer(question.id))
+  }
+  return Boolean(answers[question.id])
+}
+
+// Order slot javob berildi deb hisoblanadi qachonki o'sha order'ga tegishli
+// barcha sub-savollar javoblansa.
 const answeredCount = computed(() => {
-  let count = 0
+  const buckets = new Map()
   for (const question of renderedQuestions.value) {
-    if (question.type === 'FreeAnswer') {
-      // erkin javoblar faqat ko'rinadigan mazmun bo'lsa hisoblanadi
-      if (hasFreeAnswerContent(getResolvedFreeAnswer(question.id))) {
-        count += 1
-      }
-    } else {
-      // multiple-choice / matching turlari biror qiymat tanlangan bo'lsa hisoblanadi
-      if (answers[question.id]) {
-        count += 1
-      }
+    const order = Number(question.order)
+    if (!Number.isFinite(order)) continue
+    if (!buckets.has(order)) buckets.set(order, [])
+    buckets.get(order).push(question)
+  }
+  let count = 0
+  for (const questions of buckets.values()) {
+    if (questions.every(isQuestionAnswered)) {
+      count += 1
     }
   }
   return count
