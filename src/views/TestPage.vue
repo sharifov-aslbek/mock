@@ -268,21 +268,7 @@ const resolvedErrorMessage = computed(() => {
 
 const canAccessTest = computed(() => Boolean(currentTest.value))
 
-// Group rendered questions by their display order so sub-questions of a single
-// task (which share an order) collapse into one slot in the progress counter.
-const questionsByOrder = computed(() => {
-  const buckets = new Map()
-  for (const question of renderedQuestions.value) {
-    const orderKey = String(question.displayOrder ?? question.order ?? question.id)
-    if (!buckets.has(orderKey)) {
-      buckets.set(orderKey, [])
-    }
-    buckets.get(orderKey).push(question)
-  }
-  return buckets
-})
-
-const totalQuestions = computed(() => questionsByOrder.value.size)
+const totalQuestions = computed(() => renderedQuestions.value.length)
 
 const TEST_DURATION_MINUTES = 60
 const TEST_DURATION_SECONDS = TEST_DURATION_MINUTES * 60
@@ -313,25 +299,16 @@ const hasFreeAnswerContent = (value) => {
   return Boolean(textContent)
 }
 
-const isQuestionAnswered = (question) => {
-  if (question.type === 'FreeAnswer') {
-    return hasFreeAnswerContent(getResolvedFreeAnswer(question.id))
-  }
-  return Boolean(answers[question.id])
-}
-
-// An order slot counts as answered only when every sub-question sharing that
-// order has a value — otherwise the counter would tick up after partial work
-// on a multi-part task.
-const answeredCount = computed(() => {
-  let count = 0
-  for (const questions of questionsByOrder.value.values()) {
-    if (questions.length > 0 && questions.every(isQuestionAnswered)) {
-      count += 1
+const answeredCount = computed(() =>
+  renderedQuestions.value.reduce((count, question) => {
+    if (question.type === 'FreeAnswer') {
+      return count + (hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ? 1 : 0)
     }
-  }
-  return count
-})
+
+    const answer = answers[question.id]
+    return count + (answer ? 1 : 0)
+  }, 0),
+)
 
 const serializedAnswers = computed(() =>
   JSON.stringify(

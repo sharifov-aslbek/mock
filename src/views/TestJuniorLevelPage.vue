@@ -377,21 +377,7 @@ const resolvedErrorMessage = computed(() => {
 // profil tekshiruvi olib tashlangan (login bo'lmasa /login ga yo'naltiriladi).
 const canAccessTest = computed(() => Boolean(currentTest.value))
 
-// Sub-questions of a group share an order, so the progress counter should
-// collapse them into a single slot keyed by `displayOrder`.
-const questionsByOrder = computed(() => {
-  const buckets = new Map()
-  for (const question of renderedQuestions.value) {
-    const orderKey = String(question.displayOrder ?? question.order ?? question.id)
-    if (!buckets.has(orderKey)) {
-      buckets.set(orderKey, [])
-    }
-    buckets.get(orderKey).push(question)
-  }
-  return buckets
-})
-
-const totalQuestions = computed(() => questionsByOrder.value.size)
+const totalQuestions = computed(() => renderedQuestions.value.length)
 
 // test har doim 60 daqiqa davom etadi
 const TEST_DURATION_MINUTES = 60
@@ -428,20 +414,20 @@ const hasFreeAnswerContent = (value) => {
   return false
 }
 
-const isQuestionAnswered = (question) => {
-  if (question.type === 'FreeAnswer') {
-    return hasFreeAnswerContent(getResolvedFreeAnswer(question.id))
-  }
-  return Boolean(answers[question.id])
-}
-
-// foydalanuvchi nechta savolga javob berganini sanaymiz — bir order'ga tegishli
-// barcha sub-savollar javoblansagina o'sha order "javob berildi" deb hisoblanadi
+// foydalanuvchi nechta savolga javob berganini sanaymiz
 const answeredCount = computed(() => {
   let count = 0
-  for (const questions of questionsByOrder.value.values()) {
-    if (questions.length > 0 && questions.every(isQuestionAnswered)) {
-      count += 1
+  for (const question of renderedQuestions.value) {
+    if (question.type === 'FreeAnswer') {
+      // erkin javoblar faqat ko'rinadigan mazmun bo'lsa hisoblanadi
+      if (hasFreeAnswerContent(getResolvedFreeAnswer(question.id))) {
+        count += 1
+      }
+    } else {
+      // multiple-choice / matching turlari biror qiymat tanlangan bo'lsa hisoblanadi
+      if (answers[question.id]) {
+        count += 1
+      }
     }
   }
   return count
