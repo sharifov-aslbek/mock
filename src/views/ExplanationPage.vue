@@ -378,6 +378,15 @@ const filteredQuestions = computed(() => {
         )
       : null
 
+    // Matching / group sub-questions don't ship inline `options`, so the
+    // local lookup misses. Fall back to the option blob the backend attaches
+    // to the userAnswer itself so we don't mis-flag answered questions as
+    // omitted.
+    const userAnswerOption =
+      !selectedOption && userAnswer?.selectedOption
+        ? userAnswer.selectedOption
+        : null
+
     const textAnswer =
       typeof userAnswer?.textAnswer === 'string'
         ? userAnswer.textAnswer.trim()
@@ -389,6 +398,10 @@ const filteredQuestions = computed(() => {
     if (selectedOption) {
       yourAnswer = selectedOption.letter
       status = selectedOption.isCorrect ? 'correct' : 'incorrect'
+    } else if (userAnswerOption) {
+      yourAnswer =
+        stripHtml(getEntityText(userAnswerOption) || userAnswerOption.text || '') || '-'
+      status = userAnswerOption.isCorrect ? 'correct' : 'incorrect'
     } else if (textAnswer) {
       yourAnswer = textAnswer
       status = 'incorrect'
@@ -432,7 +445,12 @@ const filteredQuestions = computed(() => {
         sourceQuestion.imageUrl ||
         buildAssetUrl(questionTranslation?.imagePath || sourceQuestion.imagePath),
 
-      correctAnswer: correctOption?.letter || '-',
+      correctAnswer:
+        correctOption?.letter ||
+        (typeof apiQuestion.correctAnswer === 'string' &&
+        apiQuestion.correctAnswer.trim()
+          ? apiQuestion.correctAnswer.trim()
+          : '-'),
 
       yourAnswer,
 
