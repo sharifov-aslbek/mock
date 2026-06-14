@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { NPopover } from 'naive-ui'
 import TestCertificate from '@/components/certificate/TestCertificate.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -16,7 +17,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
@@ -598,36 +599,75 @@ const statCards = computed(() => {
   const total = totalQuestions.value || 1
   return [
     {
-      label: "To'g'ri Javoblar",
+      label: t('explanationPage.stats.correct'),
       value: correctCount.value,
       colorClass: 'text-green-600',
       bgClass: 'bg-green-50',
-      percentLabel: `${Math.round((correctCount.value / total) * 100)}% to'g'ri`,
-      icon: 'check'
+      percentLabel: t('explanationPage.stats.percentCorrect', {
+        value: Math.round((correctCount.value / total) * 100),
+      }),
+      icon: 'check',
     },
     {
-      label: "Noto'g'ri Javoblar",
+      label: t('explanationPage.stats.incorrect'),
       value: incorrectCount.value,
       colorClass: 'text-red-600',
       bgClass: 'bg-rose-50',
-      percentLabel: `${Math.round((incorrectCount.value / total) * 100)}% noto'g'ri`,
-      icon: 'cross'
+      percentLabel: t('explanationPage.stats.percentIncorrect', {
+        value: Math.round((incorrectCount.value / total) * 100),
+      }),
+      icon: 'cross',
     },
     {
-      label: "O'tkazib yuborilgan",
+      label: t('explanationPage.stats.omitted'),
       value: omittedCount.value,
       colorClass: 'text-gray-600',
       bgClass: 'bg-gray-50',
-      percentLabel: `${Math.round((omittedCount.value / total) * 100)}% o'tkazilgan`,
-      icon: 'skip'
-    }
+      percentLabel: t('explanationPage.stats.percentOmitted', {
+        value: Math.round((omittedCount.value / total) * 100),
+      }),
+      icon: 'skip',
+    },
   ]
 })
 
+const tableHeaders = computed(() => [
+  { key: 'questions', label: t('explanationPage.columns.questions') },
+  { key: 'title', label: t('explanationPage.columns.title') },
+  { key: 'correctAnswer', label: t('explanationPage.columns.correctAnswer') },
+  { key: 'yourAnswer', label: t('explanationPage.columns.yourAnswer') },
+  { key: 'complexity', label: t('explanationPage.columns.complexity') },
+  { key: 'actions', label: t('explanationPage.columns.actions') },
+])
+
+// Strip LaTeX-only delimiters/commands so we can measure a "display length"
+// and decide when a correct-answer cell needs to be truncated with a popover.
+const measureAnswerLength = (raw) => {
+  if (typeof raw !== 'string') return 0
+  return raw
+    .replace(/\\\(|\\\)|\\\[|\\\]|\$\$?/g, '')
+    .replace(/\\[a-zA-Z]+\s*\{?/g, '')
+    .replace(/[{}]/g, '')
+    .trim().length
+}
+
+const ANSWER_TRUNCATE_LIMIT = 22
+
+const shouldTruncateAnswer = (raw) => measureAnswerLength(raw) > ANSWER_TRUNCATE_LIMIT
+
 const progressLegend = computed(() => [
-  { colorClass: 'bg-green-600', label: `${correctCount.value} to'g'ri` },
-  { colorClass: 'bg-red-600', label: `${incorrectCount.value} xato` },
-  { colorClass: 'bg-gray-300', label: `${omittedCount.value} o'tkazilgan` }
+  {
+    colorClass: 'bg-green-600',
+    label: t('explanationPage.legend.correct', { value: correctCount.value }),
+  },
+  {
+    colorClass: 'bg-red-600',
+    label: t('explanationPage.legend.incorrect', { value: incorrectCount.value }),
+  },
+  {
+    colorClass: 'bg-gray-300',
+    label: t('explanationPage.legend.omitted', { value: omittedCount.value }),
+  },
 ])
 
 function submissionBelongsToTest(submission, testId) {
@@ -1269,8 +1309,8 @@ function answerFeedbackText(question) {
 
       <section class="overflow-hidden rounded-2xl border border-[#ebebeb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
         <div class="border-b border-[#f3f3f3] px-4 py-4 sm:px-6 sm:py-5">
-          <h2 class="text-base font-bold tracking-[-0.02em] text-[#0a0a0a]">Batafsil Ko'rib Chiqish</h2>
-          <p class="mt-0.5 text-xs text-gray-300">{{ filteredQuestions.length }} ta savol ko'rsatilmoqda</p>
+          <h2 class="text-base font-bold tracking-[-0.02em] text-[#0a0a0a]">{{ t('explanationPage.title') }}</h2>
+          <p class="mt-0.5 text-xs text-gray-300">{{ t('explanationPage.shownCount', { count: filteredQuestions.length }) }}</p>
         </div>
 
         <div class="explanation-scrollbar hidden overflow-x-auto md:block">
@@ -1278,12 +1318,12 @@ function answerFeedbackText(question) {
             <thead>
               <tr class="border-b border-[#f0f0f0] bg-[#fafafa]">
                 <th
-                  v-for="header in ['Questions', 'Title', 'Correct Answer', 'Your Answer', 'Complexity', 'Actions']"
-                  :key="header"
+                  v-for="header in tableHeaders"
+                  :key="header.key"
                   class="px-6 py-3.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.6px] text-gray-300"
-                  :class="{ 'text-center': header === 'Actions' }"
+                  :class="{ 'text-center': header.key === 'actions' }"
                 >
-                  {{ header }}
+                  {{ header.label }}
                 </th>
               </tr>
             </thead>
@@ -1295,15 +1335,12 @@ function answerFeedbackText(question) {
                 <tr v-if="row.showGroupHeader" class="border-y border-[#eeeeee] bg-[#fafafa]">
                   <td colspan="6" class="px-6 py-3">
                     <div class="flex items-center gap-3">
-                      <!-- <span class="inline-flex min-w-8 items-center justify-center rounded-full bg-[#0a0a0a] px-2.5 py-1 text-xs font-bold text-white">
-                        {{ row.groupDisplayLabel }}
-                      </span> -->
                       <div class="min-w-0">
                         <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                          Question group
+                          {{ t('explanationPage.questionGroup') }}
                         </p>
                         <TestInlineMathText
-                          :text="row.groupTitle || `Savol ${row.groupDisplayLabel} guruhi`"
+                          :text="row.groupTitle || t('explanationPage.groupFallback', { label: row.groupDisplayLabel })"
                           wrapper-class="mt-0.5 line-clamp-2 text-sm font-semibold text-[#0a0a0a]"
                         />
                       </div>
@@ -1330,7 +1367,35 @@ function answerFeedbackText(question) {
                     </div>
                   </td>
                   <td class="px-6 py-4">
-                    <span class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
+                    <NPopover
+                      v-if="shouldTruncateAnswer(row.correctAnswer)"
+                      trigger="click"
+                      placement="top"
+                      style="max-width: 320px"
+                    >
+                      <template #trigger>
+                        <button
+                          type="button"
+                          class="inline-flex max-w-[140px] items-center gap-1 rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a] transition hover:bg-[#ececec]"
+                        >
+                          <span class="truncate">{{ row.correctAnswer }}</span>
+                          <span aria-hidden="true">…</span>
+                        </button>
+                      </template>
+                      <div class="max-w-[300px]">
+                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                          {{ t('explanationPage.correctAnswer') }}
+                        </p>
+                        <TestInlineMathText
+                          :text="row.correctAnswer"
+                          wrapper-class="text-sm font-semibold text-[#0a0a0a] break-words"
+                        />
+                      </div>
+                    </NPopover>
+                    <span
+                      v-else
+                      class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]"
+                    >
                       <TestInlineMathText
                         tag="span"
                         :text="row.correctAnswer"
@@ -1339,11 +1404,38 @@ function answerFeedbackText(question) {
                     </span>
                   </td>
                   <td class="px-6 py-4">
+                    <NPopover
+                      v-if="row.status !== 'omitted' && shouldTruncateAnswer(row.yourAnswer)"
+                      trigger="click"
+                      placement="top"
+                      style="max-width: 320px"
+                    >
+                      <template #trigger>
+                        <button
+                          type="button"
+                          class="inline-flex max-w-[140px] items-center gap-1 rounded-full px-3 py-1 text-xs transition"
+                          :class="answerBadgeClass(row.status)"
+                        >
+                          <span class="truncate">{{ row.yourAnswer }}</span>
+                          <span aria-hidden="true">…</span>
+                        </button>
+                      </template>
+                      <div class="max-w-[300px]">
+                        <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                          {{ t('explanationPage.yourAnswer') }}
+                        </p>
+                        <TestInlineMathText
+                          :text="row.yourAnswer"
+                          wrapper-class="text-sm font-semibold text-[#0a0a0a] break-words"
+                        />
+                      </div>
+                    </NPopover>
                     <span
+                      v-else
                       class="inline-flex min-w-[72px] items-center justify-center rounded-full px-3 py-1 text-xs"
                       :class="answerBadgeClass(row.status)"
                     >
-                      <template v-if="row.status === 'omitted'">Omitted</template>
+                      <template v-if="row.status === 'omitted'">{{ t('explanationPage.omitted') }}</template>
                       <TestInlineMathText
                         v-else
                         tag="span"
@@ -1354,7 +1446,7 @@ function answerFeedbackText(question) {
                   </td>
                   <td class="px-6 py-4">
                     <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold" :class="complexityBadgeClass(row.complexity)">
-                      {{ row.complexity }}
+                      {{ t(`explanationPage.complexity.${row.complexity}`) }}
                     </span>
                   </td>
                   <td class="px-6 py-4 text-center">
@@ -1372,7 +1464,7 @@ function answerFeedbackText(question) {
                           />
                           <circle cx="12" cy="12" r="3" />
                         </svg>
-                        <span>Review</span>
+                        <span>{{ t('explanationPage.review') }}</span>
                       </button>
 
                       <button
@@ -1408,10 +1500,10 @@ function answerFeedbackText(question) {
                 </span>
                 <div class="min-w-0">
                   <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                    Question group
+                    {{ t('explanationPage.questionGroup') }}
                   </p>
                   <TestInlineMathText
-                    :text="row.groupTitle || `Savol ${row.groupDisplayLabel} guruhi`"
+                    :text="row.groupTitle || t('explanationPage.groupFallback', { label: row.groupDisplayLabel })"
                     wrapper-class="mt-0.5 line-clamp-3 text-sm font-semibold text-[#0a0a0a]"
                   />
                 </div>
@@ -1438,8 +1530,36 @@ function answerFeedbackText(question) {
 
               <div class="mb-3 flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-1.5">
-                  <span class="text-[11px] text-gray-300">To'g'ri:</span>
-                  <span class="inline-flex rounded-full bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-bold text-[#0a0a0a]">
+                  <span class="text-[11px] text-gray-300">{{ t('explanationPage.correctLabel') }}</span>
+                  <NPopover
+                    v-if="shouldTruncateAnswer(row.correctAnswer)"
+                    trigger="click"
+                    placement="top"
+                    style="max-width: 280px"
+                  >
+                    <template #trigger>
+                      <button
+                        type="button"
+                        class="inline-flex max-w-[120px] items-center gap-1 rounded-full bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-bold text-[#0a0a0a]"
+                      >
+                        <span class="truncate">{{ row.correctAnswer }}</span>
+                        <span aria-hidden="true">…</span>
+                      </button>
+                    </template>
+                    <div class="max-w-[260px]">
+                      <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        {{ t('explanationPage.correctAnswer') }}
+                      </p>
+                      <TestInlineMathText
+                        :text="row.correctAnswer"
+                        wrapper-class="text-sm font-semibold text-[#0a0a0a] break-words"
+                      />
+                    </div>
+                  </NPopover>
+                  <span
+                    v-else
+                    class="inline-flex rounded-full bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-bold text-[#0a0a0a]"
+                  >
                     <TestInlineMathText
                       tag="span"
                       :text="row.correctAnswer"
@@ -1449,9 +1569,39 @@ function answerFeedbackText(question) {
                 </div>
 
                 <div class="flex items-center gap-1.5">
-                  <span class="text-[11px] text-gray-300">Sizniki:</span>
-                  <span class="inline-flex min-w-[68px] items-center justify-center rounded-full px-2.5 py-0.5 text-[11px]" :class="answerBadgeClass(row.status)">
-                    <template v-if="row.status === 'omitted'">Omitted</template>
+                  <span class="text-[11px] text-gray-300">{{ t('explanationPage.yourLabel') }}</span>
+                  <NPopover
+                    v-if="row.status !== 'omitted' && shouldTruncateAnswer(row.yourAnswer)"
+                    trigger="click"
+                    placement="top"
+                    style="max-width: 280px"
+                  >
+                    <template #trigger>
+                      <button
+                        type="button"
+                        class="inline-flex max-w-[120px] items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px]"
+                        :class="answerBadgeClass(row.status)"
+                      >
+                        <span class="truncate">{{ row.yourAnswer }}</span>
+                        <span aria-hidden="true">…</span>
+                      </button>
+                    </template>
+                    <div class="max-w-[260px]">
+                      <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        {{ t('explanationPage.yourAnswer') }}
+                      </p>
+                      <TestInlineMathText
+                        :text="row.yourAnswer"
+                        wrapper-class="text-sm font-semibold text-[#0a0a0a] break-words"
+                      />
+                    </div>
+                  </NPopover>
+                  <span
+                    v-else
+                    class="inline-flex min-w-[68px] items-center justify-center rounded-full px-2.5 py-0.5 text-[11px]"
+                    :class="answerBadgeClass(row.status)"
+                  >
+                    <template v-if="row.status === 'omitted'">{{ t('explanationPage.omitted') }}</template>
                     <TestInlineMathText
                       v-else
                       tag="span"
@@ -1462,7 +1612,7 @@ function answerFeedbackText(question) {
                 </div>
 
                 <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold" :class="complexityBadgeClass(row.complexity)">
-                  {{ row.complexity }}
+                  {{ t(`explanationPage.complexity.${row.complexity}`) }}
                 </span>
               </div>
 
@@ -1480,7 +1630,7 @@ function answerFeedbackText(question) {
                     />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
-                  Ko'rib chiqish
+                  {{ t('explanationPage.review') }}
                 </button>
 
                 <button

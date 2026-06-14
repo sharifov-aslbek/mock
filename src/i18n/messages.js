@@ -302,6 +302,46 @@ const messages = {
         FreeAnswer: 'Erkin javob',
         Matching: 'Moslashtirish'
       }
+    },
+    explanationPage: {
+      title: 'Batafsil ko‘rib chiqish',
+      shownCount: '{count} ta savol ko‘rsatilmoqda',
+      questionGroup: 'Savollar guruhi',
+      groupFallback: 'Savol {label} guruhi',
+      correctLabel: 'To‘g‘ri:',
+      yourLabel: 'Sizniki:',
+      omitted: 'O‘tkazib yuborilgan',
+      review: 'Ko‘rib chiqish',
+      viewFull: 'To‘liq ko‘rish',
+      correctAnswer: 'To‘g‘ri javob',
+      yourAnswer: 'Sizning javobingiz',
+      complexity: {
+        label: 'Murakkablik',
+        Easy: 'Oson',
+        Medium: 'O‘rta',
+        Hard: 'Qiyin'
+      },
+      columns: {
+        questions: 'Savol',
+        title: 'Mavzu',
+        correctAnswer: 'To‘g‘ri javob',
+        yourAnswer: 'Sizning javobingiz',
+        complexity: 'Murakkablik',
+        actions: 'Amallar'
+      },
+      stats: {
+        correct: 'To‘g‘ri javoblar',
+        incorrect: 'Noto‘g‘ri javoblar',
+        omitted: 'O‘tkazib yuborilgan',
+        percentCorrect: '{value}% to‘g‘ri',
+        percentIncorrect: '{value}% noto‘g‘ri',
+        percentOmitted: '{value}% o‘tkazilgan'
+      },
+      legend: {
+        correct: '{value} to‘g‘ri',
+        incorrect: '{value} xato',
+        omitted: '{value} o‘tkazilgan'
+      }
     }
   },
   ru: {
@@ -606,6 +646,46 @@ const messages = {
         MultipleChoice: 'Выбор ответа',
         FreeAnswer: 'Свободный ответ',
         Matching: 'Сопоставление'
+      }
+    },
+    explanationPage: {
+      title: 'Подробный разбор',
+      shownCount: 'Показано {count} вопросов',
+      questionGroup: 'Группа вопросов',
+      groupFallback: 'Группа вопросов {label}',
+      correctLabel: 'Правильно:',
+      yourLabel: 'Ваш:',
+      omitted: 'Пропущено',
+      review: 'Просмотр',
+      viewFull: 'Показать полностью',
+      correctAnswer: 'Правильный ответ',
+      yourAnswer: 'Ваш ответ',
+      complexity: {
+        label: 'Сложность',
+        Easy: 'Лёгкий',
+        Medium: 'Средний',
+        Hard: 'Сложный'
+      },
+      columns: {
+        questions: 'Вопрос',
+        title: 'Тема',
+        correctAnswer: 'Правильный ответ',
+        yourAnswer: 'Ваш ответ',
+        complexity: 'Сложность',
+        actions: 'Действия'
+      },
+      stats: {
+        correct: 'Правильные ответы',
+        incorrect: 'Неправильные ответы',
+        omitted: 'Пропущено',
+        percentCorrect: '{value}% правильно',
+        percentIncorrect: '{value}% неправильно',
+        percentOmitted: '{value}% пропущено'
+      },
+      legend: {
+        correct: '{value} правильно',
+        incorrect: '{value} ошибок',
+        omitted: '{value} пропущено'
       }
     }
   }
