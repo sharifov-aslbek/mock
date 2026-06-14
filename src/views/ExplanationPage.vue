@@ -1053,10 +1053,6 @@ function answerBadgeClass(status) {
   return 'bg-gray-100 text-gray-400 italic'
 }
 
-function answerBadgeLabel(status, answer) {
-  return status === 'omitted' ? 'Omitted' : answer
-}
-
 function complexityBadgeClass(complexity) {
   if (complexity === 'Easy') {
     return 'bg-green-50 text-green-600'
@@ -1335,7 +1331,11 @@ function answerFeedbackText(question) {
                   </td>
                   <td class="px-6 py-4">
                     <span class="inline-flex rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-semibold text-[#0a0a0a]">
-                      {{ row.correctAnswer }}
+                      <TestInlineMathText
+                        tag="span"
+                        :text="row.correctAnswer"
+                        wrapper-class="inline-block"
+                      />
                     </span>
                   </td>
                   <td class="px-6 py-4">
@@ -1343,7 +1343,13 @@ function answerFeedbackText(question) {
                       class="inline-flex min-w-[72px] items-center justify-center rounded-full px-3 py-1 text-xs"
                       :class="answerBadgeClass(row.status)"
                     >
-                      {{ answerBadgeLabel(row.status, row.yourAnswer) }}
+                      <template v-if="row.status === 'omitted'">Omitted</template>
+                      <TestInlineMathText
+                        v-else
+                        tag="span"
+                        :text="row.yourAnswer"
+                        wrapper-class="inline-block"
+                      />
                     </span>
                   </td>
                   <td class="px-6 py-4">
@@ -1434,14 +1440,24 @@ function answerFeedbackText(question) {
                 <div class="flex items-center gap-1.5">
                   <span class="text-[11px] text-gray-300">To'g'ri:</span>
                   <span class="inline-flex rounded-full bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-bold text-[#0a0a0a]">
-                    {{ row.correctAnswer }}
+                    <TestInlineMathText
+                      tag="span"
+                      :text="row.correctAnswer"
+                      wrapper-class="inline-block"
+                    />
                   </span>
                 </div>
 
                 <div class="flex items-center gap-1.5">
                   <span class="text-[11px] text-gray-300">Sizniki:</span>
                   <span class="inline-flex min-w-[68px] items-center justify-center rounded-full px-2.5 py-0.5 text-[11px]" :class="answerBadgeClass(row.status)">
-                    {{ answerBadgeLabel(row.status, row.yourAnswer) }}
+                    <template v-if="row.status === 'omitted'">Omitted</template>
+                    <TestInlineMathText
+                      v-else
+                      tag="span"
+                      :text="row.yourAnswer"
+                      wrapper-class="inline-block"
+                    />
                   </span>
                 </div>
 
