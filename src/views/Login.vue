@@ -90,6 +90,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()
 
+// hello world
 // Pages can redirect here with `?reason=auth-required` to explain why the
 // user landed back on login (typically: tried to open the test page while
 // logged out). Show a small toast so the prompt isn't silent.
