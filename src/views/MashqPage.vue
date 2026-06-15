@@ -131,6 +131,18 @@ const toggleFilter = (key) => {
   filters[key].open = !wasOpen
 }
 
+// Subject has no "all" default — it is always constraining, so always active.
+const DEFAULT_FILTERS = {
+  subject: null,
+  grade: 'all',
+  difficulty: 'all',
+  topic: 'all',
+  status: 'all',
+}
+
+const isFilterActive = (key) =>
+  filters[key].open || filters[key].value !== DEFAULT_FILTERS[key]
+
 const selectFilter = (key, value) => {
   filters[key].value = value
   filters[key].open = false
@@ -150,8 +162,12 @@ const onOutsideClick = () => {
 }
 
 const TOTAL_QUESTIONS = 12
-const currentQuestionIndex = ref(3)
-const questionStates = reactive({ 1: 'correct', 2: 'correct' })
+const currentQuestionIndex = ref(1)
+
+// Live session record, keyed by question number (1..TOTAL_QUESTIONS).
+// answers[n] = { letter, correct, explanationRead }
+const answers = reactive({})
+const savedStates = reactive({})
 
 const question = reactive({
   id: 1248,
@@ -190,17 +206,24 @@ const renderedOptions = computed(() =>
   })),
 )
 
-const selectedLetter = ref(null)
-const answered = ref(false)
-const wasCorrect = ref(false)
 const explanationOpen = ref(false)
-const explanationRead = ref(false)
-const saved = ref(false)
 const showNudge = ref(false)
 const showSummary = ref(false)
-const correctCount = ref(9)
-const incorrectCount = ref(3)
 const accuracyFillWidth = ref('0%')
+
+const currentAnswer = computed(() => answers[currentQuestionIndex.value] || null)
+const answered = computed(() => currentAnswer.value !== null)
+const selectedLetter = computed(() => currentAnswer.value?.letter ?? null)
+const wasCorrect = computed(() => currentAnswer.value?.correct ?? false)
+const explanationRead = computed(() => currentAnswer.value?.explanationRead ?? false)
+const saved = computed(() => savedStates[currentQuestionIndex.value] === true)
+
+const correctCount = computed(
+  () => Object.values(answers).filter((entry) => entry.correct).length,
+)
+const incorrectCount = computed(
+  () => Object.values(answers).filter((entry) => !entry.correct).length,
+)
 
 const optionStateClass = (option) => {
   if (!answered.value) {
@@ -231,11 +254,19 @@ const progressPercent = computed(() =>
   Math.round((currentQuestionIndex.value / TOTAL_QUESTIONS) * 100),
 )
 
+const questionStates = computed(() => {
+  const states = {}
+  for (const [number, entry] of Object.entries(answers)) {
+    states[number] = entry.correct ? 'correct' : 'incorrect'
+  }
+  return states
+})
+
 const qstripPills = computed(() =>
   Array.from({ length: TOTAL_QUESTIONS }, (_, index) => {
     const number = index + 1
     const isCurrent = number === currentQuestionIndex.value
-    const state = questionStates[number] || (isCurrent ? 'current' : '')
+    const state = questionStates.value[number] || (isCurrent ? 'current' : '')
     return {
       number,
       classes: [
@@ -301,9 +332,11 @@ const selectOption = (option) => {
     return
   }
 
-  selectedLetter.value = option.letter
-  answered.value = true
-  wasCorrect.value = option.correct
+  answers[currentQuestionIndex.value] = {
+    letter: option.letter,
+    correct: option.correct,
+    explanationRead: false,
+  }
 }
 
 const selectOptionByIndex = (index) => {
@@ -322,13 +355,15 @@ const toggleExplanation = () => {
   explanationOpen.value = !explanationOpen.value
 
   if (explanationOpen.value) {
-    explanationRead.value = true
+    if (currentAnswer.value) {
+      currentAnswer.value.explanationRead = true
+    }
     showNudge.value = false
   }
 }
 
 const toggleSaved = () => {
-  saved.value = !saved.value
+  savedStates[currentQuestionIndex.value] = !savedStates[currentQuestionIndex.value]
 }
 
 const goPrev = () => {
@@ -354,7 +389,9 @@ const goNext = () => {
 
 const skipNudge = () => {
   showNudge.value = false
-  explanationRead.value = true
+  if (currentAnswer.value) {
+    currentAnswer.value.explanationRead = true
+  }
 }
 
 const readExplanationFromNudge = () => {
@@ -375,6 +412,21 @@ const finishSession = () => {
 const closeSummary = () => {
   showSummary.value = false
   accuracyFillWidth.value = '0%'
+}
+
+const startNewSession = () => {
+  for (const key of Object.keys(answers)) {
+    delete answers[key]
+  }
+  for (const key of Object.keys(savedStates)) {
+    delete savedStates[key]
+  }
+  currentQuestionIndex.value = 1
+  qSeconds.value = 0
+  sessionSeconds.value = 0
+  explanationOpen.value = false
+  showNudge.value = false
+  closeSummary()
 }
 
 const onKeyDown = (event) => {
@@ -422,11 +474,9 @@ const onKeyDown = (event) => {
 }
 
 watch(currentQuestionIndex, () => {
-  selectedLetter.value = null
-  answered.value = false
-  wasCorrect.value = false
+  // answered / selectedLetter / wasCorrect are derived from `answers`,
+  // so revisiting a question restores its state automatically.
   explanationOpen.value = false
-  explanationRead.value = false
   showNudge.value = false
   qSeconds.value = 0
 })
@@ -460,7 +510,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="filter-btn"
-            :class="{ active: true }"
+            :class="{ active: isFilterActive('subject') }"
             @click="toggleFilter('subject')"
           >
             <span class="ic">
@@ -493,7 +543,12 @@ onBeforeUnmount(() => {
         <div class="filter-divider" />
 
         <div class="filter">
-          <button type="button" class="filter-btn" @click="toggleFilter('grade')">
+          <button
+            type="button"
+            class="filter-btn"
+            :class="{ active: isFilterActive('grade') }"
+            @click="toggleFilter('grade')"
+          >
             <span class="ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
@@ -523,7 +578,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="filter">
-          <button type="button" class="filter-btn" @click="toggleFilter('difficulty')">
+          <button
+            type="button"
+            class="filter-btn"
+            :class="{ active: isFilterActive('difficulty') }"
+            @click="toggleFilter('difficulty')"
+          >
             <span class="ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="3" y1="20" x2="3" y2="10" />
@@ -555,7 +615,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="filter">
-          <button type="button" class="filter-btn" @click="toggleFilter('topic')">
+          <button
+            type="button"
+            class="filter-btn"
+            :class="{ active: isFilterActive('topic') }"
+            @click="toggleFilter('topic')"
+          >
             <span class="ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 6h18M3 12h18M3 18h18" />
@@ -584,7 +649,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="filter">
-          <button type="button" class="filter-btn" @click="toggleFilter('status')">
+          <button
+            type="button"
+            class="filter-btn"
+            :class="{ active: isFilterActive('status') }"
+            @click="toggleFilter('status')"
+          >
             <span class="ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -923,7 +993,7 @@ onBeforeUnmount(() => {
               </svg>
               Ko'rib chiqish
             </button>
-            <button type="button" class="btn btn-primary" style="flex: 1; justify-content: center" @click="closeSummary">
+            <button type="button" class="btn btn-primary" style="flex: 1; justify-content: center" @click="startNewSession">
               Yangi mashq
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="9 18 15 12 9 6" />

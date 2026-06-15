@@ -692,7 +692,10 @@ const stripEnvironmentShell = (value) =>
     .replace(/(?<!\\)&/g, ' ')
 
 const renderPlainOrMixed = (source) => {
-  const normalizedSource = normalizeMathWrappers(normalizeMixedSource(source))
+  // Strip \(...\) / \[...\] math delimiters BEFORE normalizeMixedSource, which
+  // would otherwise unescape \( and \) into literal parentheses (showing up as
+  // spurious parens around every inline formula).
+  const normalizedSource = normalizeMixedSource(normalizeMathWrappers(source))
 
   if (!normalizedSource) {
     return ''
