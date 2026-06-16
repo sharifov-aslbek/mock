@@ -13,8 +13,8 @@ const messages = {
         sat: 'SAT',
         act: 'ACT',
         math: 'Matematika',
-        physics: 'Fizika',
-        chemistry: 'Kimyo',
+        physics: 'Tarix',
+        chemistry: 'Ona tili',
         mashq: 'Mashq',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -34,30 +34,38 @@ const messages = {
       titleEnd: 'Tayyorlaning',
       description: 'Imtihon formatiga mos mock testlar orqali bilimingizni sinab ko‘ring, xatolaringizni tahlil qiling va natijangizni bosqichma-bosqich yaxshilang.',
       primary: 'Mock Testni Boshlash',
-      secondary: 'Batafsil ma’lumot'
+      secondary: 'Batafsil ma’lumot',
+      scrollHint: 'Pastga aylantiring',
+      stats: [
+        { value: '10 000+', label: 'ishlangan test' },
+        { value: '98%', label: 'mamnun foydalanuvchi' },
+        { value: '24/7', label: 'ochiq platforma' }
+      ]
+    },
+    partners: {
+      eyebrow: 'Bizga ishonishadi',
+      note: 'O‘zbekistondagi yetakchi o‘quv markazlari va repetitorlar'
+    },
+    sections: {
+      features: 'Imkoniyatlar',
+      platform: 'Platforma',
+      reviews: 'Sharhlar'
     },
     featureBlocks: {
       title: 'Testga tayyorlovchi repetitorlar uchun ideal yechim',
+      subtitle: 'Milliy sertifikat uchun raqamli platforma — haqiqiy imtihon savollari, real interfeys va chuqur tahlil bir joyda.',
       cards: [
         {
-          icon: '✓',
-          title: 'Shaxsiy testlaringizni yarating',
-          description: 'O‘quvchilarning zaif nuqtalariga yo‘naltirilgan amaliy testlar yarating va vaqtingizni tejang.'
+          title: 'Haqiqiy imtihon testlari',
+          description: 'Milliy sertifikat formatidagi haqiqiy savollar bilan real imtihon muhitida test ishlang.'
         },
         {
-          icon: '▦',
-          title: 'Xalqaro imtihon interfeyslari',
-          description: 'SAT, ACT yoki SHSAT kabi xalqaro standartdagi interfeyslardan foydalanib o‘quvchilarni yaxshiroq tayyorlang.'
+          title: 'Mavzular bo‘yicha mashq qiling',
+          description: 'Mavzularga ajratilgan savollar bilan mustaqil mashq qiling, har bir javobdan keyin natijani ko‘ring va bilimingizni mustahkamlang.'
         },
         {
-          icon: '✎',
-          title: 'Savollarni oson yuklang',
-          description: 'Katta hajmdagi savollar to‘plamini bir vaqtda yuklang va tezda testlar hosil qiling.'
-        },
-        {
-          icon: '👥',
-          title: 'Ota-onalar bilan shaffoflik',
-          description: 'Natijalar va hisobotlarni ota-onalarga qulay tarzda ulashing va ularni xabardor qilib boring.'
+          title: 'Testdan so‘ng chuqur tahlil',
+          description: 'Har bir savol bo‘yicha to‘g‘ri va noto‘g‘ri javoblaringizni ko‘ring, batafsil yechimlar bilan xatolaringizni tahlil qiling.'
         }
       ]
     },
@@ -134,6 +142,8 @@ const messages = {
       description: "O'zingizning moslashtiriladigan va o'z brendingizga ega (white-label) raqamli test platformangiz yordamida keng ko'lamda o'qiting!",
       cta: 'Demoga hoziroq buyurtma bering',
       moreInfo: "Ko‘proq ma’lumot",
+      popular: 'Eng ommabop',
+      billingNote: "Barcha ta'riflar bir martalik sozlash to'lovini o'z ichiga oladi",
       plans: [
         {
           name: "Boshlang'ich Ta'rif",
@@ -358,8 +368,8 @@ const messages = {
         sat: 'SAT',
         act: 'ACT',
         math: 'Математика',
-        physics: 'Физика',
-        chemistry: 'Химия',
+        physics: 'Тарих',
+        chemistry: 'Родной язык',
         mashq: 'Практика',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -379,30 +389,38 @@ const messages = {
       titleEnd: '',
       description: 'Проходите пробные экзамены в реальном формате, анализируйте ошибки и шаг за шагом улучшайте результат.',
       primary: 'Начать mock-тест',
-      secondary: 'Подробнее'
+      secondary: 'Подробнее',
+      scrollHint: 'Листайте вниз',
+      stats: [
+        { value: '10 000+', label: 'пройдено тестов' },
+        { value: '98%', label: 'довольных пользователей' },
+        { value: '24/7', label: 'доступ к платформе' }
+      ]
+    },
+    partners: {
+      eyebrow: 'Нам доверяют',
+      note: 'Ведущие учебные центры и репетиторы Узбекистана'
+    },
+    sections: {
+      features: 'Возможности',
+      platform: 'Платформа',
+      reviews: 'Отзывы'
     },
     featureBlocks: {
       title: 'Идеальное решение для преподавателей, готовящих учеников к экзаменам',
+      subtitle: 'Цифровая платформа для национального сертификата — реальные экзаменационные вопросы, настоящий интерфейс и глубокая аналитика в одном месте.',
       cards: [
         {
-          icon: '✓',
-          title: 'Создавайте собственные тесты',
-          description: 'Собирайте практические тесты под слабые темы учеников и экономьте время.'
+          title: 'Реальные экзаменационные тесты',
+          description: 'Решайте настоящие вопросы в формате национального сертификата в условиях реального экзамена.'
         },
         {
-          icon: '▦',
-          title: 'Интерфейсы международных экзаменов',
-          description: 'Используйте знакомые интерфейсы SAT, ACT и SHSAT для лучшей подготовки.'
+          title: 'Тренируйтесь по темам',
+          description: 'Самостоятельно практикуйтесь с вопросами по темам, видьте результат после каждого ответа и закрепляйте знания.'
         },
         {
-          icon: '✎',
-          title: 'Легко загружайте вопросы',
-          description: 'Загружайте большие банки вопросов сразу и быстро формируйте из них тесты.'
-        },
-        {
-          icon: '👥',
-          title: 'Прозрачность для родителей',
-          description: 'Понятно делитесь результатами и отчетами учеников с родителями.'
+          title: 'Глубокий анализ после теста',
+          description: 'Смотрите правильные и неправильные ответы по каждому вопросу и разбирайте ошибки с подробными решениями.'
         }
       ]
     },
@@ -479,6 +497,8 @@ const messages = {
       description: 'Обучайте в большом масштабе с помощью собственной настраиваемой white-label платформы для тестирования.',
       cta: 'Заказать демо сейчас',
       moreInfo: 'Подробнее',
+      popular: 'Самый популярный',
+      billingNote: 'Все тарифы включают разовую плату за настройку',
       plans: [
         {
           name: 'Стартовый тариф',

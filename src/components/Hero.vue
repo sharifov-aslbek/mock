@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
 const router = useRouter()
+
+const stats = computed(() => tm('hero.stats') as Array<{ value: string; label: string }>)
 
 const goToMath = () => {
   router.push('/math')
@@ -11,47 +14,43 @@ const goToMath = () => {
 </script>
 
 <template>
-  <section class="relative overflow-hidden py-24 min-[1300px]:py-40 px-4 sm:px-6 lg:px-8">
+  <section
+    class="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden bg-[#f5f3ef] px-4 py-20 selection:bg-black selection:text-white sm:px-6 sm:py-24 lg:px-8"
+  >
+    <!-- Subtle warm dot grid -->
+    <div class="hero-dots absolute inset-0 -z-20"></div>
 
-    <!-- Dot background image -->
+    <!-- Cream fade so the grid stays whisper-quiet -->
     <div
-      class="absolute inset-0 -z-20 bg-center bg-cover"
-      style="background-image:url('https://t3.ftcdn.net/jpg/03/72/39/08/360_F_372390859_tN7uW78bBGMNn6XGfMiO0gMVt4EyGavz.jpg');"
+      class="absolute inset-0 -z-10 bg-gradient-to-b from-[#f5f3ef]/40 via-[#f5f3ef]/70 to-[#f5f3ef]"
     ></div>
 
-    <!-- White overlay -->
-    <div class="absolute inset-0 -z-10 bg-white/80"></div>
-
-    <!-- Gradient blur blobs (slow ambient drift) -->
+    <!-- Ambient stone blobs (slow drift) -->
     <div
-      class="hero-blob blob-a absolute top-16 left-1/2 w-[500px] h-[500px] bg-slate-300/30 blur-3xl rounded-full"
+      class="hero-blob blob-a absolute left-1/2 top-10 h-[460px] w-[460px] rounded-full bg-[#e6e1d7]/50 blur-3xl"
+    ></div>
+    <div
+      class="hero-blob blob-b absolute bottom-0 left-0 h-[300px] w-[300px] rounded-full bg-[#ebe7e0]/60 blur-3xl"
+    ></div>
+    <div
+      class="hero-blob blob-c absolute right-0 top-16 h-[260px] w-[260px] rounded-full bg-[#e0dbd0]/50 blur-3xl"
     ></div>
 
-    <div
-      class="hero-blob blob-b absolute bottom-0 left-0 w-[320px] h-[320px] bg-slate-200/40 blur-3xl rounded-full"
-    ></div>
-
-    <div
-      class="hero-blob blob-c absolute top-20 right-0 w-[280px] h-[280px] bg-gray-300/30 blur-3xl rounded-full"
-    ></div>
-
-    <div class="max-w-7xl mx-auto text-center relative z-10">
-
-      <!-- Badge -->
-      <div
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2 min-[1300px]:px-5 min-[1300px]:py-2.5 text-sm min-[1300px]:text-base font-medium text-slate-700 shadow-sm mb-8 animate-[fadeInDown_.7s_ease-out]"
+    <div class="relative z-10 mx-auto w-full max-w-5xl text-center">
+      <!-- Eyebrow -->
+      <p
+        class="mb-7 animate-[fadeInDown_.7s_ease-out] font-mono-custom text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a857c] min-[1300px]:text-xs"
       >
-        <span class="inline-block h-2 w-2 rounded-full bg-slate-700 animate-pulse"></span>
         {{ t('hero.badge') }}
-      </div>
+      </p>
 
       <!-- Title -->
       <h1
-        class="text-4xl sm:text-5xl md:text-6xl min-[1300px]:text-8xl font-bold text-black mb-8 leading-tight animate-[fadeInUp_.8s_ease-out]"
+        class="mb-8 animate-[fadeInUp_.8s_ease-out] text-4xl font-bold leading-[1.05] tracking-[-0.02em] text-[#1a1814] sm:text-5xl md:text-6xl min-[1300px]:text-[5.5rem]"
       >
         {{ t('hero.titleStart') }}
         <span
-          class="bg-gradient-to-r from-slate-700 via-slate-600 to-slate-900 bg-clip-text text-transparent"
+          class="bg-gradient-to-br from-[#9a958c] via-[#6b6760] to-[#1a1814] bg-clip-text text-transparent"
         >
           {{ t('hero.titleHighlight') }}
         </span>
@@ -60,37 +59,78 @@ const goToMath = () => {
 
       <!-- Description -->
       <p
-        class="text-lg min-[1300px]:text-2xl text-gray-600 mb-12 max-w-2xl min-[1300px]:max-w-4xl mx-auto leading-relaxed animate-[fadeInUp_1s_ease-out]"
+        class="mx-auto mb-11 max-w-2xl animate-[fadeInUp_1s_ease-out] text-lg leading-relaxed text-[#6b6760] min-[1300px]:max-w-3xl min-[1300px]:text-2xl"
       >
         {{ t('hero.description') }}
       </p>
 
       <!-- Buttons -->
       <div
-        class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-[fadeInUp_1.2s_ease-out]"
+        class="flex animate-[fadeInUp_1.2s_ease-out] flex-col items-center justify-center gap-3.5 sm:flex-row"
       >
         <button
-          class="group relative overflow-hidden rounded-xl bg-slate-900 px-8 py-3 min-[1300px]:px-10 min-[1300px]:py-4 min-[1300px]:text-lg font-medium text-white shadow-lg shadow-slate-300 transition duration-300 hover:-translate-y-1 hover:bg-slate-800"
+          type="button"
+          class="group inline-flex h-[52px] items-center justify-center gap-2 rounded-full bg-[#1a1814] px-9 text-[15px] font-semibold text-white shadow-[0_10px_30px_rgba(26,24,20,0.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-black hover:shadow-[0_14px_36px_rgba(26,24,20,0.24)] active:scale-[0.98] min-[1300px]:h-[58px] min-[1300px]:px-11 min-[1300px]:text-base"
           @click="goToMath"
         >
-          <span class="relative z-10">{{ t('hero.primary') }}</span>
-          <span
-            class="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0"
-          ></span>
+          {{ t('hero.primary') }}
+          <svg
+            class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </button>
 
-        <button
-          class="rounded-xl border border-slate-300 bg-white px-8 py-3 min-[1300px]:px-10 min-[1300px]:py-4 min-[1300px]:text-lg font-medium text-slate-700 transition duration-300 hover:-translate-y-1 hover:border-slate-500 hover:text-slate-900 hover:shadow-md"
-        >
-          {{ t('hero.secondary') }}
-        </button>
       </div>
 
+      <!-- Stats -->
+      <div
+        class="mx-auto mt-16 flex max-w-2xl animate-[fadeInUp_1.4s_ease-out] items-stretch justify-center divide-x divide-[#e0ddd7]"
+      >
+        <div
+          v-for="stat in stats"
+          :key="stat.label"
+          class="flex flex-1 flex-col items-center px-2.5 text-center sm:px-8"
+        >
+          <div class="whitespace-nowrap text-xl font-bold tracking-[-0.02em] text-[#1a1814] sm:text-[2rem]">
+            {{ stat.value }}
+          </div>
+          <div
+            class="mt-2 font-mono-custom text-[9px] font-medium uppercase leading-snug tracking-[0.12em] text-[#a39e94] sm:text-[11px]"
+          >
+            {{ stat.label }}
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Scroll cue -->
+    <a
+      href="#main-features"
+      class="scroll-cue group absolute bottom-6 left-1/2 z-10 hidden h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-[#d8d3ca] bg-white/60 text-[#6b6760] backdrop-blur-sm transition-colors duration-300 hover:border-[#1a1814] hover:text-[#1a1814] md:flex"
+      :aria-label="t('hero.scrollHint')"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+        <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </a>
   </section>
 </template>
 
 <style scoped>
+.hero-dots {
+  background-image: radial-gradient(circle, #d8d3ca 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 35%, transparent 78%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 35%, transparent 78%);
+  opacity: 0.55;
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -113,7 +153,6 @@ const goToMath = () => {
   }
 }
 
-/* Subtle ambient drift for the hero background blobs */
 .blob-a {
   animation: drift-a 16s ease-in-out infinite;
 }
@@ -154,8 +193,23 @@ const goToMath = () => {
   }
 }
 
+.scroll-cue {
+  animation: cue-bounce 2.2s ease-in-out infinite;
+}
+
+@keyframes cue-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .hero-blob {
+  .hero-blob,
+  .scroll-cue {
     animation: none;
   }
 }

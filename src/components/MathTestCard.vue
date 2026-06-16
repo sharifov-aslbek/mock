@@ -76,46 +76,41 @@ const handleAttemptedCardClick = () => {
 
 <template>
   <article
-    class="group relative overflow-hidden rounded-[28px] border border-black/10 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.12)]"
+    class="group relative flex h-full flex-col overflow-hidden rounded-[28px] border border-[#e0ddd7] bg-white/80 p-6 shadow-[0_10px_30px_rgba(26,24,20,0.06)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:border-[#d8d3ca] hover:shadow-[0_20px_50px_rgba(26,24,20,0.12)]"
     :class="isAttemptedCard && !isInProgressCard ? 'cursor-pointer' : ''"
     @click="handleAttemptedCardClick"
   >
-    <div class="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.03)_1px,transparent_1px)] bg-[size:24px_24px] opacity-70"></div>
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),rgba(255,255,255,0.8),transparent_70%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle,#d8d3ca_1px,transparent_1px)] bg-[size:24px_24px] opacity-30 [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_30%,transparent_85%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.9),rgba(255,255,255,0.6),transparent_70%)]"></div>
 
     <div class="relative z-10 flex h-full flex-col">
       <div class="mb-6 flex items-start justify-between gap-4">
         <div>
-          <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-black/10 bg-white text-black shadow-sm">
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M8 4h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a1814] text-white shadow-[0_8px_20px_rgba(26,24,20,0.2)] transition-transform duration-300 group-hover:scale-105">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 13h2.5l2.5 6L13 5h8" />
             </svg>
           </div>
-          <h3 class="text-2xl font-bold tracking-tight text-black">{{ test.title }}</h3>
-          <p class="mt-2 text-sm text-gray-500">{{ test.subject }}</p>
+          <h3 class="line-clamp-2 min-h-[3.5rem] text-2xl font-bold leading-tight tracking-[-0.02em] text-[#1a1814]">{{ test.title }}</h3>
+          <p class="mt-2 text-sm text-[#8a857c]">{{ test.subject }}</p>
         </div>
 
-        <span class="rounded-full bg-black px-3 py-1 text-xs font-semibold tracking-wide text-white">
+        <span class="font-mono-custom rounded-full bg-[#1a1814] px-3 py-1 text-[11px] font-semibold tracking-wide text-white">
           #{{ test.id }}
         </span>
-      </div>
-
-      <div class="mb-6 rounded-2xl border border-dashed border-black/10 bg-black/[0.02] p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('math.subjectLabel') }}</p>
-        <p class="mt-2 text-base font-semibold text-black">{{ test.subject }}</p>
       </div>
 
       <div
         v-if="!isInProgressCard"
         class="mb-6 grid grid-cols-2 gap-3"
       >
-        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.amount') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.questionCount }}</p>
+        <div class="rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] p-4">
+          <p class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">{{ t('mathCard.amount') }}</p>
+          <p class="mt-3 text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">{{ test.questionCount }}</p>
         </div>
-        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.people') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.attemptCount }}</p>
+        <div class="rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] p-4">
+          <p class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">{{ t('mathCard.people') }}</p>
+          <p class="mt-3 text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">{{ test.attemptCount }}</p>
         </div>
       </div>
 
@@ -123,17 +118,17 @@ const handleAttemptedCardClick = () => {
         v-else
         class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3"
       >
-        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.remainingQuestions') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.remainingQuestions }}</p>
+        <div class="rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] p-4">
+          <p class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">{{ t('mathCard.remainingQuestions') }}</p>
+          <p class="mt-3 text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">{{ test.remainingQuestions }}</p>
         </div>
-        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.remainingTime') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.remainingTimeLabel }}</p>
+        <div class="rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] p-4">
+          <p class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">{{ t('mathCard.remainingTime') }}</p>
+          <p class="mt-3 text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">{{ test.remainingTimeLabel }}</p>
         </div>
-        <div class="rounded-2xl border border-black/8 bg-white/90 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-gray-400">{{ t('mathCard.answeredQuestions') }}</p>
-          <p class="mt-3 text-2xl font-bold text-black">{{ test.answeredCount }}</p>
+        <div class="rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] p-4">
+          <p class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">{{ t('mathCard.answeredQuestions') }}</p>
+          <p class="mt-3 text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">{{ test.answeredCount }}</p>
         </div>
       </div>
 
@@ -143,7 +138,7 @@ const handleAttemptedCardClick = () => {
           type="button"
           @click.stop="isAttemptedCard ? (showAttemptChoiceModal = true) : (showStartModal = true)"
           :disabled="isStarting"
-          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a1814] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(26,24,20,0.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-black hover:shadow-[0_14px_36px_rgba(26,24,20,0.24)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.752 11.168-4.586-2.65A1 1 0 0 0 8.667 9.39v5.22a1 1 0 0 0 1.499.872l4.586-2.65a1 1 0 0 0 0-1.664Z" />
@@ -157,7 +152,7 @@ const handleAttemptedCardClick = () => {
           type="button"
           @click="handleContinueTest"
           :disabled="isStarting"
-          class="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a1814] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(26,24,20,0.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-black hover:shadow-[0_14px_36px_rgba(26,24,20,0.24)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6v12m0 0 7-6m-7 6-7-6" />

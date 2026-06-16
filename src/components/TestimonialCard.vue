@@ -7,26 +7,33 @@ defineProps<{
 </script>
 
 <template>
-  <div class="border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition bg-white">
-    <div class="flex items-center space-x-4 mb-4">
-      <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-        <svg
-          class="w-6 h-6 text-gray-500"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          aria-hidden="true"
-        >
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round" stroke-linejoin="round" />
-          <circle cx="12" cy="7" r="4" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+  <div
+    class="group relative flex h-full flex-col rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_6px_22px_rgba(26,24,20,0.04)] ring-1 ring-[#f0ece5] transition duration-300 hover:-translate-y-1.5 hover:border-[#d8d3ca] hover:shadow-[0_22px_46px_rgba(26,24,20,0.1)]"
+  >
+    <!-- Quote mark -->
+    <span
+      class="pointer-events-none absolute right-6 top-4 font-serif-custom text-6xl leading-none text-[#ece8e0] transition-colors duration-300 group-hover:text-[#e0dbd0]"
+      aria-hidden="true"
+    >
+      &rdquo;
+    </span>
+
+    <p class="relative mb-6 flex-1 text-[15px] leading-7 text-[#3a362f]">
+      {{ text }}
+    </p>
+
+    <div class="flex items-center gap-3.5">
+      <div
+        class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-[#e8e3da] bg-[#f5f3ef] font-mono-custom text-sm font-semibold uppercase text-[#6b6760]"
+      >
+        {{ name?.charAt(0) }}
       </div>
-      <div>
-        <h4 class="font-bold text-gray-900">{{ name }}</h4>
-        <p class="text-sm text-gray-600">{{ role }}</p>
+      <div class="min-w-0">
+        <h4 class="truncate text-[15px] font-bold text-[#1a1814]">{{ name }}</h4>
+        <p class="truncate font-mono-custom text-[11px] uppercase tracking-[0.12em] text-[#8a857c]">
+          {{ role }}
+        </p>
       </div>
     </div>
-    <p class="text-gray-700 text-sm leading-relaxed">{{ text }}</p>
   </div>
 </template>
