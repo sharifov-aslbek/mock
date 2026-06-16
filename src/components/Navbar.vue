@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { setLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
-import logoWhite from '@/assets/logo-white.jpg'
+import logoMark from '@/assets/logo-removed.png'
 
 const isMobileMenuOpen = ref(false)
 const isUserMenuOpen = ref(false)
+const isScrolled = ref(false)
+
+const handleScroll = () => {
+  isScrolled.value = window.scrollY > 12
+}
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -75,14 +80,33 @@ onMounted(() => {
   if (authStore.isAuthenticated && !authStore.userInfo) {
     authStore.getUserInfo()
   }
+  handleScroll()
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
 <template>
-  <header class="sticky top-0 z-[100] h-16 w-full border-b border-[#1a1a1a] bg-[#0a0a0a] text-white">
-    <div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-      <router-link to="/" class="flex shrink-0 items-center gap-2" @click="closeMobileMenu">
-        <img :src="logoWhite" alt="MilliyMock" class="h-9 w-auto object-contain" />
+  <header
+    class="sticky top-0 z-[100] w-full border-b text-white transition-all duration-300"
+    :class="isScrolled
+      ? 'h-14 border-white/10 bg-[#0a0a0a]/80 shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl'
+      : 'h-16 border-[#1a1a1a] bg-[#0a0a0a] shadow-[0_10px_30px_-18px_rgba(26,24,20,0.45)]'"
+  >
+    <div
+      class="flex items-center justify-between px-4 transition-all duration-300 sm:px-6 lg:px-8"
+      :class="isScrolled ? 'h-14' : 'h-16'"
+    >
+      <router-link to="/" class="group flex shrink-0 items-center gap-2.5" @click="closeMobileMenu">
+        <img
+          :src="logoMark"
+          alt="MilliyMock"
+          class="w-auto object-contain transition-all duration-300 group-hover:rotate-90"
+          :class="isScrolled ? 'h-7' : 'h-8'"
+        />
         <span class="text-[17px] font-bold tracking-[-0.025em] text-white">MilliyMock</span>
       </router-link>
 
@@ -93,7 +117,7 @@ onMounted(() => {
           :is="item.to ? 'router-link' : 'a'"
           :to="item.to"
           :href="item.href"
-          class="flex h-16 items-center gap-1 border-b-2 px-4 text-[14px] transition-colors xl:px-5"
+          class="flex h-full items-center gap-1 border-b-2 px-4 text-[14px] transition-colors xl:px-5"
           :class="isActiveItem(item) ? 'border-white font-medium text-white' : 'border-transparent font-normal text-[#888] hover:text-white'"
         >
           {{ item.label }}
@@ -149,9 +173,6 @@ onMounted(() => {
             >
               Profil
             </router-link>
-            <a href="#" class="block px-4 py-2.5 text-[14px] text-[#e0e0e0] transition hover:bg-white/5">
-              Sozlamalar
-            </a>
             <div class="my-1 border-t border-[#2a2a2a]"></div>
             <button
               type="button"
@@ -196,8 +217,8 @@ onMounted(() => {
         @click.stop
       >
         <div class="flex items-center justify-between border-b border-[#1a1a1a] px-5 py-4">
-          <router-link to="/" class="flex items-center gap-2" @click="closeMobileMenu">
-            <img :src="logoWhite" alt="MilliyMock" class="h-8 w-auto object-contain" />
+          <router-link to="/" class="flex items-center gap-2.5" @click="closeMobileMenu">
+            <img :src="logoMark" alt="MilliyMock" class="h-7 w-auto object-contain" />
             <span class="text-base font-bold text-white">MilliyMock</span>
           </router-link>
           <button

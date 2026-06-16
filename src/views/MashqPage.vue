@@ -706,14 +706,14 @@ onBeforeUnmount(() => {
               <polyline points="12 6 12 12 16 14" />
             </svg>
             <span class="lbl">Savol</span>
-            <span>{{ qTimer }}</span>
+            <span class="val">{{ qTimer }}</span>
           </div>
           <div class="timer">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="6 3 20 12 6 21 6 3" />
             </svg>
             <span class="lbl">Jami</span>
-            <span>{{ sessionTimer }}</span>
+            <span class="val">{{ sessionTimer }}</span>
           </div>
         </div>
       </div>
@@ -1016,13 +1016,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .mashq-page {
-  --bg: #f7f8fa;
+  --bg: #f5f3ef;
   --surface: #ffffff;
-  --ink: #0a1628;
-  --ink-soft: #4b5563;
-  --ink-mute: #9ca3af;
-  --line: #e5e7eb;
-  --line-soft: #f0f1f3;
+  --ink: #1a1814;
+  --ink-soft: #6b6760;
+  --ink-mute: #a39e94;
+  --line: #e0ddd7;
+  --line-soft: #f0ece4;
   --green: #16a34a;
   --green-soft: #dcfce7;
   --green-ring: #86efac;
@@ -1031,15 +1031,15 @@ onBeforeUnmount(() => {
   --red-ring: #fca5a5;
   --yellow: #f59e0b;
   --yellow-soft: #fef3c7;
-  --blue: #2563eb;
-  --blue-soft: #dbeafe;
+  --blue: #1a1814;
+  --blue-soft: #ece8e0;
   --radius: 16px;
   --radius-sm: 10px;
-  --shadow-sm: 0 1px 2px rgba(10, 22, 40, 0.04);
-  --shadow-md: 0 4px 20px rgba(10, 22, 40, 0.06);
-  --shadow-lg: 0 12px 40px rgba(10, 22, 40, 0.08);
+  --shadow-sm: 0 1px 2px rgba(26, 24, 20, 0.04);
+  --shadow-md: 0 4px 20px rgba(26, 24, 20, 0.06);
+  --shadow-lg: 0 12px 40px rgba(26, 24, 20, 0.08);
 
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
   min-height: 100vh;
@@ -1112,7 +1112,7 @@ h1 {
 }
 
 .filter-btn:hover {
-  background: #e5e7eb;
+  background: var(--line);
 }
 
 .filter-btn.active {
@@ -1289,21 +1289,30 @@ h1 {
 .timer {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   background: #fff;
   border: 1px solid var(--line);
-  padding: 7px 13px;
+  padding: 8px 16px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-sm);
 }
 
 .timer .ic {
-  width: 14px;
-  height: 14px;
-  color: var(--ink-mute);
+  width: 15px;
+  height: 15px;
+  color: var(--ink);
+}
+
+.timer .val {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .timer .lbl {
@@ -1483,8 +1492,8 @@ h1 {
 }
 
 .tag-grade {
-  background: #eff6ff;
-  color: var(--blue);
+  background: var(--line-soft);
+  color: var(--ink-soft);
 }
 
 .tag-diff-oson {

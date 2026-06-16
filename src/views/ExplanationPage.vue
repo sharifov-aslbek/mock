@@ -591,8 +591,7 @@ const isAnyModalOpen = computed(
   () =>
     reviewingQuestionId.value !== null ||
     reportingQuestionId.value !== null ||
-    isCertificateModalOpen.value ||
-    showResultModal.value,
+    isCertificateModalOpen.value,
 )
 
 const statCards = computed(() => {
@@ -802,19 +801,24 @@ async function initializeExplanationPage() {
 
   const readyToSubmit = route.query.readyToSubmit === '1'
 
+  // Pop the certificate instantly on finish; it shows a loader and fills in
+  // once the submission resolves — no waiting for the network before it opens.
+  if (readyToSubmit) {
+    isFinalizingSubmission.value = true
+    isCertificateModalOpen.value = true
+  }
+
   try {
     await loadTest({ skipProgressFallback: readyToSubmit })
 
     if (readyToSubmit) {
-      isFinalizingSubmission.value = true
       await finalizeTestSubmission()
-      showResultModal.value = true
       await stripRouteFlags(['readyToSubmit'])
       return
     }
 
     if (route.query.submitted === '1') {
-      showResultModal.value = true
+      isCertificateModalOpen.value = true
       await stripRouteFlags(['submitted'])
     }
   } catch (error) {
@@ -986,6 +990,7 @@ function closeReport() {
 }
 
 function openCertificateModal() {
+  showResultModal.value = false
   isCertificateModalOpen.value = true
 }
 
@@ -1090,7 +1095,7 @@ function answerBadgeClass(status) {
     return 'bg-rose-50 text-red-600 font-semibold'
   }
 
-  return 'bg-gray-100 text-gray-400 italic'
+  return 'bg-[#f0ece4] text-[#a39e94] italic'
 }
 
 function complexityBadgeClass(complexity) {
@@ -1105,6 +1110,18 @@ function complexityBadgeClass(complexity) {
   return 'bg-rose-50 text-red-600'
 }
 
+function complexityLabel(complexity) {
+  if (complexity === 'Easy') {
+    return 'Oson'
+  }
+
+  if (complexity === 'Medium') {
+    return "O‘rta"
+  }
+
+  return 'Qiyin'
+}
+
 function statusDotClass(status) {
   if (status === 'correct') {
     return 'bg-green-600'
@@ -1114,12 +1131,12 @@ function statusDotClass(status) {
     return 'bg-red-600'
   }
 
-  return 'bg-gray-300'
+  return 'bg-[#d8d3ca]'
 }
 
 function answerOptionClass(option) {
   if (!currentQuestion.value || !showAnswer.value) {
-    return 'border border-gray-200 bg-white'
+    return 'border border-[#e0ddd7] bg-white'
   }
 
   const isCorrect = option.letter === currentQuestion.value.correctAnswer
@@ -1133,7 +1150,7 @@ function answerOptionClass(option) {
     return 'border-2 border-red-600 bg-rose-50'
   }
 
-  return 'border border-gray-200 bg-white'
+  return 'border border-[#e0ddd7] bg-white'
 }
 
 function answerFeedbackClass(status) {
@@ -1154,22 +1171,29 @@ function answerFeedbackText(question) {
 </script>
 
 <template>
-  <main class="explanation-page min-h-screen w-full bg-[#f7f7f7] font-sans-custom">
-    <div class="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 sm:pt-10 lg:px-8">
-      <div class="mb-4 flex items-center gap-1.5 text-xs text-gray-400 sm:mb-6">
-        <RouterLink to="/" class="cursor-default transition-colors hover:text-gray-500 cursor-pointer">Bosh sahifa</RouterLink>
+  <main class="explanation-page relative min-h-screen w-full overflow-hidden bg-[#f5f3ef] font-sans-custom">
+    <!-- Ambient background — matches the main pages -->
+    <div class="math-dots pointer-events-none absolute inset-0 -z-20"></div>
+    <div class="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#f5f3ef]/30 via-[#f5f3ef]/70 to-[#f5f3ef]"></div>
+    <div class="math-blob pointer-events-none absolute -left-20 top-10 -z-10 h-[360px] w-[360px] rounded-full bg-[#e6e1d7]/50 blur-3xl"></div>
+    <div class="math-blob pointer-events-none absolute -right-24 top-40 -z-10 h-[320px] w-[320px] rounded-full bg-[#ebe7e0]/60 blur-3xl"></div>
+    <div class="math-grain pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
+
+    <div class="relative z-10 mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 sm:pt-10 lg:px-8">
+      <div class="mb-4 flex items-center gap-1.5 text-xs text-[#a39e94] sm:mb-6">
+        <RouterLink to="/" class="cursor-default transition-colors hover:text-[#8a857c] cursor-pointer">Bosh sahifa</RouterLink>
         <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="m9 18 6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-        <span class="text-gray-600">Natijalar Tahlili</span>
+        <span class="text-[#6b6760]">Natijalar Tahlili</span>
       </div>
 
       <div class="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 class="text-[clamp(22px,5vw,30px)] font-extrabold leading-[1.15] tracking-[-0.05em] text-[#0a0a0a]">
+          <h1 class="text-[clamp(22px,5vw,30px)] font-extrabold leading-[1.15] tracking-[-0.05em] text-[#1a1814]">
             Natijalar Tahlili
           </h1>
-          <p class="mt-1.5 text-sm text-gray-400">
+          <p class="mt-1.5 text-sm text-[#a39e94]">
             {{ testStore.currentTest?.title || "Test natijasi" }}
           </p>
         </div>
@@ -1177,7 +1201,7 @@ function answerFeedbackText(question) {
         <div class="flex flex-col items-start gap-2 sm:items-end">
           <button
             type="button"
-            class="inline-flex self-start rounded-full bg-[#0a0a0a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] sm:self-auto"
+            class="inline-flex self-start rounded-full bg-[#1a1814] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2a2722] sm:self-auto"
             @click="openCertificateModal"
           >
             <span class="mr-2 inline-flex h-4 w-4 items-center justify-center">
@@ -1195,16 +1219,17 @@ function answerFeedbackText(question) {
         </div>
       </div>
 
+
       <div class="mb-6 flex flex-col gap-4 sm:flex-row">
-        <div class="flex min-w-0 flex-row items-center justify-center gap-4 rounded-2xl border border-[#ebebeb] bg-white px-6 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:flex-col sm:gap-0">
+        <div class="flex min-w-0 flex-row items-center justify-center gap-4 rounded-2xl border border-[#e0ddd7] bg-white px-6 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:flex-col sm:gap-0">
           <svg width="110" height="110" viewBox="0 0 110 110">
-            <circle cx="55" cy="55" :r="scoreRingRadius" fill="none" stroke="#f0f0f0" stroke-width="7" />
+            <circle cx="55" cy="55" :r="scoreRingRadius" fill="none" stroke="#ece8e0" stroke-width="7" />
             <circle
               cx="55"
               cy="55"
               :r="scoreRingRadius"
               fill="none"
-              stroke="#0a0a0a"
+              stroke="#1a1814"
               stroke-width="7"
               :stroke-dasharray="scoreRingCircumference"
               :stroke-dashoffset="scoreRingOffset"
@@ -1212,31 +1237,31 @@ function answerFeedbackText(question) {
               transform="rotate(-90 55 55)"
               style="transition: stroke-dashoffset 0.6s ease"
             />
-            <text x="55" y="51" text-anchor="middle" fill="#0a0a0a" font-size="18" font-weight="800">
+            <text x="55" y="51" text-anchor="middle" fill="#1a1814" font-size="18" font-weight="800">
               {{ scorePercent }}%
             </text>
-            <text x="55" y="67" text-anchor="middle" fill="#aaaaaa" font-size="9.5" font-weight="500">
+            <text x="55" y="67" text-anchor="middle" fill="#a39e94" font-size="9.5" font-weight="500">
               Ball
             </text>
           </svg>
 
           <div class="text-center sm:mt-2">
-            <span class="text-[11px] font-medium uppercase tracking-[0.3px] text-gray-400">Umumiy Ball</span>
-            <p class="mt-1 text-sm font-semibold text-[#0a0a0a] sm:hidden">
+            <span class="text-[11px] font-medium uppercase tracking-[0.3px] text-[#a39e94]">Umumiy Ball</span>
+            <p class="mt-1 text-sm font-semibold text-[#1a1814] sm:hidden">
               {{ correctCount }}/{{ totalQuestions }} savol to'g'ri
             </p>
           </div>
         </div>
 
         <div class="flex min-w-0 flex-1 flex-col gap-4">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div
               v-for="card in statCards"
               :key="card.label"
-              class="flex flex-col justify-between rounded-2xl border border-[#ebebeb] bg-white px-4 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
+              class="flex flex-col justify-between rounded-2xl border border-[#e0ddd7] bg-white px-4 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
             >
               <div class="mb-2 flex items-start justify-between sm:mb-3">
-                <span class="text-[11px] font-medium leading-[1.3] text-gray-400">{{ card.label }}</span>
+                <span class="text-[11px] font-medium leading-[1.3] text-[#a39e94]">{{ card.label }}</span>
                 <span
                   class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full sm:h-7 sm:w-7"
                   :class="[card.bgClass, card.colorClass]"
@@ -1277,30 +1302,30 @@ function answerFeedbackText(question) {
               </div>
 
               <div>
-                <span class="text-[clamp(26px,6vw,36px)] font-extrabold leading-none tracking-[-0.08em] text-[#0a0a0a]">
+                <span class="text-[clamp(26px,6vw,36px)] font-extrabold leading-none tracking-[-0.08em] text-[#1a1814]">
                   {{ card.value }}
                 </span>
-                <p class="mt-1 text-[10px] text-gray-300">{{ card.percentLabel }}</p>
+                <p class="mt-1 text-[10px] text-[#d8d3ca]">{{ card.percentLabel }}</p>
               </div>
             </div>
           </div>
 
-          <div class="rounded-2xl border border-[#ebebeb] bg-white px-4 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:px-5">
+          <div class="rounded-2xl border border-[#e0ddd7] bg-white px-4 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:px-5">
             <div class="mb-3 flex items-center justify-between">
-              <span class="text-xs font-medium text-gray-400">Jami Savollar</span>
-              <span class="text-sm font-bold text-[#0a0a0a]">{{ totalQuestions }} ta</span>
+              <span class="text-xs font-medium text-[#a39e94]">Jami Savollar</span>
+              <span class="text-sm font-bold text-[#1a1814]">{{ totalQuestions }} ta</span>
             </div>
 
-            <div class="flex h-2 overflow-hidden rounded-full bg-[#f0f0f0]">
+            <div class="flex h-2 overflow-hidden rounded-full bg-[#ece8e0]">
               <div :style="{ width: `${(correctCount / totalQuestions) * 100}%` }" class="bg-green-600" />
               <div :style="{ width: `${(incorrectCount / totalQuestions) * 100}%` }" class="bg-red-600" />
-              <div :style="{ width: `${(omittedCount / totalQuestions) * 100}%` }" class="bg-gray-200" />
+              <div :style="{ width: `${(omittedCount / totalQuestions) * 100}%` }" class="bg-[#e0ddd7]" />
             </div>
 
             <div class="mt-3 flex flex-wrap items-center gap-3">
               <span v-for="item in progressLegend" :key="item.label" class="flex items-center gap-1.5">
                 <span class="inline-block h-2 w-2 shrink-0 rounded-full" :class="item.colorClass" />
-                <span class="text-[11px] text-gray-400">{{ item.label }}</span>
+                <span class="text-[11px] text-[#a39e94]">{{ item.label }}</span>
               </span>
             </div>
           </div>
@@ -1316,7 +1341,7 @@ function answerFeedbackText(question) {
         <div class="explanation-scrollbar hidden overflow-x-auto md:block">
           <table class="w-full">
             <thead>
-              <tr class="border-b border-[#f0f0f0] bg-[#fafafa]">
+              <tr class="border-b border-[#ece8e0] bg-[#faf8f4]">
                 <th
                   v-for="header in tableHeaders"
                   :key="header.key"
@@ -1332,7 +1357,7 @@ function answerFeedbackText(question) {
                 v-for="(row, index) in filteredQuestions"
                 :key="row.id"
               >
-                <tr v-if="row.showGroupHeader" class="border-y border-[#eeeeee] bg-[#fafafa]">
+                <tr v-if="row.showGroupHeader" class="border-y border-[#e0ddd7] bg-[#faf8f4]">
                   <td colspan="6" class="px-6 py-3">
                     <div class="flex items-center gap-3">
                       <div class="min-w-0">
@@ -1349,15 +1374,15 @@ function answerFeedbackText(question) {
                 </tr>
 
                 <tr
-                  class="transition-colors hover:bg-[#fafafa]"
-                  :class="{ 'border-b border-[#f5f5f5]': index < filteredQuestions.length - 1 }"
+                  class="transition-colors hover:bg-[#faf8f4]"
+                  :class="{ 'border-b border-[#faf8f4]': index < filteredQuestions.length - 1 }"
                 >
                   <td class="px-6 py-4">
-                    <span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[#f5f5f5] px-2 text-xs font-semibold text-gray-500">
+                    <span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[#faf8f4] px-2 text-xs font-semibold text-[#8a857c]">
                       {{ row.displayIndex }}
                     </span>
                   </td>
-                  <td class="px-6 py-4 text-sm text-gray-600">
+                  <td class="px-6 py-4 text-sm text-[#6b6760]">
                     <div class="max-w-[340px]">
                       <TestInlineMathText
                         :text="row.title"
@@ -1453,7 +1478,7 @@ function answerFeedbackText(question) {
                     <div class="flex items-center justify-center gap-2">
                       <button
                         type="button"
-                        class="inline-flex items-center gap-1.5 rounded-full border border-[#ebebeb] px-3 py-1.5 text-xs text-gray-300 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-[#e0ddd7] px-3 py-1.5 text-xs text-[#d8d3ca] transition hover:border-[#1a1814] hover:bg-[#1a1814] hover:text-white"
                         @click="openReview(row.id)"
                       >
                         <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -1469,7 +1494,7 @@ function answerFeedbackText(question) {
 
                       <button
                         type="button"
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ebebeb] text-gray-300 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e0ddd7] text-[#d8d3ca] transition hover:border-[#1a1814] hover:bg-[#1a1814] hover:text-white"
                         @click="openReport(row.id)"
                       >
                         <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -1492,10 +1517,10 @@ function answerFeedbackText(question) {
           >
             <div
               v-if="row.showGroupHeader"
-              class="rounded-2xl border border-[#ebebeb] bg-[#fafafa] p-4"
+              class="rounded-2xl border border-[#e0ddd7] bg-[#faf8f4] p-4"
             >
               <div class="flex items-center gap-3">
-                <span class="inline-flex min-w-8 items-center justify-center rounded-full bg-[#0a0a0a] px-2.5 py-1 text-xs font-bold text-white">
+                <span class="inline-flex min-w-8 items-center justify-center rounded-full bg-[#1a1814] px-2.5 py-1 text-xs font-bold text-white">
                   {{ row.groupDisplayLabel }}
                 </span>
                 <div class="min-w-0">
@@ -1511,18 +1536,18 @@ function answerFeedbackText(question) {
             </div>
 
             <article
-              class="rounded-2xl border border-[#ebebeb] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
-              :class="row.groupId ? 'ml-4 border-l-4 border-l-[#0a0a0a]/10' : ''"
+              class="rounded-2xl border border-[#e0ddd7] bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+              :class="row.groupId ? 'ml-4 border-l-4 border-l-[#1a1814]/10' : ''"
             >
               <div class="mb-3 flex items-start gap-3">
-                <span class="mt-0.5 inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] px-2 text-xs font-semibold text-gray-500">
+                <span class="mt-0.5 inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-[#faf8f4] px-2 text-xs font-semibold text-[#8a857c]">
                   {{ row.displayIndex }}
                 </span>
                 <div class="min-w-0 flex-1">
                   <TestInlineMathText
                     tag="p"
                     :text="row.title"
-                    wrapper-class="text-[13px] font-semibold leading-[1.4] text-[#222222] line-clamp-3 break-words"
+                    wrapper-class="text-[13px] font-semibold leading-[1.4] text-[#2a2722] line-clamp-3 break-words"
                   />
                 </div>
                 <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" :class="statusDotClass(row.status)" />
@@ -1616,10 +1641,10 @@ function answerFeedbackText(question) {
                 </span>
               </div>
 
-              <div class="flex items-center gap-2 border-t border-[#f5f5f5] pt-3">
+              <div class="flex items-center gap-2 border-t border-[#faf8f4] pt-3">
                 <button
                   type="button"
-                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#0a0a0a] py-2 text-xs font-semibold text-white transition hover:bg-[#1a1a1a]"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1a1814] py-2 text-xs font-semibold text-white transition hover:bg-[#2a2722]"
                   @click="openReview(row.id)"
                 >
                   <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1635,7 +1660,7 @@ function answerFeedbackText(question) {
 
                 <button
                   type="button"
-                  class="flex h-10 w-10 items-center justify-center rounded-xl border border-[#ebebeb] bg-[#f5f5f5] text-gray-500 transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+                  class="flex h-10 w-10 items-center justify-center rounded-xl border border-[#e0ddd7] bg-[#faf8f4] text-[#8a857c] transition hover:border-[#1a1814] hover:bg-[#1a1814] hover:text-white"
                   @click="openReport(row.id)"
                 >
                   <svg class="h-[13px] w-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1651,15 +1676,15 @@ function answerFeedbackText(question) {
         <div v-if="isLoadingTest || isFinalizingSubmission"
           class="flex flex-col items-center justify-center gap-3 py-16"
         >
-          <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700" />
-          <p v-if="isFinalizingSubmission" class="text-sm text-gray-500">Test topshirilmoqda...</p>
+          <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#4a463f]" />
+          <p v-if="isFinalizingSubmission" class="text-sm text-[#8a857c]">Test topshirilmoqda...</p>
         </div>
 
         <div v-else-if="testLoadError" class="flex flex-col items-center justify-center gap-3 py-16">
           <p class="text-sm text-red-600">{{ testLoadError }}</p>
           <button
             type="button"
-            class="inline-flex items-center justify-center rounded-full border border-gray-200 px-4 py-1.5 text-xs font-semibold text-[#0a0a0a] transition hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white"
+            class="inline-flex items-center justify-center rounded-full border border-[#e0ddd7] px-4 py-1.5 text-xs font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#1a1814] hover:text-white"
             @click="initializeExplanationPage"
           >
             Qaytadan urinish
@@ -1667,7 +1692,7 @@ function answerFeedbackText(question) {
         </div>
 
         <div v-else-if="filteredQuestions.length === 0" class="flex items-center justify-center py-16">
-          <p class="text-sm text-gray-300">Ma'lumot topilmadi</p>
+          <p class="text-sm text-[#d8d3ca]">Ma'lumot topilmadi</p>
         </div>
       </section>
     </div>
@@ -1681,21 +1706,21 @@ function answerFeedbackText(question) {
         <div
           class="review-modal-inner relative flex max-h-[92vh] w-full flex-col overflow-hidden bg-white sm:mx-4 sm:max-w-5xl"
         >
-          <div class="shrink-0 border-b border-[#ebebeb] px-4 py-4 sm:px-8 sm:py-5">
+          <div class="shrink-0 border-b border-[#e0ddd7] px-4 py-4 sm:px-8 sm:py-5">
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0 flex-1 pr-4">
-                <p class="line-clamp-2 break-words text-[11px] font-medium uppercase tracking-[0.5px] text-gray-400">
+                <p class="line-clamp-2 break-words text-[11px] font-medium uppercase tracking-[0.5px] text-[#a39e94]">
                   {{ currentQuestion.groupTitle || testStore.currentTest?.title || "Test natijasi" }}
                 </p>
               </div>
 
               <div class="flex shrink-0 items-center gap-2">
-                <span class="hidden rounded-full bg-[#f5f5f5] px-3 py-1 text-xs font-medium text-gray-500 sm:inline-flex">
+                <span class="hidden rounded-full bg-[#faf8f4] px-3 py-1 text-xs font-medium text-[#8a857c] sm:inline-flex">
                   Savol {{ currentQuestion.displayIndex }}
                 </span>
                 <button
                   type="button"
-                  class="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"
+                  class="flex h-8 w-8 items-center justify-center rounded-full bg-[#faf8f4] text-[#8a857c] transition hover:bg-[#1a1814] hover:text-white"
                   @click="closeReview"
                 >
                   <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -1710,7 +1735,7 @@ function answerFeedbackText(question) {
               <button
                 type="button"
                 class="flex-1 rounded-xl py-2 text-sm font-semibold transition"
-                :class="activeTab === 'question' ? 'bg-[#0a0a0a] text-white' : 'bg-[#f5f5f5] text-gray-500'"
+                :class="activeTab === 'question' ? 'bg-[#1a1814] text-white' : 'bg-[#faf8f4] text-[#8a857c]'"
                 @click="activeTab = 'question'"
               >
                 Savol
@@ -1718,7 +1743,7 @@ function answerFeedbackText(question) {
               <button
                 type="button"
                 class="flex-1 rounded-xl py-2 text-sm font-semibold transition"
-                :class="activeTab === 'answer' ? 'bg-[#0a0a0a] text-white' : 'bg-[#f5f5f5] text-gray-500'"
+                :class="activeTab === 'answer' ? 'bg-[#1a1814] text-white' : 'bg-[#faf8f4] text-[#8a857c]'"
                 @click="activeTab = 'answer'"
               >
                 Javob
@@ -1728,25 +1753,25 @@ function answerFeedbackText(question) {
 
           <div class="flex-1 overflow-hidden">
             <div class="hidden h-full grid-cols-2 sm:grid" style="height: calc(92vh - 140px)">
-              <div class="review-scrollbar min-w-0 overflow-y-auto border-r border-[#ebebeb] bg-white px-8 py-6">
+              <div class="review-scrollbar min-w-0 overflow-y-auto border-r border-[#e0ddd7] bg-white px-8 py-6">
                 <div class="min-w-0">
-                  <p v-if="currentQuestion.groupTitle" class="mb-2 break-words text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                  <p v-if="currentQuestion.groupTitle" class="mb-2 break-words text-[11px] font-semibold uppercase tracking-[0.18em] text-[#a39e94]">
                     {{ currentQuestion.groupTitle }}
                   </p>
-                  <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
+                  <h3 class="mb-3.5 text-[15px] font-bold text-[#1a1814]">Savol {{ currentQuestion.displayIndex }}</h3>
                   <TestInlineMathText
                     v-if="currentQuestion.questionText"
                     tag="div"
                     :text="currentQuestion.questionText"
-                    wrapper-class="mb-5 break-words text-sm leading-[1.7] text-gray-600"
+                    wrapper-class="mb-5 break-words text-sm leading-[1.7] text-[#6b6760]"
                   />
-                  <p v-else class="mb-5 text-sm italic text-gray-400">
+                  <p v-else class="mb-5 text-sm italic text-[#a39e94]">
                     Savol matni mavjud emas.
                   </p>
 
                   <!-- <div
                     v-if="currentQuestion.imageUrl"
-                    class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4 sm:p-6"
+                    class="flex items-center justify-center rounded-xl border border-[#e0ddd7] bg-[#faf8f4] p-4 sm:p-6"
                   >
                     <img
                       :src="currentQuestion.imageUrl"
@@ -1757,15 +1782,15 @@ function answerFeedbackText(question) {
                 </div>
               </div>
 
-              <div class="review-scrollbar min-w-0 overflow-y-auto bg-[#fafafa] px-8 py-6">
+              <div class="review-scrollbar min-w-0 overflow-y-auto bg-[#faf8f4] px-8 py-6">
                 <div class="min-w-0">
-                  <h3 class="mb-4 text-[15px] font-bold text-[#0a0a0a]">Javob variantlari</h3>
+                  <h3 class="mb-4 text-[15px] font-bold text-[#1a1814]">Javob variantlari</h3>
 
                   <div v-if="currentQuestion.answerOptions?.length" class="mb-5">
                     <div
                       v-for="option in currentQuestion.answerOptions"
                       :key="option.letter"
-                      class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
+                      class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#1a1814]"
                       :class="answerOptionClass(option)"
                     >
                       <span class="mr-1.5 font-bold">{{ option.letter }}.</span>
@@ -1780,12 +1805,12 @@ function answerFeedbackText(question) {
                   </div>
 
                   <div v-else class="mb-5">
-                    <span class="text-[13px] text-gray-500">Sizning javobingiz:</span>
+                    <span class="text-[13px] text-[#8a857c]">Sizning javobingiz:</span>
                     <div class="mt-2">
-                      <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-gray-400">
+                      <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-[#a39e94]">
                         - (O'tkazilgan)
                       </span>
-                      <span v-else class="break-words text-lg font-bold text-[#0a0a0a]">
+                      <span v-else class="break-words text-lg font-bold text-[#1a1814]">
                         {{ currentQuestion.yourAnswer }}
                       </span>
                     </div>
@@ -1800,10 +1825,10 @@ function answerFeedbackText(question) {
                   </div>
 
                   <div>
-                    <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
+                    <h4 class="mb-2.5 text-sm font-bold text-[#1a1814]">Tushuntirish</h4>
 
-                    <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
-                      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
+                    <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-[#a39e94]">
+                      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#6b6760]" />
                       <span>Yuklanmoqda...</span>
                     </div>
 
@@ -1816,20 +1841,20 @@ function answerFeedbackText(question) {
                         v-if="explanationDisplayText"
                         tag="div"
                         :text="explanationDisplayText"
-                        wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
+                        wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-[#6b6760]"
                       />
                       <a
                         v-if="explanationVideoLink"
                         :href="explanationVideoLink"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-[13px] font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100"
+                        class="inline-flex items-center gap-2 rounded-full border border-[#e0ddd7] bg-[#faf8f4] px-4 py-2 text-[13px] font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f0ece4]"
                       >
                         <span>Video izohni ko'rish</span>
                       </a>
                       <div
                         v-if="currentQuestion.imageUrl"
-                        class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                        class="mt-3 overflow-hidden rounded-xl border border-[#e0ddd7] bg-white"
                       >
                         <img
                           :src="currentQuestion.imageUrl"
@@ -1839,7 +1864,7 @@ function answerFeedbackText(question) {
                       </div>
                     </template>
 
-                    <p v-else class="text-[13px] italic text-gray-400">
+                    <p v-else class="text-[13px] italic text-[#a39e94]">
                       Tushuntirish mavjud emas.
                     </p>
                   </div>
@@ -1850,23 +1875,23 @@ function answerFeedbackText(question) {
             <div class="review-scrollbar overflow-y-auto sm:hidden" style="height: calc(92vh - 175px)">
               <div v-if="activeTab === 'question'" class="px-4 py-5">
                 <div>
-                  <p v-if="currentQuestion.groupTitle" class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                  <p v-if="currentQuestion.groupTitle" class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#a39e94]">
                     {{ currentQuestion.groupTitle }}
                   </p>
-                  <h3 class="mb-3.5 text-[15px] font-bold text-[#0a0a0a]">Savol {{ currentQuestion.displayIndex }}</h3>
+                  <h3 class="mb-3.5 text-[15px] font-bold text-[#1a1814]">Savol {{ currentQuestion.displayIndex }}</h3>
                   <TestInlineMathText
                     v-if="currentQuestion.questionText"
                     tag="div"
                     :text="currentQuestion.questionText"
-                    wrapper-class="mb-5 break-words text-sm leading-[1.7] text-gray-600"
+                    wrapper-class="mb-5 break-words text-sm leading-[1.7] text-[#6b6760]"
                   />
-                  <p v-else class="mb-5 text-sm italic text-gray-400">
+                  <p v-else class="mb-5 text-sm italic text-[#a39e94]">
                     Savol matni mavjud emas.
                   </p>
 
                   <div
                     v-if="currentQuestion.imageUrl"
-                    class="flex items-center justify-center rounded-xl border border-[#ebebeb] bg-[#fafafa] p-4"
+                    class="flex items-center justify-center rounded-xl border border-[#e0ddd7] bg-[#faf8f4] p-4"
                   >
                     <img
                       :src="currentQuestion.imageUrl"
@@ -1877,15 +1902,15 @@ function answerFeedbackText(question) {
                 </div>
               </div>
 
-              <div v-else class="bg-[#fafafa] px-4 py-5">
+              <div v-else class="bg-[#faf8f4] px-4 py-5">
                 <div>
-                  <h3 class="mb-4 text-[15px] font-bold text-[#0a0a0a]">Javob variantlari</h3>
+                  <h3 class="mb-4 text-[15px] font-bold text-[#1a1814]">Javob variantlari</h3>
 
                   <div v-if="currentQuestion.answerOptions?.length" class="mb-5">
                     <div
                       v-for="option in currentQuestion.answerOptions"
                       :key="option.letter"
-                      class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#0a0a0a]"
+                      class="mb-2 break-words rounded-xl px-4 py-3 text-[13px] leading-[1.6] text-[#1a1814]"
                       :class="answerOptionClass(option)"
                     >
                       <span class="mr-1.5 font-bold">{{ option.letter }}.</span>
@@ -1900,12 +1925,12 @@ function answerFeedbackText(question) {
                   </div>
 
                   <div v-else class="mb-5">
-                    <span class="text-[13px] text-gray-500">Sizning javobingiz:</span>
+                    <span class="text-[13px] text-[#8a857c]">Sizning javobingiz:</span>
                     <div class="mt-2">
-                      <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-gray-400">
+                      <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-[#a39e94]">
                         - (O'tkazilgan)
                       </span>
-                      <span v-else class="break-words text-lg font-bold text-[#0a0a0a]">
+                      <span v-else class="break-words text-lg font-bold text-[#1a1814]">
                         {{ currentQuestion.yourAnswer }}
                       </span>
                     </div>
@@ -1920,10 +1945,10 @@ function answerFeedbackText(question) {
                   </div>
 
                   <div>
-                    <h4 class="mb-2.5 text-sm font-bold text-[#0a0a0a]">Tushuntirish</h4>
+                    <h4 class="mb-2.5 text-sm font-bold text-[#1a1814]">Tushuntirish</h4>
 
-                    <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-gray-400">
-                      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600" />
+                    <div v-if="isLoadingExplanation" class="flex items-center gap-2 py-2 text-[13px] text-[#a39e94]">
+                      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#6b6760]" />
                       <span>Yuklanmoqda...</span>
                     </div>
 
@@ -1936,20 +1961,20 @@ function answerFeedbackText(question) {
                         v-if="explanationDisplayText"
                         tag="div"
                         :text="explanationDisplayText"
-                        wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-gray-600"
+                        wrapper-class="mb-3 break-words text-[13px] leading-[1.7] text-[#6b6760]"
                       />
                       <a
                         v-if="explanationVideoLink"
                         :href="explanationVideoLink"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-[13px] font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100"
+                        class="inline-flex items-center gap-2 rounded-full border border-[#e0ddd7] bg-[#faf8f4] px-4 py-2 text-[13px] font-semibold text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f0ece4]"
                       >
                         <span>Video izohni ko'rish</span>
                       </a>
                       <div
                         v-if="currentQuestion.imageUrl"
-                        class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                        class="mt-3 overflow-hidden rounded-xl border border-[#e0ddd7] bg-white"
                       >
                         <img
                           :src="currentQuestion.imageUrl"
@@ -1959,7 +1984,7 @@ function answerFeedbackText(question) {
                       </div>
                     </template>
 
-                    <p v-else class="text-[13px] italic text-gray-400">
+                    <p v-else class="text-[13px] italic text-[#a39e94]">
                       Tushuntirish mavjud emas.
                     </p>
                   </div>
@@ -1968,7 +1993,7 @@ function answerFeedbackText(question) {
             </div>
           </div>
 
-          <div class="shrink-0 border-t border-[#ebebeb] bg-white px-4 py-4 sm:px-8">
+          <div class="shrink-0 border-t border-[#e0ddd7] bg-white px-4 py-4 sm:px-8">
             <div class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
               <label class="flex cursor-pointer items-center gap-3">
                 <div class="relative h-5 w-5 shrink-0">
@@ -1980,7 +2005,7 @@ function answerFeedbackText(question) {
                   />
                   <svg
                     v-if="showAnswer"
-                    class="pointer-events-none absolute inset-0 h-5 w-5 text-indigo-600"
+                    class="pointer-events-none absolute inset-0 h-5 w-5 text-[#1a1814]"
                     viewBox="0 0 20 20"
                     fill="none"
                     stroke="currentColor"
@@ -1989,18 +2014,18 @@ function answerFeedbackText(question) {
                     <path d="M5 10L8 13L15 6" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                 </div>
-                <span class="text-sm text-gray-600">To'g'ri javobni ko'rsatish</span>
+                <span class="text-sm text-[#6b6760]">To'g'ri javobni ko'rsatish</span>
               </label>
 
               <div class="flex items-center gap-2">
-                <span class="mr-auto text-xs font-medium text-gray-400 sm:hidden">
+                <span class="mr-auto text-xs font-medium text-[#a39e94] sm:hidden">
                   Savol {{ currentQuestion.displayIndex }}
                 </span>
 
                 <button
                   type="button"
                   class="flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition"
-                  :class="currentQuestionIndex <= 0 ? 'cursor-not-allowed bg-[#f0f0f0] text-gray-300' : 'bg-[#0a0a0a] text-white hover:bg-[#1a1a1a]'"
+                  :class="currentQuestionIndex <= 0 ? 'cursor-not-allowed bg-[#ece8e0] text-[#d8d3ca]' : 'bg-[#1a1814] text-white hover:bg-[#2a2722]'"
                   :disabled="currentQuestionIndex <= 0"
                   @click="showPreviousQuestion"
                 >
@@ -2013,7 +2038,7 @@ function answerFeedbackText(question) {
                 <button
                   type="button"
                   class="flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition"
-                  :class="currentQuestionIndex >= totalQuestions - 1 ? 'cursor-not-allowed bg-[#f0f0f0] text-gray-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'"
+                  :class="currentQuestionIndex >= totalQuestions - 1 ? 'cursor-not-allowed bg-[#ece8e0] text-[#d8d3ca]' : 'bg-[#1a1814] text-white hover:bg-[#2a2722]'"
                   :disabled="currentQuestionIndex >= totalQuestions - 1"
                   @click="showNextQuestion"
                 >
@@ -2037,12 +2062,12 @@ function answerFeedbackText(question) {
       >
         <div class="report-modal-inner relative max-h-[90vh] w-full overflow-y-auto bg-white px-5 pb-8 pt-7 sm:mx-4 sm:max-w-lg">
           <div class="mb-5 flex justify-center sm:hidden">
-            <div class="h-1 w-9 rounded-full bg-gray-200" />
+            <div class="h-1 w-9 rounded-full bg-[#e0ddd7]" />
           </div>
 
           <button
             type="button"
-            class="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"
+            class="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-[#faf8f4] text-[#8a857c] transition hover:bg-[#1a1814] hover:text-white"
             @click="closeReport"
           >
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -2062,35 +2087,35 @@ function answerFeedbackText(question) {
                 />
               </svg>
             </div>
-            <h2 class="mb-2 text-lg font-bold text-[#0a0a0a]">Xabar yuborildi!</h2>
-            <p class="text-sm text-gray-400">Muammoingiz ko'rib chiqiladi.</p>
+            <h2 class="mb-2 text-lg font-bold text-[#1a1814]">Xabar yuborildi!</h2>
+            <p class="text-sm text-[#a39e94]">Muammoingiz ko'rib chiqiladi.</p>
           </div>
 
           <template v-else>
-            <h2 class="mb-1 text-xl font-bold text-[#0a0a0a]">Muammo haqida xabar bering</h2>
-            <p class="mb-6 text-sm text-gray-400">
+            <h2 class="mb-1 text-xl font-bold text-[#1a1814]">Muammo haqida xabar bering</h2>
+            <p class="mb-6 text-sm text-[#a39e94]">
               {{ reportingQuestion ? `Savol ${reportingQuestion.displayIndex}` : `Savol #${reportingQuestionId}` }}
             </p>
 
             <div class="mb-4">
-              <label class="mb-2 block text-sm font-semibold text-gray-600">Izoh</label>
+              <label class="mb-2 block text-sm font-semibold text-[#6b6760]">Izoh</label>
               <textarea
                 v-model="reportComment"
                 rows="4"
                 placeholder="Muammoni tasvirlab bering..."
-                class="w-full resize-none rounded-xl border-[1.5px] border-gray-200 bg-white px-3.5 py-3 text-sm leading-[1.6] text-[#0a0a0a] outline-none transition focus:border-[#0a0a0a]"
+                class="w-full resize-none rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-3.5 py-3 text-sm leading-[1.6] text-[#1a1814] outline-none transition focus:border-[#1a1814]"
               />
             </div>
 
             <div class="mb-6">
               <label
                 for="report-file"
-                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-[#fafafa] px-5 py-6 text-center transition hover:bg-[#f5f5f5]"
-                :class="reportFileName ? 'border-[#0a0a0a]' : 'border-gray-300 hover:border-gray-400'"
+                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-[#faf8f4] px-5 py-6 text-center transition hover:bg-[#faf8f4]"
+                :class="reportFileName ? 'border-[#1a1814]' : 'border-[#d8d3ca] hover:border-[#a39e94]'"
               >
                 <svg
                   class="mb-1.5 h-[18px] w-[18px]"
-                  :class="reportFileName ? 'text-[#0a0a0a]' : 'text-gray-400'"
+                  :class="reportFileName ? 'text-[#1a1814]' : 'text-[#a39e94]'"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -2100,10 +2125,10 @@ function answerFeedbackText(question) {
                   <path d="m7 9 5-5 5 5" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M4 16.5A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 0-7H16" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span class="text-sm" :class="reportFileName ? 'font-semibold text-[#0a0a0a]' : 'text-gray-400'">
+                <span class="text-sm" :class="reportFileName ? 'font-semibold text-[#1a1814]' : 'text-[#a39e94]'">
                   {{ reportFileName || 'Fayl yuklash uchun bosing' }}
                 </span>
-                <span v-if="!reportFileName" class="mt-1 text-[11px] text-gray-300">PNG, JPG, PDF</span>
+                <span v-if="!reportFileName" class="mt-1 text-[11px] text-[#d8d3ca]">PNG, JPG, PDF</span>
               </label>
               <input
                 id="report-file"
@@ -2117,7 +2142,7 @@ function answerFeedbackText(question) {
             <button
               type="button"
               class="w-full rounded-full py-3 text-sm font-bold transition"
-              :class="reportComment.trim() ? 'bg-[#0a0a0a] text-white hover:bg-[#1a1a1a]' : 'cursor-not-allowed bg-[#f0f0f0] text-gray-300'"
+              :class="reportComment.trim() ? 'bg-[#1a1814] text-white hover:bg-[#2a2722]' : 'cursor-not-allowed bg-[#ece8e0] text-[#d8d3ca]'"
               :disabled="!reportComment.trim()"
               @click="submitReport"
             >
@@ -2131,107 +2156,76 @@ function answerFeedbackText(question) {
     <Teleport to="body">
       <div
         v-if="isCertificateModalOpen"
-        class="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-[2px] sm:items-center"
+        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-5 backdrop-blur-[2px] sm:p-10"
         @click.self="closeCertificateModal"
       >
-        <div class="certificate-modal-inner flex h-[92vh] w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(0,0,0,0.25)] sm:mx-4 sm:max-w-5xl">
-          <div class="flex shrink-0 items-center justify-between gap-4 border-b border-[#ebebeb] px-4 py-4 sm:px-6">
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400">
-                Sertifikat
-              </p>
-              <h2 class="mt-1 text-xl font-extrabold tracking-[-0.04em] text-[#0a0a0a]">
-                Sertifikatni ko'rish
-              </h2>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                class="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"
-                @click="closeCertificateModal"
-              >
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M18 6 6 18" stroke-linecap="round" />
-                  <path d="m6 6 12 12" stroke-linecap="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div
-            :ref="bindCertViewport"
-            class="relative min-h-0 flex-1 overflow-hidden bg-[#f3f4f6]"
+        <!-- Floating actions — no container around the certificate -->
+        <div class="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-6 sm:top-6">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white hover:text-black"
+            aria-label="Yuklab olish"
+            @click="downloadCertificate"
           >
-            <TestCertificate
-              :data="certificateViewModel"
-              class="absolute left-1/2 top-1/2 origin-center"
-              :style="certFrameStyle"
-            />
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white hover:text-black"
+            aria-label="Yopish"
+            @click="closeCertificateModal"
+          >
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18" stroke-linecap="round" />
+              <path d="m6 6 12 12" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Transparent certificate viewport — the certificate floats on its own -->
+        <div
+          :ref="bindCertViewport"
+          class="certificate-modal-inner relative h-full w-full"
+          @click.self="closeCertificateModal"
+        >
+          <!-- Loader while the finished submission is still resolving -->
+          <div
+            v-if="isFinalizingSubmission"
+            class="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4 text-white"
+          >
+            <span class="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white"></span>
+            <span class="font-mono-custom text-[11px] font-medium uppercase tracking-[0.2em] text-white/70">
+              Sertifikat tayyorlanmoqda
+            </span>
           </div>
+
+          <TestCertificate
+            v-else
+            :data="certificateViewModel"
+            class="absolute left-1/2 top-1/2 origin-center animate-[certIn_.5s_ease-out]"
+            :style="certFrameStyle"
+          />
         </div>
       </div>
     </Teleport>
 
-    <Teleport to="body">
-      <div
-        v-if="showResultModal"
-        class="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-[2px] sm:items-center"
-        @click.self="closeResultModal"
-      >
-        <div class="result-modal-inner flex h-[92vh] w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(0,0,0,0.25)] sm:mx-4 sm:max-w-5xl">
-          <div class="flex shrink-0 items-start justify-between gap-4 border-b border-[#ebebeb] px-5 py-4 sm:px-6">
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400">
-                Test yakunlandi
-              </p>
-              <h2 class="mt-1 text-2xl font-extrabold tracking-[-0.04em] text-[#0a0a0a]">
-                Tabriklaymiz!
-              </h2>
-            </div>
-
-            <button
-              type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] text-gray-500 transition hover:bg-[#0a0a0a] hover:text-white"
-              @click="closeResultModal"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M18 6 6 18" stroke-linecap="round" />
-                <path d="m6 6 12 12" stroke-linecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          <div
-            :ref="bindCertViewport"
-            class="relative min-h-0 flex-1 overflow-hidden bg-[#f3f4f6]"
-          >
-            <TestCertificate
-              :data="certificateViewModel"
-              class="absolute left-1/2 top-1/2 origin-center"
-              :style="certFrameStyle"
-            />
-          </div>
-
-          <div class="flex shrink-0 justify-end border-t border-[#ebebeb] px-5 py-4 sm:px-6">
-            <button
-              type="button"
-              class="h-11 rounded-full bg-[#0a0a0a] px-6 text-sm font-semibold text-white transition hover:bg-[#1a1a1a]"
-              @click="closeResultModal"
-            >
-              Natijalarni ko'rish
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </main>
 </template>
 
 <style scoped>
-.explanation-page {
-  background-image: radial-gradient(circle, #d8d8d8 1px, transparent 1px);
-  background-size: 24px 24px;
+.math-dots {
+  background-image: radial-gradient(circle, #d8d3ca 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 30%, transparent 80%);
+  opacity: 0.5;
+}
+
+.math-grain {
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .explanation-scrollbar::-webkit-scrollbar,
@@ -2241,7 +2235,7 @@ function answerFeedbackText(question) {
 }
 
 .explanation-scrollbar::-webkit-scrollbar-track {
-  background: #f5f5f5;
+  background: #faf8f4;
 }
 
 .review-scrollbar::-webkit-scrollbar-track {
@@ -2251,26 +2245,26 @@ function answerFeedbackText(question) {
 .explanation-scrollbar::-webkit-scrollbar-thumb,
 .review-scrollbar::-webkit-scrollbar-thumb {
   border-radius: 4px;
-  background: #d1d5db;
+  background: #d8d3ca;
 }
 
 .explanation-scrollbar::-webkit-scrollbar-thumb:hover,
 .review-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #a39e94;
 }
 
 .review-checkbox {
   appearance: none;
   -webkit-appearance: none;
-  border: 2px solid #d1d5db;
+  border: 2px solid #d8d3ca;
   border-radius: 4px;
   background: #ffffff;
   outline: none;
 }
 
 .review-checkbox:checked {
-  border-color: #4f46e5;
-  background: #eef2ff;
+  border-color: #1a1814;
+  background: #faf8f4;
 }
 
 .review-modal-inner,
@@ -2286,6 +2280,17 @@ function answerFeedbackText(question) {
   .certificate-modal-inner,
   .result-modal-inner {
     border-radius: 20px;
+  }
+}
+
+@keyframes certIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
