@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestProgressStore } from '@/stores/testProgress'
-import { getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,7 +51,7 @@ const fetchTests = async () => {
   }
 
   try {
-    const response = await fetch(`${apiBaseUrl}/test`, {
+    const response = await apiFetch(`${apiBaseUrl}/test`, {
       headers: {
         accept: '*/*'
       }
