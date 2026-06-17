@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
-import { getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -112,7 +112,7 @@ export const useTestStore = defineStore('test', () => {
     errorMessage.value = ''
 
     try {
-      const response = await fetch(`${apiBaseUrl}/test/${testId}`, {
+      const response = await apiFetch(`${apiBaseUrl}/test/${testId}`, {
         headers: buildAuthHeaders(),
       })
 
@@ -146,7 +146,7 @@ export const useTestStore = defineStore('test', () => {
     errorMessage.value = ''
 
     try {
-      const response = await fetch(`${apiBaseUrl}/user-test-attempt`, {
+      const response = await apiFetch(`${apiBaseUrl}/user-test-attempt`, {
         method: 'POST',
         headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ testId: Number(testId) }),
@@ -176,7 +176,7 @@ export const useTestStore = defineStore('test', () => {
 
     ensureAuth()
 
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/user-test-attempt/get-progress?testId=${Number(testId)}`,
       {
         headers: buildAuthHeaders(),
@@ -201,7 +201,7 @@ export const useTestStore = defineStore('test', () => {
 
     ensureAuth()
 
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/user-test-attempt/submit?testId=${Number(testId)}&testAttemptId=${Number(testAttemptId)}`,
       {
         method: 'POST',
@@ -227,7 +227,7 @@ export const useTestStore = defineStore('test', () => {
       throw new Error('Test API base URL is missing.')
     }
 
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/question-explanation?questionId=${Number(questionId)}`,
       {
         headers: buildAuthHeaders(),
@@ -252,7 +252,7 @@ export const useTestStore = defineStore('test', () => {
 
     ensureAuth()
 
-    const response = await fetch(`${apiBaseUrl}/user-answer`, {
+    const response = await apiFetch(`${apiBaseUrl}/user-answer`, {
       method,
       headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(answerPayload),

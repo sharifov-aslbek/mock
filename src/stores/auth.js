@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
 const TOKEN_KEY = 'milliymock_token'
 
@@ -110,7 +110,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/user`, {
+      const response = await apiFetch(`${apiBaseUrl}/user`, {
         method: 'GET',
         headers: {
           accept: '*/*',

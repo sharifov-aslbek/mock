@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MathTestCard from '@/components/MathTestCard.vue'
-import { getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { SUBJECT_FILTER_OPTIONS, subjectMatches } from '@/utils/subjects'
 
 const { t } = useI18n()
@@ -23,7 +23,7 @@ const fetchTests = async () => {
   }
 
   try {
-    const response = await fetch(`${apiBaseUrl}/test`, {
+    const response = await apiFetch(`${apiBaseUrl}/test`, {
       headers: {
         accept: '*/*',
       },
