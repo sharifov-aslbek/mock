@@ -74,8 +74,8 @@ const renderMath = (source) => {
 // ─── filter variantlari ──────────────────────────────────────────────────
 const SUBJECT_OPTIONS = [
   { value: 'Matematika', label: 'Matematika' },
-  { value: 'Fizika', label: 'Fizika' },
-  { value: 'Kimyo', label: 'Kimyo' },
+  { value: 'Tarix', label: 'Tarix' },
+  { value: 'Ona tili', label: 'Ona tili' },
 ]
 
 const GRADE_OPTIONS = [
@@ -503,6 +503,17 @@ const finishSession = () => {
 const closeSummary = () => {
   showSummary.value = false
   accuracyFillWidth.value = '0%'
+}
+
+// yangi mashq sessiyasini boshlaymiz — holatni boshlang'ich qiymatlarga qaytaramiz
+const startNewSession = () => {
+  for (const key of Object.keys(questionStates)) {
+    delete questionStates[key]
+  }
+  currentQuestionIndex.value = 1
+  correctCount.value = 0
+  incorrectCount.value = 0
+  closeSummary()
 }
 
 // ─── klaviatura yorliqlari ──────────────────────────────────────────────
@@ -1064,7 +1075,7 @@ onBeforeUnmount(() => {
               </svg>
               Ko'rib chiqish
             </button>
-            <button type="button" class="btn btn-primary" style="flex: 1; justify-content: center" @click="closeSummary">
+            <button type="button" class="btn btn-primary" style="flex: 1; justify-content: center" @click="startNewSession">
               Yangi mashq
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="9 18 15 12 9 6" />

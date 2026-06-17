@@ -98,7 +98,7 @@ const handleChildClick = (parentKey, child) => {
             class="w-full rounded-xl px-4 py-2 text-left text-sm transition"
             :class="
               props.activeSection === `${item.key}:${child}`
-                ? 'bg-black/6 font-semibold text-black'
+                ? 'bg-black/[0.06] font-semibold text-black'
                 : 'text-slate-500 hover:bg-black/5 hover:text-slate-900'
             "
             @click.stop="handleChildClick(item.key, child)"

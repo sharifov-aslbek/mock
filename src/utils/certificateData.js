@@ -32,6 +32,33 @@ function gradeFromPercentage(percentage) {
   return 'Sertifikatga tavsiya etilmadingiz'
 }
 
+// Deterministic per-account personal code. The same user always gets the same
+// 14-digit code (derived from their stable account id/username/email), so it is
+// reproducible across sessions — not random.
+function generatePersonalCode(identity) {
+  const seed = String(
+    identity?.id ?? identity?.username ?? identity?.email ?? '',
+  ).trim()
+
+  if (!seed) {
+    return '—'
+  }
+
+  let hash = 0
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0
+  }
+
+  let code = String(hash)
+  let salt = hash
+  while (code.length < 14) {
+    salt = (salt * 1103515245 + 12345) >>> 0
+    code += String(salt)
+  }
+
+  return code.slice(0, 14)
+}
+
 function formatIssuedDate(date) {
   const day = String(date.getDate()).padStart(2, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -69,13 +96,32 @@ export function buildCertificateViewModel({
   const maxScore = Number(submission?.maxScore ?? 0)
   const correctCount = Number(submission?.correctCount ?? 0)
   const incorrectCount = Number(submission?.incorrectCount ?? 0)
-  const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0
-  const omittedCount = Math.max(
+
+  // Total questions in the WHOLE test (includes skipped). submission.questions
+  // and submission.maxScore frequently cover only the answered questions, which
+  // would inflate the percentage when most answers are skipped.
+  const submissionQuestions = Array.isArray(submission?.questions) ? submission.questions : []
+  const testQuestions = Array.isArray(test?.questions) ? test.questions : []
+  const totalQuestionCount =
+    testQuestions.length ||
+    submissionQuestions.length ||
+    correctCount + incorrectCount
+
+  // Percentage/grade are count-based over ALL questions (same basis as the
+  // results page), so skipping questions correctly lowers the score.
+  const percentage =
+    totalQuestionCount > 0 ? (correctCount / totalQuestionCount) * 100 : 0
+
+  // Full point max: prefer backend maxScore only when it spans the whole test;
+  // otherwise sum per-question scores across the full test.
+  const fullMaxFromTest = testQuestions.reduce(
+    (sum, question) => sum + (Number(question?.score) || 0),
     0,
-    (Array.isArray(submission?.questions) ? submission.questions.length : 0) -
-      correctCount -
-      incorrectCount,
   )
+  const effectiveMax =
+    fullMaxFromTest > 0 ? fullMaxFromTest : maxScore > 0 ? maxScore : 0
+
+  const omittedCount = Math.max(0, totalQuestionCount - correctCount - incorrectCount)
 
   const identity = submission?.user || user || null
 
@@ -89,13 +135,13 @@ export function buildCertificateViewModel({
       identity?.personalCode ||
       identity?.pinfl ||
       identity?.jshshir ||
-      (identity?.id != null ? String(identity.id) : '—'),
+      generatePersonalCode(identity),
     lastName: String(identity?.lastName || '—').toUpperCase(),
     firstName: String(identity?.firstName || '—').toUpperCase(),
     fatherName: String(identity?.fatherName || '—').toUpperCase(),
     subject: resolveTestSubject(test),
     totalScore: formatScore(totalScore),
-    maxScore: formatScore(maxScore),
+    maxScore: formatScore(effectiveMax),
     correctCount: String(correctCount),
     incorrectCount: String(incorrectCount),
     omittedCount: String(omittedCount),
@@ -105,7 +151,7 @@ export function buildCertificateViewModel({
     resultRows: [
       { name: "To'g'ri javoblar", score: String(correctCount) },
       { name: "Noto'g'ri javoblar", score: String(incorrectCount) },
-      { name: "Umumiy ball", score: `${formatScore(totalScore)} / ${formatScore(maxScore)}` },
+      { name: "Umumiy ball", score: `${formatScore(totalScore)} / ${formatScore(effectiveMax)}` },
     ],
   }
 }

@@ -35,6 +35,17 @@ const isSubmittingTest = ref(false)
 const shouldPersistProgress = ref(true)
 const activeAttemptId = ref(null)
 let timerIntervalId = null
+// Absolute wall-clock deadline (ms). Persisted so a reload/close resumes from
+// real elapsed time instead of freezing the countdown.
+let testDeadlineAt = null
+
+// Prefer the saved absolute deadline; fall back to legacy remainingSeconds.
+const resumeSecondsFromProgress = (progress) => {
+  if (progress?.deadlineAt) {
+    return Math.max(Math.floor((Number(progress.deadlineAt) - Date.now()) / 1000), 0)
+  }
+  return progress?.remainingSeconds ?? null
+}
 let isSyncingAnswers = false
 let pendingSyncRequested = false
 let isStartingAttempt = false
@@ -493,7 +504,6 @@ const persistAnswerActions = () => {
     return
   }
 
-  console.log("i dont wanna it")
   // window.localStorage.setItem(ANSWER_ACTIONS_STORAGE_KEY, JSON.stringify(answerActions.value))
 }
 
@@ -704,6 +714,7 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
   const durationInSeconds = canResume ? resumeSeconds : TEST_DURATION_SECONDS
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
+  testDeadlineAt = startedAt + durationInMilliseconds
 
   remainingSeconds.value = Math.max(Math.ceil(durationInMilliseconds / 1000), 0)
 
@@ -846,6 +857,7 @@ const persistCurrentProgress = () => {
     answers: savedAnswers,
     freeAnswers: { ...freeAnswers },
     remainingSeconds: remainingSeconds.value,
+    deadlineAt: testDeadlineAt,
     completed: false,
   })
 }
@@ -944,7 +956,6 @@ const syncDirtyAnswers = async () => {
         }
 
         if (requestMethod === 'PUT') {
-        console.log("working put");
           await testStore.updateUserAnswer(payload)
         } else {
           await testStore.createUserAnswer(payload)
@@ -1050,7 +1061,7 @@ const loadTest = async (testId) => {
       const savedProgress = testProgressStore.getProgress(testId)
       await ensureAttemptStarted(currentTest.value)
       const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
-      startTimer(questionCount, savedProgress?.remainingSeconds ?? null)
+      startTimer(questionCount, resumeSecondsFromProgress(savedProgress))
     }
     return
   }
@@ -1259,7 +1270,7 @@ watch(
     }
 
     const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
-    startTimer(questionCount, shouldStartFresh ? null : savedProgress?.remainingSeconds ?? null)
+    startTimer(questionCount, shouldStartFresh ? null : resumeSecondsFromProgress(savedProgress))
 
     if (!shouldStartFresh) {
       await restoreProgress(test.id)
@@ -1499,7 +1510,7 @@ onBeforeUnmount(() => {
                 type="button"
                 @click="closeSubmitModal"
                 :disabled="isSubmittingTest"
-                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-black"
+                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-black"
               >
                 {{ t('testPage.submitConfirmNo') }}
               </button>
@@ -1540,7 +1551,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 @click="cancelLeave"
-                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
               >
                 {{ t('testPage.leaveConfirmStay') }}
               </button>

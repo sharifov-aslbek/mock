@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import interact from 'interactjs'
+import FormulaReferenceContent from '@/components/test/FormulaReferenceContent.vue'
 
 const props = defineProps({
   dragLabel: {
@@ -198,23 +199,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="max-h-[72vh] overflow-y-auto bg-white p-4">
-        <div class="space-y-4">
-          <figure
-            v-for="sheet in sheets"
-            :key="sheet.id"
-            class="overflow-hidden rounded-[4px] border border-[#e0ddd7] bg-white"
-          >
-            <img
-              :src="sheet.src"
-              :alt="`${sheetAltLabel} ${sheet.id}`"
-              class="block w-full bg-white"
-              loading="lazy"
-            />
-            <figcaption class="font-mono-custom border-t border-[#e0ddd7] px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-[#8a857c]">
-              {{ sheet.title }}
-            </figcaption>
-          </figure>
-        </div>
+        <FormulaReferenceContent />
       </div>
     </div>
   </div>

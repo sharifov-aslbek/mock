@@ -123,13 +123,16 @@ const hasSelectableQuestions = computed(() =>
 const shouldShowGroupOrderLabel = computed(() => Boolean(props.orderLabel && !hasSelectableQuestions.value))
 
 const formattedQuestions = computed(() => {
-  const number = Number(props.orderLabel)
+  // orderLabel can be a single number ("31") or a range ("31-34"); parseInt
+  // grabs the leading number so a range no longer yields NaN.
+  const base = parseInt(props.orderLabel, 10)
+  const startNumber = Number.isFinite(base) ? base : 1
 
   return props.questions.map((q, index) => {
     if (q.type === "Matching") {
       return {
         ...q,
-        correctOrder: number + (index - 1) + 1
+        correctOrder: startNumber + index
       }
     }
     return q

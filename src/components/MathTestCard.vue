@@ -180,7 +180,7 @@ const handleAttemptedCardClick = () => {
   <button
     type="button"
     @click="showStartModal = false"
-    class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+    class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
   >
     {{ t('mathCard.confirmNo') }}
   </button>
@@ -188,7 +188,7 @@ const handleAttemptedCardClick = () => {
   <button
     type="button"
     @click="confirmStartTest"
-    class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+    class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
   >
     {{ t('mathCard.confirmYes') }}
   </button>

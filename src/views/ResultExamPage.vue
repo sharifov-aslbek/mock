@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { getTestApiBaseUrl } from '@/utils/api'
+import { SUBJECT_FILTER_OPTIONS, subjectMatches } from '@/utils/subjects'
 
 const { t } = useI18n()
 const selectedSort = ref('newest')
@@ -48,12 +49,7 @@ onMounted(() => {
 
 const selectedSubject = ref('all')
 const subjectOpen = ref(false)
-const SUBJECT_OPTIONS = [
-  { value: 'all', label: 'Barcha fanlar' },
-  { value: 'Matematika', label: 'Matematika' },
-  { value: 'Fizika', label: 'Fizika' },
-  { value: 'Kimyo', label: 'Kimyo' },
-]
+const SUBJECT_OPTIONS = SUBJECT_FILTER_OPTIONS
 const currentSubjectLabel = computed(
   () => SUBJECT_OPTIONS.find((option) => option.value === selectedSubject.value)?.label || '',
 )
@@ -71,7 +67,8 @@ const attemptedTests = computed(() => {
     }))
 
   if (selectedSubject.value !== 'all') {
-    tests = tests.filter((test) => test.subject === selectedSubject.value)
+    const option = SUBJECT_OPTIONS.find((item) => item.value === selectedSubject.value)
+    tests = tests.filter((test) => subjectMatches(test.subject, option?.aliases))
   }
 
   if (selectedSort.value === 'popular') {

@@ -68,6 +68,7 @@ const KNOWN_LATEX_COMMANDS = new Set([
   'sqrt',
   'sum',
   'tan',
+  'text',
   'theta',
   'times',
 ])
@@ -133,8 +134,23 @@ const NUMBER_DEGREE_MARK_PATTERN = new RegExp(
   'gi',
 )
 
+// `\text{\u00b0}` (and `^{\text{\u00b0}}`) is how the API ships a degree mark. KaTeX
+// rejects a degree glyph / `\circ` inside text mode, so the whole formula falls
+// back to raw \u2014 collapse these to `^{\circ}` before rendering.
+const TEXT_DEGREE_GLYPH = String.raw`(?:\u00b0|\u2218|\u00ba|\u02da|\u1d52|\\circ)`
+const EXPONENT_TEXT_DEGREE_PATTERN = new RegExp(
+  String.raw`\^\s*\{\s*\\?text\s*\{\s*${TEXT_DEGREE_GLYPH}\s*\}\s*\}`,
+  'gi',
+)
+const BARE_TEXT_DEGREE_PATTERN = new RegExp(
+  String.raw`\\?text\s*\{\s*${TEXT_DEGREE_GLYPH}\s*\}`,
+  'gi',
+)
+
 const normalizeMangledTrigExpressions = (value) =>
   String(value)
+    .replace(EXPONENT_TEXT_DEGREE_PATTERN, '^{\\circ}')
+    .replace(BARE_TEXT_DEGREE_PATTERN, '^{\\circ}')
     .replace(/\u2061/g, ' ')
     .replace(DUPLICATED_TRIG_ALIAS_PATTERN, '$1')
     .replace(DUPLICATED_DEGREE_POWER_PATTERN, '^{\\circ}')
@@ -518,7 +534,9 @@ const looksLikeProseBlock = (value) =>
   )
 
 const renderMixedContent = (source) => {
-  const pattern = /\$\$([\s\S]*?)\$\$|\\\(([\s\S]*?)\\\)/g
+  // `$$…$$` (display), single `$…$` (inline), and `\(…\)` (inline). `$$` is
+  // matched first so it isn't mis-read as two empty single-dollar spans.
+  const pattern = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|\\\(([\s\S]*?)\\\)/g
   let result = ''
   let lastIndex = 0
 
@@ -526,8 +544,9 @@ const renderMixedContent = (source) => {
     const matchIndex = match.index ?? 0
     const matchedValue = match[0] || ''
     const blockFormula = match[1]
-    const inlineFormula = match[2]
-    const formulaBody = blockFormula ?? inlineFormula ?? ''
+    const singleDollarFormula = match[2]
+    const inlineFormula = match[3]
+    const formulaBody = blockFormula ?? singleDollarFormula ?? inlineFormula ?? ''
 
     result += renderLooseContent(source.slice(lastIndex, matchIndex))
 
@@ -702,7 +721,7 @@ const renderPlainOrMixed = (source) => {
     return ''
   }
 
-  const hasWrappedLatex = /\$\$[\s\S]*?\$\$/.test(normalizedSource)
+  const hasWrappedLatex = /\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/.test(normalizedSource)
 
   return hasWrappedLatex ? renderMixedContent(normalizedSource) : renderLooseContent(normalizedSource)
 }
@@ -762,9 +781,17 @@ const renderedHtml = computed(() => {
   max-width: 100%;
   display: inline-block;
   vertical-align: middle;
+  /* KaTeX lays formulas out at fixed intrinsic width and never wraps. On a
+     phone a wide formula would overflow the question card and push horizontal
+     scroll on the whole page — let the formula itself scroll instead. */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .math-inline-text :deep(.katex-display) {
   margin: 0.3em 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 </style>

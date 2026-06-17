@@ -53,8 +53,8 @@ const renderMath = (source) => {
 
 const SUBJECT_OPTIONS = [
   { value: 'Matematika', label: 'Matematika' },
-  { value: 'Fizika', label: 'Fizika' },
-  { value: 'Kimyo', label: 'Kimyo' },
+  { value: 'Tarix', label: 'Tarix' },
+  { value: 'Ona tili', label: 'Ona tili' },
 ]
 
 const GRADE_OPTIONS = [

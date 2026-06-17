@@ -161,8 +161,8 @@ const questions = [
         </div>
 
         <!-- bottom bar -->
-        <div class="mt-4 flex items-center justify-between gap-3 border-t border-[#efebe3] py-3">
-          <div class="flex items-center gap-2.5">
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[#efebe3] py-3">
+          <div class="flex min-w-0 items-center gap-2.5">
             <span class="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[#27241e] ring-1 ring-[#ece8e0]">
               <svg class="h-[14px] w-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />

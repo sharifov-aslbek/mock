@@ -54,7 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-    async function telegramLogin(userInfo) {
+    async function telegramLogin(tgUser) {
         const apiBaseUrl = getTestApiBaseUrl()
 
         if (!apiBaseUrl) {
@@ -66,13 +66,13 @@ export const useAuthStore = defineStore('auth', () => {
 
         try {
             const body = JSON.stringify({
-                id: userInfo.id,
-                firstName: userInfo.first_name,
-                lastName: userInfo.last_name ?? null,
-                username: userInfo.username,
-                photoUrl: userInfo.photo_url,
-                authDate: userInfo.auth_date,
-                hash: userInfo.hash,
+                id: tgUser.id,
+                firstName: tgUser.first_name,
+                lastName: tgUser.last_name ?? null,
+                username: tgUser.username,
+                photoUrl: tgUser.photo_url,
+                authDate: tgUser.auth_date,
+                hash: tgUser.hash,
             })
 
             const response = await fetch(`${apiBaseUrl}/auth/telegram-login`, {
@@ -120,11 +120,11 @@ export const useAuthStore = defineStore('auth', () => {
 
       const payload = await response.json()
 
-      userInfo.value = payload.data
-
       if (!response.ok || payload?.code !== 200 || !payload?.data) {
         throw new Error(payload?.message || 'Failed to fetch user info.')
       }
+
+      userInfo.value = payload.data
 
       return payload.data
     } catch (error) {
@@ -137,6 +137,7 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     token.value = ''
     errorMessage.value = ''
+    userInfo.value = null
     localStorage.removeItem(TOKEN_KEY)
   }
 

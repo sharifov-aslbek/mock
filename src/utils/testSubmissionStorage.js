@@ -9,13 +9,18 @@ export function saveTestSubmission(testId, submission) {
     return
   }
 
-  window.localStorage.setItem(
-    buildStorageKey(testId),
-    JSON.stringify({
-      savedAt: Date.now(),
-      data: submission,
-    }),
-  )
+  try {
+    window.localStorage.setItem(
+      buildStorageKey(testId),
+      JSON.stringify({
+        savedAt: Date.now(),
+        data: submission,
+      }),
+    )
+  } catch (error) {
+    // Quota exceeded / private-mode — non-fatal, submission still lives in memory.
+    console.error(error)
+  }
 }
 
 export function loadTestSubmission(testId) {

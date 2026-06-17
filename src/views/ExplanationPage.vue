@@ -491,7 +491,7 @@ const scorePercent = computed(() => {
     return 0
   }
 
-  return Math.round((correctCount.value / totalQuestions.value) * 100)
+  return Math.min(Math.round((correctCount.value / totalQuestions.value) * 100), 100)
 })
 
 const scoreRingRadius = 42
@@ -617,16 +617,6 @@ const statCards = computed(() => {
       }),
       icon: 'cross',
     },
-    {
-      label: t('explanationPage.stats.omitted'),
-      value: omittedCount.value,
-      colorClass: 'text-gray-600',
-      bgClass: 'bg-gray-50',
-      percentLabel: t('explanationPage.stats.percentOmitted', {
-        value: Math.round((omittedCount.value / total) * 100),
-      }),
-      icon: 'skip',
-    },
   ]
 })
 
@@ -662,10 +652,6 @@ const progressLegend = computed(() => [
   {
     colorClass: 'bg-red-600',
     label: t('explanationPage.legend.incorrect', { value: incorrectCount.value }),
-  },
-  {
-    colorClass: 'bg-gray-300',
-    label: t('explanationPage.legend.omitted', { value: omittedCount.value }),
   },
 ])
 
@@ -1317,9 +1303,8 @@ function answerFeedbackText(question) {
             </div>
 
             <div class="flex h-2 overflow-hidden rounded-full bg-[#ece8e0]">
-              <div :style="{ width: `${(correctCount / totalQuestions) * 100}%` }" class="bg-green-600" />
-              <div :style="{ width: `${(incorrectCount / totalQuestions) * 100}%` }" class="bg-red-600" />
-              <div :style="{ width: `${(omittedCount / totalQuestions) * 100}%` }" class="bg-[#e0ddd7]" />
+              <div :style="{ width: `${(correctCount / (totalQuestions || 1)) * 100}%` }" class="bg-green-600" />
+              <div :style="{ width: `${(incorrectCount / (totalQuestions || 1)) * 100}%` }" class="bg-red-600" />
             </div>
 
             <div class="mt-3 flex flex-wrap items-center gap-3">
@@ -1333,11 +1318,6 @@ function answerFeedbackText(question) {
       </div>
 
       <section class="overflow-hidden rounded-2xl border border-[#ebebeb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-        <div class="border-b border-[#f3f3f3] px-4 py-4 sm:px-6 sm:py-5">
-          <h2 class="text-base font-bold tracking-[-0.02em] text-[#0a0a0a]">{{ t('explanationPage.title') }}</h2>
-          <p class="mt-0.5 text-xs text-gray-300">{{ t('explanationPage.shownCount', { count: filteredQuestions.length }) }}</p>
-        </div>
-
         <div class="explanation-scrollbar hidden overflow-x-auto md:block">
           <table class="w-full">
             <thead>
@@ -1709,9 +1689,11 @@ function answerFeedbackText(question) {
           <div class="shrink-0 border-b border-[#e0ddd7] px-4 py-4 sm:px-8 sm:py-5">
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0 flex-1 pr-4">
-                <p class="line-clamp-2 break-words text-[11px] font-medium uppercase tracking-[0.5px] text-[#a39e94]">
-                  {{ currentQuestion.groupTitle || testStore.currentTest?.title || "Test natijasi" }}
-                </p>
+                <TestInlineMathText
+                  tag="p"
+                  :text="currentQuestion.groupTitle || testStore.currentTest?.title || 'Test natijasi'"
+                  wrapper-class="line-clamp-2 break-words text-[11px] font-medium uppercase tracking-[0.5px] text-[#a39e94]"
+                />
               </div>
 
               <div class="flex shrink-0 items-center gap-2">
@@ -1755,9 +1737,12 @@ function answerFeedbackText(question) {
             <div class="hidden h-full grid-cols-2 sm:grid" style="height: calc(92vh - 140px)">
               <div class="review-scrollbar min-w-0 overflow-y-auto border-r border-[#e0ddd7] bg-white px-8 py-6">
                 <div class="min-w-0">
-                  <p v-if="currentQuestion.groupTitle" class="mb-2 break-words text-[11px] font-semibold uppercase tracking-[0.18em] text-[#a39e94]">
-                    {{ currentQuestion.groupTitle }}
-                  </p>
+                  <TestInlineMathText
+                    v-if="currentQuestion.groupTitle"
+                    tag="p"
+                    :text="currentQuestion.groupTitle"
+                    wrapper-class="mb-2 break-words text-[11px] font-semibold uppercase tracking-[0.18em] text-[#a39e94]"
+                  />
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#1a1814]">Savol {{ currentQuestion.displayIndex }}</h3>
                   <TestInlineMathText
                     v-if="currentQuestion.questionText"
@@ -1769,16 +1754,16 @@ function answerFeedbackText(question) {
                     Savol matni mavjud emas.
                   </p>
 
-                  <!-- <div
+                  <div
                     v-if="currentQuestion.imageUrl"
-                    class="flex items-center justify-center rounded-xl border border-[#e0ddd7] bg-[#faf8f4] p-4 sm:p-6"
+                    class="flex items-center justify-center rounded-xl border border-[#e0ddd7] bg-white p-4 sm:p-6"
                   >
                     <img
                       :src="currentQuestion.imageUrl"
                       :alt="`Savol ${currentQuestion.displayIndex}`"
                       class="max-h-[420px] w-auto max-w-full"
                     />
-                  </div> -->
+                  </div>
                 </div>
               </div>
 
@@ -1852,16 +1837,6 @@ function answerFeedbackText(question) {
                       >
                         <span>Video izohni ko'rish</span>
                       </a>
-                      <div
-                        v-if="currentQuestion.imageUrl"
-                        class="mt-3 overflow-hidden rounded-xl border border-[#e0ddd7] bg-white"
-                      >
-                        <img
-                          :src="currentQuestion.imageUrl"
-                          :alt="`Savol ${currentQuestion.displayIndex}`"
-                          class="block h-auto w-full"
-                        />
-                      </div>
                     </template>
 
                     <p v-else class="text-[13px] italic text-[#a39e94]">
@@ -1875,9 +1850,12 @@ function answerFeedbackText(question) {
             <div class="review-scrollbar overflow-y-auto sm:hidden" style="height: calc(92vh - 175px)">
               <div v-if="activeTab === 'question'" class="px-4 py-5">
                 <div>
-                  <p v-if="currentQuestion.groupTitle" class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#a39e94]">
-                    {{ currentQuestion.groupTitle }}
-                  </p>
+                  <TestInlineMathText
+                    v-if="currentQuestion.groupTitle"
+                    tag="p"
+                    :text="currentQuestion.groupTitle"
+                    wrapper-class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#a39e94]"
+                  />
                   <h3 class="mb-3.5 text-[15px] font-bold text-[#1a1814]">Savol {{ currentQuestion.displayIndex }}</h3>
                   <TestInlineMathText
                     v-if="currentQuestion.questionText"
@@ -1972,16 +1950,6 @@ function answerFeedbackText(question) {
                       >
                         <span>Video izohni ko'rish</span>
                       </a>
-                      <div
-                        v-if="currentQuestion.imageUrl"
-                        class="mt-3 overflow-hidden rounded-xl border border-[#e0ddd7] bg-white"
-                      >
-                        <img
-                          :src="currentQuestion.imageUrl"
-                          :alt="`Savol ${currentQuestion.displayIndex}`"
-                          class="block h-auto w-full"
-                        />
-                      </div>
                     </template>
 
                     <p v-else class="text-[13px] italic text-[#a39e94]">

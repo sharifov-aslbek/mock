@@ -40,6 +40,16 @@ const activeAttemptId = ref(null)             // API'dan kelgan user-test-attemp
 
 // reactive bo'lmasligi mumkin bo'lgan timer id va flag'lar
 let timerIntervalId = null
+// Absolute wall-clock deadline (ms). Persisted so a reload/close resumes from
+// real elapsed time instead of freezing the countdown.
+let testDeadlineAt = null
+
+const resumeSecondsFromProgress = (progress) => {
+  if (progress?.deadlineAt) {
+    return Math.max(Math.floor((Number(progress.deadlineAt) - Date.now()) / 1000), 0)
+  }
+  return progress?.remainingSeconds ?? null
+}
 let isSyncingAnswers = false
 let pendingSyncRequested = false
 let isStartingAttempt = false
@@ -1018,6 +1028,7 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
 
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
+  testDeadlineAt = startedAt + durationInMilliseconds
 
   remainingSeconds.value = Math.max(Math.ceil(durationInMilliseconds / 1000), 0)
 
@@ -1196,6 +1207,7 @@ const persistCurrentProgress = () => {
     answers: savedAnswers,
     freeAnswers: { ...freeAnswers },
     remainingSeconds: remainingSeconds.value,
+    deadlineAt: testDeadlineAt,
     completed: false,
   })
 }
@@ -1336,8 +1348,7 @@ const syncDirtyAnswers = async () => {
 
         let payload
         if (requestMethod === 'PUT') {
-          console.log("working put")
-          // payload = buildUpdateAnswerPayload(action)
+          payload = buildUpdateAnswerPayload(action)
         } else {
           payload = buildCreateAnswerPayload(action)
         }
@@ -1347,8 +1358,7 @@ const syncDirtyAnswers = async () => {
         }
 
         if (requestMethod === 'PUT') {
-          console.log("working put")
-          // await testStore.updateUserAnswer(payload)
+          await testStore.updateUserAnswer(payload)
         } else {
           await testStore.createUserAnswer(payload)
         }
@@ -1482,10 +1492,7 @@ const loadTest = async (testId) => {
         questionCount = Number(length)
       }
 
-      let resumeSeconds = null
-      if (savedProgress && savedProgress.remainingSeconds !== undefined && savedProgress.remainingSeconds !== null) {
-        resumeSeconds = savedProgress.remainingSeconds
-      }
+      const resumeSeconds = resumeSecondsFromProgress(savedProgress)
 
       startTimer(questionCount, resumeSeconds)
     }
@@ -1731,10 +1738,7 @@ watch(
     }
 
     // restart paytida saqlangan vaqtni e'tiborsiz qoldiramiz; aks holda davom ettiramiz
-    let resumeSeconds = null
-    if (!shouldStartFresh && savedProgress && savedProgress.remainingSeconds !== undefined && savedProgress.remainingSeconds !== null) {
-      resumeSeconds = savedProgress.remainingSeconds
-    }
+    const resumeSeconds = shouldStartFresh ? null : resumeSecondsFromProgress(savedProgress)
 
     startTimer(questionCount, resumeSeconds)
 
@@ -1986,7 +1990,7 @@ onBeforeUnmount(() => {
                 type="button"
                 @click="closeSubmitModal"
                 :disabled="isSubmittingTest"
-                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-black"
+                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-black"
               >
                 {{ t('testPage.submitConfirmNo') }}
               </button>
@@ -2027,7 +2031,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 @click="cancelLeave"
-                class="inline-flex h-11 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
               >
                 {{ t('testPage.leaveConfirmStay') }}
               </button>

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppReveal from './AppReveal.vue'
 import DashboardMock from './DashboardMock.vue'
+import AnalysisMock from './AnalysisMock.vue'
 
 const { t } = useI18n()
 
@@ -76,7 +77,8 @@ const activeTab = ref(0)
           </div>
 
           <!-- Live dashboard mock -->
-          <DashboardMock />
+          <DashboardMock v-if="activeTab === 0" />
+          <AnalysisMock v-else />
         </div>
       </div>
     </div>

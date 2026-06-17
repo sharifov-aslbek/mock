@@ -2,9 +2,14 @@ const messages = {
   uz: {
     navbar: {
       pricing: 'Narxlar',
-      result: 'Result',
+      result: 'Natijalar',
       resources: 'Resurslar',
-      bookDemo: 'Login',
+      bookDemo: 'Kirish',
+      profile: 'Profil',
+      logout: 'Chiqish',
+      userFallback: 'Foydalanuvchi',
+      openMenu: 'Menyuni ochish',
+      closeMenu: 'Menyuni yopish',
       languages: {
         uz: 'UZ',
         ru: 'RU'
@@ -13,8 +18,8 @@ const messages = {
         sat: 'SAT',
         act: 'ACT',
         math: 'Matematika',
-        physics: 'Tarix',
-        chemistry: 'Ona tili',
+        history: 'Tarix',
+        nativeLanguage: 'Ona tili',
         mashq: 'Mashq',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -139,37 +144,75 @@ const messages = {
     },
     pricing: {
       title: "Ta'riflar va Narxlar",
-      description: "O'zingizning moslashtiriladigan va o'z brendingizga ega (white-label) raqamli test platformangiz yordamida keng ko'lamda o'qiting!",
+      description: "Tangalarni xarid qiling va istalgan vaqtda testlarni yeching. Tangalar muddatsiz — ular tugamaguncha amal qiladi.",
       cta: 'Demoga hoziroq buyurtma bering',
       moreInfo: "Ko‘proq ma’lumot",
+      buy: 'Sotib olish',
+      tokenSuffix: 'tanga',
       popular: 'Eng ommabop',
-      billingNote: "Barcha ta'riflar bir martalik sozlash to'lovini o'z ichiga oladi",
+      bestValue: 'Eng tejamli',
+      billingNote: "To'lovdan so'ng tangalar hisobingizga qo'lda faollashtiriladi",
       plans: [
         {
           name: "Boshlang'ich Ta'rif",
-          price: "19.999 so'm",
-          duration: '/90 kun',
-          setupFee: "+ 9.999 so'm bir martalik sozlash to'lovi",
+          price: "20 000 so'm",
+          tokens: 5,
           highlighted: false,
-          features: ['100 ta urinish', '5100+ savollarga ruxsat', 'Bitta test narxi faqat $9.99', '2 ta administrator kirishi mumkin', "O'z savollaringizni yuklash imkoniyati"]
+          features: ['Barcha fanlar testlari', 'Yechimlar va batafsil tahlil', 'Tangalar muddatsiz amal qiladi']
         },
         {
-          name: "O'sish Ta'rifi",
-          price: "49.999 so'm",
-          duration: '/180 kun',
-          setupFee: "+ 54.999 so'm bir martalik sozlash to'lovi",
+          name: "Plus Ta'rifi",
+          price: "35 000 so'm",
+          tokens: 10,
           highlighted: true,
-          features: ['360 ta urinish', '5100+ savollarga ruxsat', 'Bitta test narxi faqat $6.95', '3 ta administrator kirishi mumkin', "O'z savollaringizni yuklash imkoniyati"]
+          features: ['Barcha fanlar testlari', 'Yechimlar va batafsil tahlil', 'Natijalar statistikasi', 'Tangalar muddatsiz amal qiladi']
         },
         {
-          name: "Kengaytirilgan Ta'rif",
-          price: "99.999 so'm",
-          duration: '/365 kun',
-          setupFee: "+ 549.999 so'm bir martalik sozlash to'lovi",
+          name: "Premium Ta'rifi",
+          price: "70 000 so'm",
+          tokens: 22,
           highlighted: false,
-          features: ['1000 ta urinish', '5100+ savollarga ruxsat', 'Bitta test narxi faqat $4.99', '5 ta administrator kirishi mumkin', "O'z savollaringizni yuklash imkoniyati"]
+          bestValue: true,
+          features: ['Barcha fanlar testlari', 'Yechimlar va batafsil tahlil', 'Natijalar statistikasi', 'Test sertifikati', 'Tangalar muddatsiz amal qiladi']
         }
-      ]
+      ],
+      payment: {
+        eyebrow: "Mahalliy karta orqali to'lov",
+        title: "Karta orqali to'lang, so'ng chekni yuboring",
+        description: "Quyidagi UZCARD kartasiga to'lovni amalga oshiring, so'ng chekni Telegram orqali yuboring — biz {plan} ta'rifini qo'lda faollashtiramiz.",
+        cardLabel: 'UZCARD',
+        cardHolder: 'AZIMBEK RAHIMOV',
+        telegram: "Telegramda davom etish",
+        close: 'Yopish',
+        accountLabel: 'Mening hisobim',
+        telegramMessage: "Assalomu alaykum, men {plan} tarifini ({price}) sotib olmoqchiman.\nTo'lov usuli: UZCARD\nKarta: {card} ({holder})\nTo'lovni amalga oshirgach, chekni shu yerga yuboraman."
+      }
+    },
+    subjectPage: {
+      eyebrow: 'Fan',
+      fallbackTitle: 'Fan',
+      comingSoon: 'Testlar tez orada',
+      description: 'Bu fan bo‘yicha testlar tayyorlanmoqda. Tez orada shu yerda paydo bo‘ladi.'
+    },
+    subjects: {
+      math: {
+        eyebrow: 'Matematika markazi',
+        title: 'Matematika testlari',
+        description: 'O‘zingizga mos testni tanlang va darhol ishlashni boshlang.',
+        subjectValue: 'Matematika'
+      },
+      history: {
+        eyebrow: 'Tarix markazi',
+        title: 'Tarix testlari',
+        description: 'O‘zbekiston va jahon tarixi bo‘yicha testlarni tanlang va bilimingizni sinab ko‘ring.',
+        subjectValue: 'Tarix'
+      },
+      nativeLanguage: {
+        eyebrow: 'Ona tili markazi',
+        title: 'Ona tili testlari',
+        description: 'Ona tili va adabiyot bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
+        subjectValue: 'Ona tili'
+      }
     },
     login: {
       home: 'Bosh sahifa',
@@ -191,7 +234,13 @@ const messages = {
       validation: 'Email va parolni kiriting.',
       socialDisabled: 'Hozircha faqat email va parol orqali kirish ishlaydi.',
       noAccount: 'Hisobingiz yo‘qmi?',
-      signUp: 'Ro‘yxatdan o‘tish'
+      signUp: 'Telegram orqali ro‘yxatdan o‘ting',
+      brandTagline: 'Milliy sertifikatga ishonchli tayyorgarlik',
+      points: [
+        'Haqiqiy imtihon formatidagi mock testlar',
+        'Har bir savol uchun batafsil yechim va tahlil',
+        'Natijalaringizni bosqichma-bosqich kuzating'
+      ]
     },
     math: {
       eyebrow: 'Matematika markazi',
@@ -357,9 +406,14 @@ const messages = {
   ru: {
     navbar: {
       pricing: 'Тарифы',
-      result: 'Result',
+      result: 'Результаты',
       resources: 'Ресурсы',
-      bookDemo: 'Login',
+      bookDemo: 'Вход',
+      profile: 'Профиль',
+      logout: 'Выйти',
+      userFallback: 'Пользователь',
+      openMenu: 'Открыть меню',
+      closeMenu: 'Закрыть меню',
       languages: {
         uz: 'UZ',
         ru: 'RU'
@@ -368,8 +422,8 @@ const messages = {
         sat: 'SAT',
         act: 'ACT',
         math: 'Математика',
-        physics: 'Тарих',
-        chemistry: 'Родной язык',
+        history: 'Тарих',
+        nativeLanguage: 'Родной язык',
         mashq: 'Практика',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -494,37 +548,75 @@ const messages = {
     },
     pricing: {
       title: 'Тарифы и цены',
-      description: 'Обучайте в большом масштабе с помощью собственной настраиваемой white-label платформы для тестирования.',
+      description: 'Покупайте токены и проходите тесты в любое время. Токены бессрочные — действуют, пока не закончатся.',
       cta: 'Заказать демо сейчас',
       moreInfo: 'Подробнее',
+      buy: 'Купить',
+      tokenSuffix: 'токенов',
       popular: 'Самый популярный',
-      billingNote: 'Все тарифы включают разовую плату за настройку',
+      bestValue: 'Выгоднее всего',
+      billingNote: 'После оплаты токены начисляются на ваш счёт вручную',
       plans: [
         {
           name: 'Стартовый тариф',
-          price: "19.999 so'm",
-          duration: '/90 дней',
-          setupFee: "+ 9.999 so'm разовая настройка",
+          price: "20 000 so'm",
+          tokens: 5,
           highlighted: false,
-          features: ['100 попыток', 'Доступ к 5100+ вопросам', 'Стоимость одного теста всего $9.99', 'До 2 администраторов', 'Возможность загрузки своих вопросов']
+          features: ['Тесты по всем предметам', 'Решения и подробный разбор', 'Токены не сгорают']
         },
         {
-          name: 'Тариф роста',
-          price: "49.999 so'm",
-          duration: '/180 дней',
-          setupFee: "+ 54.999 so'm разовая настройка",
+          name: 'Тариф Plus',
+          price: "35 000 so'm",
+          tokens: 10,
           highlighted: true,
-          features: ['360 попыток', 'Доступ к 5100+ вопросам', 'Стоимость одного теста всего $6.95', 'До 3 администраторов', 'Возможность загрузки своих вопросов']
+          features: ['Тесты по всем предметам', 'Решения и подробный разбор', 'Статистика результатов', 'Токены не сгорают']
         },
         {
-          name: 'Расширенный тариф',
-          price: "99.999 so'm",
-          duration: '/365 дней',
-          setupFee: "+ 549.999 so'm разовая настройка",
+          name: 'Тариф Premium',
+          price: "70 000 so'm",
+          tokens: 22,
           highlighted: false,
-          features: ['1000 попыток', 'Доступ к 5100+ вопросам', 'Стоимость одного теста всего $4.99', 'До 5 администраторов', 'Возможность загрузки своих вопросов']
+          bestValue: true,
+          features: ['Тесты по всем предметам', 'Решения и подробный разбор', 'Статистика результатов', 'Сертификат теста', 'Токены не сгорают']
         }
-      ]
+      ],
+      payment: {
+        eyebrow: 'Оплата локальной картой',
+        title: 'Оплатите картой, затем отправьте чек',
+        description: 'Переведите сумму на карту UZCARD ниже, затем отправьте чек в Telegram — мы вручную активируем тариф «{plan}».',
+        cardLabel: 'UZCARD',
+        cardHolder: 'AZIMBEK RAHIMOV',
+        telegram: 'Продолжить в Telegram',
+        close: 'Закрыть',
+        accountLabel: 'Мой аккаунт',
+        telegramMessage: 'Здравствуйте! Хочу приобрести: {plan} — {price}.\nСпособ оплаты: UZCARD\nКарта: {card} ({holder})\nПосле оплаты отправлю чек сюда.'
+      }
+    },
+    subjectPage: {
+      eyebrow: 'Предмет',
+      fallbackTitle: 'Предмет',
+      comingSoon: 'Тесты скоро появятся',
+      description: 'Тесты по этому предмету готовятся. Скоро они появятся здесь.'
+    },
+    subjects: {
+      math: {
+        eyebrow: 'Центр математики',
+        title: 'Тесты по математике',
+        description: 'Выберите подходящий тест и начните сразу.',
+        subjectValue: 'Математика'
+      },
+      history: {
+        eyebrow: 'Центр истории',
+        title: 'Тесты по истории',
+        description: 'Выберите тесты по истории Узбекистана и мира и проверьте свои знания.',
+        subjectValue: 'История'
+      },
+      nativeLanguage: {
+        eyebrow: 'Центр родного языка',
+        title: 'Тесты по родному языку',
+        description: 'Выберите тесты по родному языку и литературе и начните сразу.',
+        subjectValue: 'Родной язык'
+      }
     },
     login: {
       home: 'Главная',
@@ -546,7 +638,13 @@ const messages = {
       validation: 'Введите email и пароль.',
       socialDisabled: 'Сейчас работает только вход по email и паролю.',
       noAccount: 'Нет аккаунта?',
-      signUp: 'Зарегистрироваться'
+      signUp: 'Зарегистрируйтесь через Telegram',
+      brandTagline: 'Уверенная подготовка к Национальному сертификату',
+      points: [
+        'Mock-тесты в формате реального экзамена',
+        'Подробные решения и разбор каждого вопроса',
+        'Отслеживайте свой прогресс шаг за шагом'
+      ]
     },
     math: {
       eyebrow: 'Центр математики',

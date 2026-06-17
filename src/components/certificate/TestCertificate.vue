@@ -18,14 +18,12 @@ const gerbMarkup = gerbSvg.replace(/<\?xml[^>]*>\s*/i, '').trim()
     <div class="ornament-bottom-left"></div>
 
     <div class="content">
-      <!-- <div
+      <div
         class="logo"
         role="img"
         aria-label="O'zbekiston gerbi"
         v-html="gerbMarkup"
-      /> -->
-
-      <img class="logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSainafyj5LpewMISZ4_GRX9xOSFiCJauAcyA&s" alt="Error">
+      />
 
       <h1 class="top-title">
         O‘ZBEKISTON RESPUBLIKASI OLIY TA’LIM, FAN VA INNOVATSIYALAR VAZIRLIGI<br />

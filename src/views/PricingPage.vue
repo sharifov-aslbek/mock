@@ -1,11 +1,24 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Testimonials from '@/components/Testimonials.vue'
 import AppReveal from '@/components/AppReveal.vue'
+import PricingPaymentModal from '@/components/PricingPaymentModal.vue'
 
 const { t, tm } = useI18n()
 const plans = computed(() => tm('pricing.plans'))
+
+const isPaymentOpen = ref(false)
+const selectedPlan = ref(null)
+
+const openPayment = (plan) => {
+  selectedPlan.value = plan
+  isPaymentOpen.value = true
+}
+
+const closePayment = () => {
+  isPaymentOpen.value = false
+}
 </script>
 
 <template>
@@ -57,6 +70,17 @@ const plans = computed(() => tm('pricing.plans'))
                 {{ t('pricing.popular') }}
               </span>
 
+              <!-- Best value badge (light cards) -->
+              <span
+                v-if="plan.bestValue && !plan.highlighted"
+                class="absolute right-6 top-6 inline-flex items-center gap-1.5 rounded-full bg-[#1a1814] px-3 py-1.5 font-mono-custom text-[10px] font-semibold uppercase tracking-[0.14em] text-white"
+              >
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="m12 2 2.9 6.26L21.5 9l-5 4.6 1.3 6.9L12 17.27 6.2 20.5l1.3-6.9-5-4.6 6.6-.74L12 2z" />
+                </svg>
+                {{ t('pricing.bestValue') }}
+              </span>
+
               <!-- Ambient glow on dark card -->
               <div
                 v-if="plan.highlighted"
@@ -74,20 +98,23 @@ const plans = computed(() => tm('pricing.plans'))
               <!-- Price -->
               <div class="relative mt-5 flex items-baseline gap-1.5">
                 <span class="text-[2.25rem] font-bold leading-none tracking-[-0.03em]">{{ plan.price }}</span>
-                <span
-                  class="font-mono-custom text-xs font-medium tracking-[0.04em]"
-                  :class="plan.highlighted ? 'text-white/55' : 'text-[#8a857c]'"
-                >
-                  {{ plan.duration }}
-                </span>
               </div>
 
-              <p
-                class="relative mt-3 text-[13px] leading-5"
-                :class="plan.highlighted ? 'text-white/50' : 'text-[#8a857c]'"
-              >
-                {{ plan.setupFee }}
-              </p>
+              <!-- Token badge -->
+              <div class="relative mt-4">
+                <span
+                  class="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
+                  :class="plan.highlighted
+                    ? 'bg-white/10 text-white ring-1 ring-white/15'
+                    : 'bg-[#f5f3ef] text-[#1a1814] ring-1 ring-[#e8e3da]'"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M12 7.5v9M9.4 9.6c0-1.2 1.1-1.8 2.6-1.8s2.6.7 2.6 1.9-1 1.6-2.6 1.6-2.6.5-2.6 1.7 1.1 1.9 2.6 1.9 2.6-.6 2.6-1.8" stroke-linecap="round" />
+                  </svg>
+                  {{ plan.tokens }} {{ t('pricing.tokenSuffix') }}
+                </span>
+              </div>
 
               <!-- Divider -->
               <div
@@ -126,8 +153,9 @@ const plans = computed(() => tm('pricing.plans'))
                 :class="plan.highlighted
                   ? 'bg-white text-[#1a1814] hover:bg-[#f5f3ef]'
                   : 'border border-[#d8d3ca] bg-white text-[#1a1814] hover:border-[#1a1814] hover:bg-[#1a1814] hover:text-white'"
+                @click="openPayment(plan)"
               >
-                {{ t('pricing.moreInfo') }}
+                {{ t('pricing.buy') }}
                 <svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                   <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
@@ -144,6 +172,12 @@ const plans = computed(() => tm('pricing.plans'))
     </section>
 
     <Testimonials />
+
+    <PricingPaymentModal
+      :open="isPaymentOpen"
+      :plan="selectedPlan"
+      @close="closePayment"
+    />
   </main>
 </template>
 

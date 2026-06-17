@@ -17,12 +17,25 @@ const routes = [
   {
     path: '/math',
     name: 'math',
-    component: () => import('@/views/MathPage.vue')
+    component: () => import('@/views/SubjectPage.vue'),
+    meta: { subjectKey: 'math' }
   },
   {
     path: '/mashq',
     name: 'mashq',
     component: () => import('@/views/MashqPage.vue')
+  },
+  {
+    path: '/tarix',
+    name: 'tarix',
+    component: () => import('@/views/SubjectPage.vue'),
+    meta: { subjectKey: 'history' }
+  },
+  {
+    path: '/ona-tili',
+    name: 'ona-tili',
+    component: () => import('@/views/SubjectPage.vue'),
+    meta: { subjectKey: 'nativeLanguage' }
   },
   {
     path: '/result-exam',
@@ -49,12 +62,14 @@ const routes = [
   {
     path: '/dashboard',
     name: 'dashboard',
-    component: () => import('@/views/DashboardPage.vue')
+    component: () => import('@/views/DashboardPage.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/profile',
     name: 'profile',
-    component: () => import('@/views/ProfilePage.vue')
+    component: () => import('@/views/ProfilePage.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/explanation',

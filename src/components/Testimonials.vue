@@ -38,7 +38,7 @@ const testimonials = computed(() => tm('testimonials.items'))
           <div
             v-for="item in testimonials"
             :key="item.name"
-            class="px-1 pb-5 pt-1"
+            class="h-full px-1 pb-5 pt-1"
           >
             <TestimonialCard v-bind="item" />
           </div>
@@ -58,7 +58,7 @@ const testimonials = computed(() => tm('testimonials.items'))
           <div
             v-for="item in testimonials"
             :key="item.name"
-            class="px-1 pb-5 pt-1"
+            class="h-full px-1 pb-5 pt-1"
           >
             <TestimonialCard v-bind="item" />
           </div>
@@ -67,3 +67,11 @@ const testimonials = computed(() => tm('testimonials.items'))
     </div>
   </section>
 </template>
+
+<style scoped>
+:deep(.n-carousel__slide) {
+  display: flex;
+  height: auto;
+  align-items: stretch;
+}
+</style>

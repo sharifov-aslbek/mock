@@ -20,8 +20,8 @@ const authStore = useAuthStore()
 
 const navItems = computed(() => [
   { label: t('navbar.items.math'), to: '/math' },
-  { label: t('navbar.items.physics'), to: '/fizika' },
-  { label: t('navbar.items.chemistry'), to: '/kimyo' },
+  { label: t('navbar.items.history'), to: '/tarix' },
+  { label: t('navbar.items.nativeLanguage'), to: '/ona-tili' },
   { label: t('navbar.items.mashq'), to: '/mashq' },
   { label: t('navbar.result'), to: '/result-exam' },
   { label: t('navbar.pricing'), to: '/pricing' },
@@ -32,7 +32,7 @@ const currentUser = computed(
 )
 
 const userName = computed(
-  () => currentUser.value?.firstName || currentUser.value?.fullName || 'Foydalanuvchi',
+  () => currentUser.value?.firstName || currentUser.value?.fullName || t('navbar.userFallback'),
 )
 
 const userInitial = computed(() => {
@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
               class="block px-4 py-2.5 text-[14px] text-[#e0e0e0] transition hover:bg-white/5"
               @click="isUserMenuOpen = false"
             >
-              Profil
+              {{ t('navbar.profile') }}
             </router-link>
             <div class="my-1 border-t border-[#2a2a2a]"></div>
             <button
@@ -179,7 +179,7 @@ onBeforeUnmount(() => {
               class="block w-full px-4 py-2.5 text-left text-[14px] text-[#f87171] transition hover:bg-white/5"
               @click="handleLogout"
             >
-              Chiqish
+              {{ t('navbar.logout') }}
             </button>
           </div>
         </div>
@@ -195,7 +195,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="flex h-9 w-9 items-center justify-center rounded-lg text-[#aaa] transition hover:bg-white/10 lg:hidden"
-          aria-label="Open menu"
+          :aria-label="t('navbar.openMenu')"
           @click="isMobileMenuOpen = true"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-[#888] transition hover:bg-white/10"
-            aria-label="Close menu"
+            :aria-label="t('navbar.closeMenu')"
             @click="closeMobileMenu"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
             class="block py-2 text-[14px] text-[#f87171]"
             @click="handleLogout"
           >
-            Chiqish
+            {{ t('navbar.logout') }}
           </button>
         </div>
       </aside>
