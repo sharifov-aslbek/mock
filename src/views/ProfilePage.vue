@@ -2,9 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useBalanceStore } from '@/stores/balance'
 
 const authStore = useAuthStore()
+const balanceStore = useBalanceStore()
 const route = useRoute()
+
+const tangaBalance = computed(() => balanceStore.available)
 const isLoading = ref(false)
 const errorMessage = ref('')
 
@@ -55,6 +59,7 @@ async function loadProfile() {
 
   try {
     await authStore.getUserInfo()
+    balanceStore.refresh().catch(() => {})
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : 'Profilni yuklab bo‘lmadi.'
@@ -129,6 +134,26 @@ onMounted(() => {
             >
               {{ user?.emailConfirmed ? 'Email tasdiqlangan' : 'Email tasdiqlanmagan' }}
             </span>
+
+            <div class="mt-6 w-full rounded-2xl border border-[#ece8e0] bg-[#faf8f4] px-4 py-4">
+              <p class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a39e94]">
+                Balans
+              </p>
+              <div class="mt-2 flex items-center justify-center gap-2">
+                <svg class="h-5 w-5 text-[#1a1814]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="12" cy="12" r="4.25" />
+                </svg>
+                <span class="text-2xl font-bold tracking-tight text-[#1a1814] tabular-nums">{{ tangaBalance }}</span>
+                <span class="text-sm font-semibold text-[#8a857c]">tanga</span>
+              </div>
+              <RouterLink
+                to="/pricing"
+                class="mt-3 inline-flex h-9 w-full items-center justify-center rounded-full border border-[#1a1814] bg-white px-4 text-xs font-semibold text-[#1a1814] transition hover:bg-[#1a1814] hover:text-white"
+              >
+                Hisobni to‘ldirish
+              </RouterLink>
+            </div>
           </div>
         </aside>
 

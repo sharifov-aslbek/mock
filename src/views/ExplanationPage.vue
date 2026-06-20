@@ -8,8 +8,9 @@ import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
-import { getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { buildCertificateViewModel } from '@/utils/certificateData'
+import { subjectDisplayName } from '@/utils/subjects'
 import {
   loadTestSubmission,
   saveTestSubmission,
@@ -44,6 +45,9 @@ const currentExplanation = ref(null)
 const activeAttemptId = ref(null)
 const hasSubmittedResult = ref(false)
 const isFinalizingSubmission = ref(false)
+// Subject display name for the certificate (e.g. "Matematika"). The test-detail
+// endpoint omits the subject, so we resolve it from the test list by id.
+const testSubjectName = ref('')
 
 let reportCloseTimeout = null
 let previousBodyOverflow = ''
@@ -134,6 +138,7 @@ const certificateViewModel = computed(() =>
     user: authStore.userInfo,
     test: testStore.currentTest,
     attemptId: activeAttemptId.value || requestedAttemptId.value,
+    subjectName: testSubjectName.value,
   }),
 )
 
@@ -687,6 +692,20 @@ function submissionBelongsToTest(submission, testId) {
   return false
 }
 
+async function resolveTestSubjectName(testId) {
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/test`, {
+      headers: { accept: '*/*' },
+    })
+    const payload = await response.json()
+    const list = Array.isArray(payload?.data) ? payload.data : []
+    const match = list.find((item) => String(item.id) === String(testId))
+    testSubjectName.value = subjectDisplayName(match?.subject)
+  } catch {
+    // Leave empty → the certificate falls back to its default subject.
+  }
+}
+
 async function loadTest({ skipProgressFallback = false } = {}) {
   const testId = requestedTestId.value
 
@@ -701,6 +720,9 @@ async function loadTest({ skipProgressFallback = false } = {}) {
   try {
     await testStore.fetchTestById(testId)
     activeAttemptId.value = requestedAttemptId.value
+
+    // The detail endpoint has no `subject`, so look it up from the test list.
+    void resolveTestSubjectName(testId)
 
     const storedSubmission = loadTestSubmission(testId)
 
@@ -810,6 +832,10 @@ async function initializeExplanationPage() {
   } catch (error) {
     testLoadError.value =
       error instanceof Error ? error.message : 'Testni topshirishda xatolik yuz berdi.'
+    // Submission failed — don't leave a zeroed, official-looking certificate
+    // open on top of the (otherwise hidden) error. Close it so the failure is
+    // actually visible to the user instead of a fake empty result.
+    isCertificateModalOpen.value = false
   } finally {
     isFinalizingSubmission.value = false
   }
@@ -999,14 +1025,15 @@ async function downloadCertificate() {
     return
   }
 
-  const scaledParent = certEl.parentElement
-  const previousTransform = scaledParent?.style.transform || ''
-  const previousTransition = scaledParent?.style.transition || ''
+  // The fit-to-viewport scale lives on certEl itself (certFrameStyle binds
+  // `translate(-50%,-50%) scale(certScale)` to the .certificate-page root), NOT
+  // on its parent. Neutralize the transform on certEl so html2pdf captures the
+  // full-size 794×1123 certificate instead of the shrunken on-screen version.
+  const previousTransform = certEl.style.transform || ''
+  const previousTransition = certEl.style.transition || ''
 
-  if (scaledParent) {
-    scaledParent.style.transition = 'none'
-    scaledParent.style.transform = 'translate(-50%, -50%)'
-  }
+  certEl.style.transition = 'none'
+  certEl.style.transform = 'none'
 
   const { default: html2pdf } = await import('html2pdf.js')
   const data = certificateViewModel.value || {}
@@ -1033,10 +1060,8 @@ async function downloadCertificate() {
       })
       .save()
   } finally {
-    if (scaledParent) {
-      scaledParent.style.transform = previousTransform
-      scaledParent.style.transition = previousTransition
-    }
+    certEl.style.transform = previousTransform
+    certEl.style.transition = previousTransition
   }
 }
 

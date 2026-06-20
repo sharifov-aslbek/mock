@@ -301,7 +301,13 @@ const messages = {
       confirmTitle: 'Haqiqatdan ham testni boshlamoqchimisiz?',
       confirmYes: 'Ha',
       confirmNo: 'Yo‘q',
-      discuss: 'Muhokamaga o‘tish'
+      discuss: 'Muhokamaga o‘tish',
+      select: 'Tanlash',
+      checking: 'Tekshirilmoqda…',
+      chooseTitle: 'Bu test bilan nima qilmoqchisiz?',
+      restart: 'Boshidan ishlash',
+      viewLast: 'Oxirgi natijalarni ko‘rish',
+      cancel: 'Bekor qilish'
     },
     testPage: {
       title: 'Matematika testi',
@@ -350,6 +356,7 @@ const messages = {
       referenceSheetAlt: 'Formula varaqi',
       imageAlt: 'Savol rasmi',
       missingId: 'Test ID topilmadi.',
+      submitFailed: 'Testni topshirib bo‘lmadi. Iltimos, qayta urinib ko‘ring.',
       authRequired: 'Bu testni ochish uchun tizimga kiring.',
       leaveConfirm:
         'Test davomida boshqa sahifaga o‘tish bloklangan. Testni yakunlash uchun pastdagi tugmadan natijalar sahifasiga o‘ting.',
@@ -705,7 +712,13 @@ const messages = {
       confirmTitle: 'Вы действительно хотите начать тест?',
       confirmYes: 'Да',
       confirmNo: 'Нет',
-      discuss: 'К обсуждению'
+      discuss: 'К обсуждению',
+      select: 'Выбрать',
+      checking: 'Проверка…',
+      chooseTitle: 'Что вы хотите сделать с этим тестом?',
+      restart: 'Начать сначала',
+      viewLast: 'Посмотреть последний результат',
+      cancel: 'Отмена'
     },
     testPage: {
       title: 'Тест по математике',
@@ -754,6 +767,7 @@ const messages = {
       referenceSheetAlt: 'Лист с формулами',
       imageAlt: 'Изображение вопроса',
       missingId: 'ID теста не найден.',
+      submitFailed: 'Не удалось отправить тест. Пожалуйста, попробуйте ещё раз.',
       authRequired: 'Для открытия этого теста нужно войти в систему.',
       leaveConfirm:
         'Во время теста переход на другие страницы заблокирован. Чтобы завершить тест, перейдите на страницу результатов через нижнюю кнопку.',

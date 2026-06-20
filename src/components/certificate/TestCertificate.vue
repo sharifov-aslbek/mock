@@ -83,8 +83,8 @@ const gerbMarkup = gerbSvg.replace(/<\?xml[^>]*>\s*/i, '').trim()
       <hr class="divider-soft" />
 
       <div class="subject-grid">
-        <div class="label">Testning nomi:</div>
-        <div class="value">{{ data.subject }}</div>
+        <div class="label">Umumta'lim fani:</div>
+        <div class="value">{{ data.subjectLine }}</div>
 
         <div class="label">Umumiy to‘plagan bali:</div>
         <div class="value">{{ data.totalScore }}</div>

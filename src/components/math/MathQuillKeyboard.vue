@@ -142,7 +142,7 @@ const symbolButtons = computed(() =>
 )
 
 const controlButtons = [
-  { id: 'fn', content: 'functions', span: 2, variant: 'gray' },
+  // (Removed the dead "functions" key — it had no action and did nothing on tap.)
   { id: 'space', content: 'SPACE', span: 2, variant: 'gray', action: { type: 'write', arg: '\\ ' } },
   { id: 'left', content: '←', variant: 'gray', action: { type: 'key', arg: 'Left' } },
   { id: 'right', content: '→', variant: 'gray', action: { type: 'key', arg: 'Right' } },

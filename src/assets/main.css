@@ -31,3 +31,19 @@ select {
 .font-mono-custom {
   font-family: 'DM Sans', sans-serif;
 }
+
+/* Wide KaTeX formulas stay horizontally scrollable (so they never clip or push
+   the whole page sideways), but the little ◀▬▶ scrollbar that the browser draws
+   under a formula is visually noisy. Hide the scrollbar chrome everywhere across
+   the platform — scrolling still works via trackpad / touch swipe. */
+.katex,
+.katex-display {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* legacy Edge/IE */
+}
+.katex::-webkit-scrollbar,
+.katex-display::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;                /* Chromium / Safari */
+}

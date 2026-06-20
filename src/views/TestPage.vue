@@ -1328,9 +1328,22 @@ async function autoSubmitOnTimeUp() {
   if (
     isSubmittingTest.value ||
     isCompletingTest.value ||
-    !currentTest.value?.id ||
-    !activeAttemptId.value
+    !currentTest.value?.id
   ) {
+    return
+  }
+
+  // Time is up. If the attempt was never created (creation failed or was still
+  // in flight), try once more so the user isn't stranded at 00:00 with an
+  // un-submittable test.
+  if (!activeAttemptId.value) {
+    await ensureAttemptStarted(currentTest.value)
+  }
+
+  if (!activeAttemptId.value) {
+    // Still couldn't create an attempt — surface an error + retry instead of
+    // silently freezing the test at 00:00.
+    pageErrorKey.value = 'testPage.submitFailed'
     return
   }
 

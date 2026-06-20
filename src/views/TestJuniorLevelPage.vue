@@ -1583,6 +1583,10 @@ const handleFullscreenGesture = () => {
 // yakuniy topshirish oqimi → explanation sahifasiga o'tamiz
 const finishTestAndGoToExplanation = async () => {
   await syncDirtyAnswers()
+  // The attempt is finished — drop this test's local answer-action ledger so it
+  // can't be replayed (re-POST/PUT) into a brand-new attempt on a later
+  // re-entry, and so localStorage doesn't grow unbounded.
+  clearAnswerActionsForTest(currentTest.value.id)
   stopTimer()
   teardownFullscreen()
   showSubmitModal.value = false

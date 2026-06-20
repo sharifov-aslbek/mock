@@ -3,8 +3,9 @@ import { computed, ref , onMounted , onBeforeUnmount } from 'vue'
 import { NButton, NCard, NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
 import DashboardSidebar from '@/components/DashboardSidebar.vue'
 import DashboardTopbar from '@/components/DashboardTopbar.vue'
+import { useAppStore } from '@/stores/app'
 
-const dashboardType = 'admin'
+const appStore = useAppStore()
 
 const mobileSidebarOpen = ref(false)
 const dashboardModes = {
@@ -312,11 +313,11 @@ const dashboardModes = {
   }
 }
 
-const currentMode = dashboardModes[dashboardType] || dashboardModes.admin
-const activeSection = ref(currentMode.initialSection)
+const currentMode = computed(() => dashboardModes[appStore.dashboardType] || dashboardModes.admin)
+const activeSection = ref(currentMode.value.initialSection)
 
 const currentSection = computed(
-  () => currentMode.sections[activeSection.value] || currentMode.sections[currentMode.initialSection]
+  () => currentMode.value.sections[activeSection.value] || currentMode.value.sections[currentMode.value.initialSection]
 )
 const sectionTitle = computed(() => currentSection.value.title)
 

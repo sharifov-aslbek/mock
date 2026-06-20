@@ -74,7 +74,6 @@ const handleAction = (action) => {
         :model-value="modelValue"
         :disabled="disabled"
         @update:model-value="emit('update:modelValue', $event)"
-        @toggle-keyboard="isKeyboardVisible = !isKeyboardVisible"
       />
 
       <div class="rounded-2xl border border-dashed border-orange-200 bg-white/80 p-3">

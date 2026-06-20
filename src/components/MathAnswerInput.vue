@@ -66,7 +66,6 @@ const handleKeyboardAction = (action) => {
       :model-value="modelValue"
       :placeholder="placeholder"
       @update:model-value="emit('update:modelValue', $event)"
-      @toggle-keyboard="handleFormulaToggle"
     />
 
     <div class="flex justify-end">

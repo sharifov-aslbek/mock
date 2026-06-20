@@ -67,31 +67,21 @@ function formatIssuedDate(date) {
   return `${day}.${month}.${year}`
 }
 
-function resolveTestSubject(test) {
-  if (!test) {
-    return 'Matematika'
-  }
-
-  const translations = Array.isArray(test.translations) ? test.translations : []
-  const preferred =
-    translations.find((item) => item.language === 'Uzbek') || translations[0]
-
-  return (
-    preferred?.title ||
-    preferred?.name ||
-    test.name ||
-    test.title ||
-    'Matematika'
-  )
-}
-
 export function buildCertificateViewModel({
   submission,
   user,
   test,
   attemptId,
   issuedAt,
+  subjectName,
 }) {
+  // Display name of the subject this test belongs to (e.g. "Matematika").
+  // The caller resolves it from the test list, since the test-detail endpoint
+  // doesn't return the subject. Falls back to Matematika.
+  const subjectDisplay =
+    subjectName && String(subjectName).trim()
+      ? String(subjectName).trim()
+      : 'Matematika'
   const totalScore = Number(submission?.totalScore ?? 0)
   const maxScore = Number(submission?.maxScore ?? 0)
   const correctCount = Number(submission?.correctCount ?? 0)
@@ -107,11 +97,6 @@ export function buildCertificateViewModel({
     submissionQuestions.length ||
     correctCount + incorrectCount
 
-  // Percentage/grade are count-based over ALL questions (same basis as the
-  // results page), so skipping questions correctly lowers the score.
-  const percentage =
-    totalQuestionCount > 0 ? (correctCount / totalQuestionCount) * 100 : 0
-
   // Full point max: prefer backend maxScore only when it spans the whole test;
   // otherwise sum per-question scores across the full test.
   const fullMaxFromTest = testQuestions.reduce(
@@ -120,6 +105,11 @@ export function buildCertificateViewModel({
   )
   const effectiveMax =
     fullMaxFromTest > 0 ? fullMaxFromTest : maxScore > 0 ? maxScore : 0
+
+  // Percentage and grade are POINT-based — derived from the same earned/max
+  // points printed on the certificate — so the points, the percentage and the
+  // grade stay mutually consistent even when questions carry different weights.
+  const percentage = effectiveMax > 0 ? (totalScore / effectiveMax) * 100 : 0
 
   const omittedCount = Math.max(0, totalQuestionCount - correctCount - incorrectCount)
 
@@ -139,7 +129,8 @@ export function buildCertificateViewModel({
     lastName: String(identity?.lastName || '—').toUpperCase(),
     firstName: String(identity?.firstName || '—').toUpperCase(),
     fatherName: String(identity?.fatherName || '—').toUpperCase(),
-    subject: resolveTestSubject(test),
+    subject: subjectDisplay,
+    subjectLine: `${subjectDisplay} (O‘zbek)`,
     totalScore: formatScore(totalScore),
     maxScore: formatScore(effectiveMax),
     correctCount: String(correctCount),

@@ -21,7 +21,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:modelValue', 'focus', 'toggle-keyboard'])
+const emit = defineEmits(['update:modelValue', 'focus'])
 
 let mathQuillLoaderPromise = null
 

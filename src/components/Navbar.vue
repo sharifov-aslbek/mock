@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { setLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useBalanceStore } from '@/stores/balance'
 import logoMark from '@/assets/logo-removed.png'
 
 const isMobileMenuOpen = ref(false)
@@ -17,6 +18,24 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const balanceStore = useBalanceStore()
+
+// Current spendable tanga (real balance minus locally-tracked unlocks).
+const tangaBalance = computed(() => balanceStore.available)
+
+// Keep the balance in sync with the auth state: load it when logged in,
+// clear it on logout. `immediate` covers a fresh page load with a stored token.
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthenticated) => {
+    if (isAuthenticated) {
+      balanceStore.refresh().catch(() => {})
+    } else {
+      balanceStore.reset()
+    }
+  },
+  { immediate: true },
+)
 
 const navItems = computed(() => [
   { label: t('navbar.items.math'), to: '/math' },
@@ -78,7 +97,7 @@ const handleLogout = async () => {
 
 onMounted(() => {
   if (authStore.isAuthenticated && !authStore.userInfo) {
-    authStore.getUserInfo()
+    void authStore.getUserInfo().catch(() => {})
   }
   handleScroll()
   window.addEventListener('scroll', handleScroll, { passive: true })
@@ -144,6 +163,20 @@ onBeforeUnmount(() => {
           <option value="ru">RU</option>
         </select>
 
+        <router-link
+          v-if="authStore.userInfo"
+          to="/pricing"
+          class="hidden items-center gap-1.5 rounded-full border border-[#333] bg-[#1e1e1e] px-3 py-2 transition hover:opacity-90 sm:flex"
+          title="Tanga balansi"
+        >
+          <svg class="h-4 w-4 text-[#cfcabf]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="4.25" />
+          </svg>
+          <span class="text-[14px] font-semibold tabular-nums text-white">{{ tangaBalance }}</span>
+          <span class="text-[13px] text-[#888]">tanga</span>
+        </router-link>
+
         <router-link v-if="!authStore.userInfo" to="/login" class="hidden sm:block">
           <button class="rounded-full border border-[#333] bg-[#1e1e1e] px-5 py-2 text-[14px] font-medium text-white transition hover:opacity-90">
             {{ t('navbar.bookDemo') }}
@@ -161,6 +194,13 @@ onBeforeUnmount(() => {
             </span>
             <span class="max-w-[180px] truncate text-[14px] font-medium text-white">{{ userName }}</span>
           </button>
+
+          <!-- Click-away backdrop so the menu closes when clicking elsewhere -->
+          <div
+            v-if="isUserMenuOpen"
+            class="fixed inset-0 z-40"
+            @click="isUserMenuOpen = false"
+          ></div>
 
           <div
             v-if="isUserMenuOpen"
@@ -234,14 +274,29 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="border-b border-[#1a1a1a] px-5 py-4">
-          <div v-if="authStore.userInfo" class="flex items-center gap-3">
-            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-[16px] font-semibold uppercase text-white">
-              {{ userInitial }}
-            </span>
-            <div class="min-w-0">
-              <p class="truncate text-[14px] font-semibold text-white">{{ userName }}</p>
-              <p class="text-xs uppercase text-[#666]">{{ localeModel }}</p>
+          <div v-if="authStore.userInfo">
+            <div class="flex items-center gap-3">
+              <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-[16px] font-semibold uppercase text-white">
+                {{ userInitial }}
+              </span>
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-semibold text-white">{{ userName }}</p>
+                <p class="text-xs uppercase text-[#666]">{{ localeModel }}</p>
+              </div>
             </div>
+
+            <router-link
+              to="/pricing"
+              class="mt-3 flex items-center gap-2 rounded-full border border-[#333] bg-[#1e1e1e] px-3.5 py-2.5"
+              @click="closeMobileMenu"
+            >
+              <svg class="h-4 w-4 text-[#cfcabf]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <circle cx="12" cy="12" r="4.25" />
+              </svg>
+              <span class="text-[14px] font-semibold tabular-nums text-white">{{ tangaBalance }}</span>
+              <span class="text-[13px] text-[#888]">tanga</span>
+            </router-link>
           </div>
 
           <router-link v-else to="/login" class="block" @click="closeMobileMenu">

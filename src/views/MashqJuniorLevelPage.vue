@@ -513,6 +513,16 @@ const startNewSession = () => {
   currentQuestionIndex.value = 1
   correctCount.value = 0
   incorrectCount.value = 0
+  // Reset the per-question UI directly: the currentQuestionIndex watcher won't
+  // fire if we were already on question 1, which would otherwise leave the
+  // previous answer selected, the result banner, and the old explanation shown.
+  selectedLetter.value = null
+  answered.value = false
+  wasCorrect.value = false
+  explanationOpen.value = false
+  explanationRead.value = false
+  showNudge.value = false
+  qSeconds.value = 0
   closeSummary()
 }
 

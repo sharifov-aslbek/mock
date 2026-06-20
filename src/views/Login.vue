@@ -33,10 +33,17 @@ onMounted(() => {
   const handleMessage = (event: MessageEvent) => {
     if (event.origin !== 'https://oauth.telegram.org') return
 
-    const data =
+    // Telegram's OAuth origin posts several message types, not all JSON — guard
+    // the parse so a non-JSON payload doesn't throw inside the listener.
+    let data
+    try {
+      data =
         typeof event.data === 'string'
             ? JSON.parse(event.data)
             : event.data
+    } catch {
+      return
+    }
 
     if (data?.event === 'auth_user' && data?.auth_data) {
       const user: TelegramUser = data.auth_data
@@ -46,7 +53,7 @@ onMounted(() => {
             const redirectTarget =
                 typeof route.query.redirect === 'string'
                     ? route.query.redirect
-                    : '/dashboard'
+                    : '/math'
             router.push(redirectTarget)
           })
           .catch(() => {})
@@ -61,7 +68,7 @@ onMounted(() => {
       const redirectTarget =
           typeof route.query.redirect === 'string'
               ? route.query.redirect
-              : '/dashboard'
+              : '/math'
       await router.push(redirectTarget)
     } catch {}
   }

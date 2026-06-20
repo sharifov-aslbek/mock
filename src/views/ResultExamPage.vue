@@ -59,11 +59,14 @@ const selectSubject = (value) => {
 }
 
 const attemptedTests = computed(() => {
+  // This page aggregates attempts across ALL subjects, so we must NOT blanket
+  // a missing subject to "Matematika" (that would mislabel a History/Ona-tili
+  // test and hide it from its real filter). Keep the backend subject as-is.
   let tests = rawTests.value
     .filter((test) => Number(test.attemptCount) > 0)
     .map((test) => ({
       ...test,
-      subject: test.subject || t('math.subjectValue'),
+      subject: test.subject || '',
     }))
 
   if (selectedSubject.value !== 'all') {
