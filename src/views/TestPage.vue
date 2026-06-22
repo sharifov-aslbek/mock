@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { NCard, NModal, NSpin } from 'naive-ui'
@@ -39,16 +39,8 @@ let timerIntervalId = null
 // real elapsed time instead of freezing the countdown.
 let testDeadlineAt = null
 
-// Prefer the saved absolute deadline; fall back to legacy remainingSeconds.
-const resumeSecondsFromProgress = (progress) => {
-  if (progress?.deadlineAt) {
-    return Math.max(Math.floor((Number(progress.deadlineAt) - Date.now()) / 1000), 0)
-  }
-  return progress?.remainingSeconds ?? null
-}
 let isSyncingAnswers = false
 let pendingSyncRequested = false
-let isStartingAttempt = false
 let isCompletingTest = ref(false)
 const dirtyQuestionIds = new Set()
 const ANSWER_ACTIONS_STORAGE_KEY = 'test_answer_actions'
@@ -740,97 +732,6 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
   return durationInMilliseconds
 }
 
-const restoreProgress = async (testId) => {
-  const savedProgress = testProgressStore.getProgress(testId)
-
-  if (!savedProgress) {
-    return
-  }
-
-  renderedQuestions.value.forEach((question) => {
-    const questionId = String(question.id)
-
-    if (question.type === 'FreeAnswer') {
-      const savedFreeAnswer =
-        savedProgress.freeAnswers?.[questionId] ||
-        savedProgress.mathAnswers?.[questionId] ||
-        savedProgress.textAnswers?.[questionId] ||
-        (typeof savedProgress.answers?.[questionId] === 'string'
-          ? savedProgress.answers[questionId]
-          : '')
-
-      if (typeof savedFreeAnswer === 'string' && savedFreeAnswer.trim()) {
-        freeAnswers[questionId] = savedFreeAnswer
-      }
-
-      return
-    }
-
-    const savedAnswer = savedProgress.answers?.[questionId]
-
-    if (savedAnswer !== undefined && savedAnswer !== null && savedAnswer !== '') {
-      answers[questionId] = savedAnswer
-    }
-  })
-
-  await nextTick()
-
-  if (typeof savedProgress.scrollY === 'number') {
-    window.scrollTo({
-      top: savedProgress.scrollY,
-      behavior: 'auto',
-    })
-  }
-}
-
-const restoreProgressFromApi = async (testId) => {
-  if (!testId) {
-    return
-  }
-
-  let progress = null
-
-  try {
-    progress = await testStore.fetchTestProgress(testId)
-  } catch (error) {
-    console.error(error)
-    return
-  }
-
-  if (!progress || !progress.id) {
-    return
-  }
-
-  activeAttemptId.value = Number(progress.id)
-  syncAnswerActionAttemptIds()
-
-  const userAnswers = Array.isArray(progress.userAnswers) ? progress.userAnswers : []
-
-  for (const userAnswer of userAnswers) {
-    const normalizedQuestionId = Number(userAnswer?.questionId)
-
-    if (!normalizedQuestionId) {
-      continue
-    }
-
-    const questionKey = String(normalizedQuestionId)
-    const question = renderedQuestionsById.value.get(normalizedQuestionId)
-
-    if (question?.type === 'FreeAnswer') {
-      if (typeof userAnswer.textAnswer === 'string' && userAnswer.textAnswer.trim()) {
-        freeAnswers[questionKey] = userAnswer.textAnswer
-      }
-      continue
-    }
-
-    const selectedOptionId = Number(userAnswer?.selectedOptionId || 0)
-
-    if (selectedOptionId > 0) {
-      answers[questionKey] = selectedOptionId
-    }
-  }
-}
-
 const persistCurrentProgress = () => {
   if (!shouldPersistProgress.value || !currentTest.value) {
     return
@@ -979,40 +880,6 @@ const syncDirtyAnswers = async () => {
   }
 }
 
-const ensureAttemptStarted = async (test) => {
-  if (!test?.id) {
-    activeAttemptId.value = null
-    return
-  }
-
-  if (isStartingAttempt || activeAttemptId.value) {
-    return
-  }
-
-  const savedProgress = testProgressStore.getProgress(test.id)
-
-  if (savedProgress?.attemptId) {
-    activeAttemptId.value = Number(savedProgress.attemptId)
-    syncAnswerActionAttemptIds()
-    persistCurrentProgress()
-    void syncDirtyAnswers()
-    return
-  }
-
-  try {
-    isStartingAttempt = true
-    const attempt = await testStore.startTestAttempt(test.id)
-    activeAttemptId.value = Number(attempt.id)
-    syncAnswerActionAttemptIds()
-    persistCurrentProgress()
-    void syncDirtyAnswers()
-  } catch (error) {
-    console.error(error)
-  } finally {
-    isStartingAttempt = false
-  }
-}
-
 const loadTest = async (testId) => {
   shouldPersistProgress.value = true
   pageErrorKey.value = ''
@@ -1042,40 +909,36 @@ const loadTest = async (testId) => {
     return
   }
 
-  if (Number(currentTest.value?.id) === Number(testId)) {
-    if (shouldRestartTest.value && currentTest.value) {
-      clearAnswers()
-      activeAttemptId.value = null
-      dirtyQuestionIds.clear()
-      testProgressStore.clearProgress(testId)
-      clearAnswerActionsForTest(testId)
-      const savedProgress = testProgressStore.getProgress(testId)
-      const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
-      startTimer(questionCount, null)
-      await ensureAttemptStarted(currentTest.value)
-      await clearRestartQuery()
+  // The card starts the attempt (and, for premium, pays) before navigating, so
+  // the test + attempt are normally already in the store. If they're not — a
+  // direct link or a page refresh — start it here too. start-test mints a FRESH
+  // attempt each call (resume is deferred), which is acceptable for now; the
+  // card path still owns the premium confirm / top-up UX.
+  const hasLiveSession =
+    Number(currentTest.value?.id) === Number(testId) && testStore.currentAttempt != null
+
+  if (!hasLiveSession) {
+    clearAnswers()
+    activeAttemptId.value = null
+    dirtyQuestionIds.clear()
+
+    try {
+      await testStore.startTest(testId)
+    } catch (error) {
+      // start-test failed (e.g. insufficient balance on a premium test opened
+      // directly). testStore.errorMessage surfaces via resolvedErrorMessage.
+      console.error(error)
+      shouldPersistProgress.value = false
       return
     }
-
-    if (!activeAttemptId.value && currentTest.value) {
-      const savedProgress = testProgressStore.getProgress(testId)
-      await ensureAttemptStarted(currentTest.value)
-      const questionCount = totalQuestions.value || Number(currentTest.value.questions?.length || 0)
-      startTimer(questionCount, resumeSecondsFromProgress(savedProgress))
-    }
-    return
   }
 
-  clearAnswers()
-  activeAttemptId.value = null
-  dirtyQuestionIds.clear()
-  testStore.clearCurrentTest()
-
-  try {
-    await testStore.fetchTestById(testId)
-  } catch (error) {
-    console.error(error)
-  }
+  // Adopt the attempt the store now holds; the currentTest watcher wires up the
+  // timer and fullscreen.
+  activeAttemptId.value = testStore.currentAttempt?.id
+    ? Number(testStore.currentAttempt.id)
+    : null
+  await clearRestartQuery()
 }
 
 const enterFullscreen = async () => {
@@ -1247,7 +1110,7 @@ watch(
 
 watch(
   currentTest,
-  async (test) => {
+  (test) => {
     if (!test) {
       closeReferenceWindow()
       stopTimer()
@@ -1257,28 +1120,21 @@ watch(
       return
     }
 
+    // The attempt was created by start-test before navigation; adopt its id.
+    // Every start is a brand-new attempt, so we always begin fresh — answer
+    // restore/resume is deferred.
+    activeAttemptId.value = testStore.currentAttempt?.id
+      ? Number(testStore.currentAttempt.id)
+      : null
+
+    clearAnswers()
+    dirtyQuestionIds.clear()
+    clearAnswerActionsForTest(test.id)
+
     setupFullscreen()
-    const savedProgress = testProgressStore.getProgress(test.id)
-    const shouldStartFresh = shouldRestartTest.value
-
-    if (shouldStartFresh) {
-      clearAnswers()
-      activeAttemptId.value = null
-      dirtyQuestionIds.clear()
-      testProgressStore.clearProgress(test.id)
-      clearAnswerActionsForTest(test.id)
-    }
-
     const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
-    startTimer(questionCount, shouldStartFresh ? null : resumeSecondsFromProgress(savedProgress))
-
-    if (!shouldStartFresh) {
-      await restoreProgress(test.id)
-      await restoreProgressFromApi(test.id)
-    }
-
-    await ensureAttemptStarted(test)
-    await clearRestartQuery()
+    startTimer(questionCount, null)
+    void clearRestartQuery()
   },
   {
     immediate: true,
@@ -1333,16 +1189,11 @@ async function autoSubmitOnTimeUp() {
     return
   }
 
-  // Time is up. If the attempt was never created (creation failed or was still
-  // in flight), try once more so the user isn't stranded at 00:00 with an
-  // un-submittable test.
+  // Time is up. The attempt is created up front by start-test, so we should
+  // always have an id here. If we somehow don't (session lost), surface an
+  // error rather than freezing at 00:00 — we must not re-call start-test, which
+  // would mint a new (possibly paid) attempt.
   if (!activeAttemptId.value) {
-    await ensureAttemptStarted(currentTest.value)
-  }
-
-  if (!activeAttemptId.value) {
-    // Still couldn't create an attempt — surface an error + retry instead of
-    // silently freezing the test at 00:00.
     pageErrorKey.value = 'testPage.submitFailed'
     return
   }

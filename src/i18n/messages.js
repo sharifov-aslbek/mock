@@ -363,6 +363,7 @@ const messages = {
       referenceSheetAlt: 'Formula varaqi',
       imageAlt: 'Savol rasmi',
       missingId: 'Test ID topilmadi.',
+      sessionExpired: 'Test sessiyasi topilmadi. Iltimos, testni ro‘yxatdan qaytadan oching.',
       submitFailed: 'Testni topshirib bo‘lmadi. Iltimos, qayta urinib ko‘ring.',
       authRequired: 'Bu testni ochish uchun tizimga kiring.',
       leaveConfirm:
@@ -781,6 +782,7 @@ const messages = {
       referenceSheetAlt: 'Лист с формулами',
       imageAlt: 'Изображение вопроса',
       missingId: 'ID теста не найден.',
+      sessionExpired: 'Сессия теста не найдена. Пожалуйста, откройте тест заново из списка.',
       submitFailed: 'Не удалось отправить тест. Пожалуйста, попробуйте ещё раз.',
       authRequired: 'Для открытия этого теста нужно войти в систему.',
       leaveConfirm:

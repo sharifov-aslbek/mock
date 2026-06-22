@@ -3,13 +3,13 @@ import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
-// Real tanga balance + purchases, backed entirely by the API.
+// Real tanga balance, backed entirely by the API.
 //
 // The balance is read from `GET /api/balance` (granted by the admin via the
-// Telegram bot). Premium tests are bought once via
-// `POST /api/balance/purchase/{testId}` — the backend deducts `test.price`,
-// records a Purchase transaction, and then gates attempt creation server-side
-// (premium tests can only be attempted once). No client-side simulation.
+// Telegram bot). Purchasing a premium test is no longer a separate call — it is
+// folded into `POST /api/user-test-attempt/start-test`, which deducts the price
+// and starts the attempt in one step (see useTestStore.startTest). This store is
+// now read-only: it just reports the balance for display.
 
 export const useBalanceStore = defineStore('balance', () => {
   const serverBalance = ref(0)
@@ -53,43 +53,6 @@ export const useBalanceStore = defineStore('balance', () => {
     }
   }
 
-  // Buy a premium test once. The backend deducts `test.price` and records the
-  // purchase; the real balance is re-read afterwards. A 409 means the user
-  // already owns it, which we treat as success (idempotent). Throws on real
-  // failures (e.g. 400 "Insufficient balance") so the caller can react.
-  async function purchaseTest(testId) {
-    const authStore = useAuthStore()
-    if (!authStore.token) throw new Error('Not authenticated.')
-
-    const apiBaseUrl = getTestApiBaseUrl()
-    if (!apiBaseUrl) throw new Error('API base URL is missing.')
-
-    const response = await apiFetch(`${apiBaseUrl}/balance/purchase/${testId}`, {
-      method: 'POST',
-      headers: { accept: '*/*', Authorization: `Bearer ${authStore.token}` },
-    })
-
-    let payload = null
-    try {
-      payload = await response.json()
-    } catch {
-      // Some success responses may have no body — that's fine.
-    }
-
-    // Already purchased → the user already owns this test; let them through.
-    if (response.status === 409) {
-      await refresh().catch(() => {})
-      return true
-    }
-
-    if (!response.ok || (payload?.code && payload.code !== 200)) {
-      throw new Error(payload?.message || 'Could not purchase test.')
-    }
-
-    await refresh().catch(() => {})
-    return true
-  }
-
   function reset() {
     serverBalance.value = 0
     userId.value = null
@@ -102,7 +65,6 @@ export const useBalanceStore = defineStore('balance', () => {
     isLoaded,
     isLoading,
     refresh,
-    purchaseTest,
     reset,
   }
 })

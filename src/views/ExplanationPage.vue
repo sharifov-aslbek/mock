@@ -11,10 +11,6 @@ import { useTestProgressStore } from '@/stores/testProgress'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { buildCertificateViewModel } from '@/utils/certificateData'
 import { subjectDisplayName } from '@/utils/subjects'
-import {
-  loadTestSubmission,
-  saveTestSubmission,
-} from '@/utils/testSubmissionStorage'
 
 const route = useRoute()
 const router = useRouter()
@@ -660,38 +656,6 @@ const progressLegend = computed(() => [
   },
 ])
 
-function submissionBelongsToTest(submission, testId) {
-  if (!submission || !testId) {
-    return false
-  }
-
-  const numericTestId = Number(testId)
-
-  if (Number(submission.testId || submission?.test?.id || 0) === numericTestId) {
-    return true
-  }
-
-  if (
-    Array.isArray(submission.questions) &&
-    submission.questions.some((question) => Number(question?.testId) === numericTestId)
-  ) {
-    return true
-  }
-
-  if (typeof submission.correctCount === 'number' || typeof submission.incorrectCount === 'number') {
-    const currentQuestionIds = new Set(
-      (testStore.currentTest?.questions || []).map((question) => Number(question.id)),
-    )
-
-    return (
-      Array.isArray(submission.userAnswers) &&
-      submission.userAnswers.some((answer) => currentQuestionIds.has(Number(answer?.questionId)))
-    )
-  }
-
-  return false
-}
-
 async function resolveTestSubjectName(testId) {
   try {
     const response = await apiFetch(`${apiBaseUrl}/test`, {
@@ -706,11 +670,11 @@ async function resolveTestSubjectName(testId) {
   }
 }
 
-async function loadTest({ skipProgressFallback = false } = {}) {
-  const testId = requestedTestId.value
+async function loadResults() {
+  const attemptId = requestedAttemptId.value || activeAttemptId.value
 
-  if (!testId) {
-    testLoadError.value = 'Test ID topilmadi.'
+  if (!attemptId) {
+    testLoadError.value = 'Urinish identifikatori topilmadi.'
     return
   }
 
@@ -718,47 +682,20 @@ async function loadTest({ skipProgressFallback = false } = {}) {
   testLoadError.value = ''
 
   try {
-    await testStore.fetchTestById(testId)
-    activeAttemptId.value = requestedAttemptId.value
+    activeAttemptId.value = Number(attemptId)
 
-    // The detail endpoint has no `subject`, so look it up from the test list.
-    void resolveTestSubjectName(testId)
+    // One read-only call returns the questions, the user's answers and the
+    // graded score for this attempt — no charge, no new attempt.
+    await testStore.fetchAttemptResults(attemptId)
 
-    const storedSubmission = loadTestSubmission(testId)
+    // The results payload has no subject; resolve it from the test list by id
+    // for the certificate.
+    void resolveTestSubjectName(requestedTestId.value)
 
-    if (storedSubmission && submissionBelongsToTest(storedSubmission, testId)) {
-      testStore.lastSubmission = storedSubmission
-      hasSubmittedResult.value = true
-      return
-    }
-
-    // When arriving from the test page, submit runs next and fills `lastSubmission`.
-    const submission = testStore.lastSubmission
-    const hasSubmissionForTest = submissionBelongsToTest(submission, testId)
-    hasSubmittedResult.value = hasSubmissionForTest
-
-    if (!hasSubmissionForTest && !skipProgressFallback) {
-      try {
-        const latestProgress = await testStore.fetchTestProgress(testId)
-
-        if (latestProgress) {
-          testStore.lastSubmission = latestProgress
-          activeAttemptId.value = Number(latestProgress.id || activeAttemptId.value || 0) || null
-          hasSubmittedResult.value = Boolean(
-            latestProgress.isSubmitted ||
-              latestProgress.submitted ||
-              latestProgress.completed ||
-              latestProgress.submittedAt ||
-              latestProgress.finishedAt,
-          )
-        }
-      } catch (progressError) {
-        console.error(progressError)
-      }
-    }
+    hasSubmittedResult.value = true
   } catch (error) {
     testLoadError.value =
-      error instanceof Error ? error.message : "Testni yuklashda xatolik yuz berdi."
+      error instanceof Error ? error.message : 'Natijani yuklashda xatolik yuz berdi.'
   } finally {
     isLoadingTest.value = false
   }
@@ -773,17 +710,12 @@ async function finalizeTestSubmission() {
   }
 
   activeAttemptId.value = Number(attemptId)
-  const submission = await testStore.submitTestAttempt(testId, attemptId)
 
-  if (submission) {
-    saveTestSubmission(testId, submission)
-    testStore.lastSubmission = submission
-  }
-
+  // Finalize the attempt server-side. We render the graded result from
+  // get-results (loadResults) right after, so we don't depend on the submit
+  // response shape here.
+  await testStore.submitTestAttempt(testId, attemptId)
   testProgressStore.clearProgress(Number(testId))
-  hasSubmittedResult.value = Boolean(submission)
-
-  return submission
 }
 
 function stripRouteFlags(flags) {
@@ -817,15 +749,16 @@ async function initializeExplanationPage() {
   }
 
   try {
-    await loadTest({ skipProgressFallback: readyToSubmit })
-
+    // Finish the attempt first (when arriving straight from the test), then read
+    // the graded result back. Both paths end at the same get-results render.
     if (readyToSubmit) {
       await finalizeTestSubmission()
       await stripRouteFlags(['readyToSubmit'])
-      return
     }
 
-    if (route.query.submitted === '1') {
+    await loadResults()
+
+    if (!readyToSubmit && route.query.submitted === '1') {
       isCertificateModalOpen.value = true
       await stripRouteFlags(['submitted'])
     }
@@ -896,9 +829,9 @@ onBeforeRouteLeave((to) => {
   return true
 })
 
-watch(requestedTestId, (newId, oldId) => {
+watch(requestedAttemptId, (newId, oldId) => {
   if (newId && newId !== oldId) {
-    void loadTest()
+    void loadResults()
   }
 })
 

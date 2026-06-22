@@ -51,9 +51,10 @@ const availableTanga = computed(() => balanceStore.available)
 const purchaseError = ref('')
 const isPurchasing = ref(false)
 
-// Premium gate. A premium test is bought once (`POST /balance/purchase`), after
-// which the backend lets the user attempt it. Free tests and already-purchased
-// tests open straight away — no charge.
+// Premium gate. Starting a test goes through a single backend call
+// (`POST /user-test-attempt/start-test`) that, for a premium test, also performs
+// the purchase before creating the attempt. Free tests and already-purchased
+// tests start straight away — no charge.
 const handlePremiumClick = async () => {
   // Must be signed in to have a tanga balance / make a purchase.
   if (!authStore.isAuthenticated) {
@@ -84,11 +85,20 @@ const handlePremiumClick = async () => {
     return
   }
 
-  // Needs to buy it first. We do NOT decide affordability here — the backend is
-  // the source of truth. Show the confirm modal; the actual purchase attempt
-  // (confirmPremiumPurchase) lets the server accept or reject it, and the
-  // "not enough coins" prompt is shown only in reaction to that rejection.
+  // Needs to buy it first. We just refreshed the balance above, so when we have
+  // a confirmed balance we can tell up front whether the user can afford it and
+  // skip a doomed round-trip: not enough tanga → go straight to the top-up
+  // prompt. The backend stays the final authority — confirmPremiumPurchase can
+  // still be rejected (e.g. the balance changed underneath us), and that
+  // rejection path still steers to top-up — but this gives instant feedback
+  // instead of waiting on a server error.
   purchaseError.value = ''
+
+  if (balanceStore.isLoaded && availableTanga.value < tokenCost.value) {
+    showTopUpModal.value = true
+    return
+  }
+
   showPremiumModal.value = true
 }
 
@@ -96,10 +106,9 @@ const confirmPremiumPurchase = async () => {
   purchaseError.value = ''
   isPurchasing.value = true
   try {
-    // Real purchase — backend deducts test.price and records it.
-    await balanceStore.purchaseTest(props.test.id)
+    // One call buys the test (deducting test.price) and starts the attempt.
+    await startAndOpen()
     showPremiumModal.value = false
-    await openTest()
   } catch (error) {
     console.error(error)
     // Insufficient funds → steer to top-up; otherwise surface the message.
@@ -119,17 +128,26 @@ const goToPricing = () => {
   router.push('/pricing')
 }
 
-const openTest = async () => {
+// Begins the attempt via start-test (which also performs the premium purchase
+// when needed), stores the test + attempt in the test store, then navigates into
+// it. Throws on failure so callers can react — premium shows the top-up modal on
+// insufficient funds, the plain start button shows an inline error. The test
+// page renders straight from the store; it never re-fetches or re-starts.
+const startAndOpen = async () => {
   const redirectTarget = props.isAttemptedCard
     ? `/test?testId=${props.test.id}&restart=1`
     : `/test?testId=${props.test.id}`
 
+  await testStore.startTest(props.test.id)
+  await router.push(redirectTarget)
+}
+
+const openTest = async () => {
   isStarting.value = true
   startError.value = ''
 
   try {
-    await testStore.fetchTestById(props.test.id)
-    await router.push(redirectTarget)
+    await startAndOpen()
   } catch (error) {
     console.error(error)
     startError.value = testStore.errorMessage || t('mathCard.startError')
@@ -153,7 +171,32 @@ const confirmStartTest = async () => {
 
 const openLastResult = async () => {
   showAttemptChoiceModal.value = false
-  await router.push(`/explanation?testId=${props.test.id}`)
+  isStarting.value = true
+  startError.value = ''
+  try {
+    // The results endpoint is keyed by attempt, but the card only knows the
+    // test — resolve the user's most recent attempt for it from their history.
+    const attempts = await testStore.fetchUserAttempts()
+    const latest = attempts
+      .filter((attempt) => Number(attempt?.testId ?? attempt?.test?.id) === Number(props.test.id))
+      .sort(
+        (a, b) =>
+          new Date(b?.startedAt || 0) - new Date(a?.startedAt || 0) ||
+          Number(b?.id || 0) - Number(a?.id || 0),
+      )[0]
+
+    if (!latest?.id) {
+      startError.value = t('mathCard.startError')
+      return
+    }
+
+    await router.push(`/explanation?testId=${props.test.id}&attemptId=${latest.id}`)
+  } catch (error) {
+    console.error(error)
+    startError.value = testStore.errorMessage || t('mathCard.startError')
+  } finally {
+    isStarting.value = false
+  }
 }
 
 const restartAttemptedTest = async () => {
