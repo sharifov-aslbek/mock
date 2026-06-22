@@ -4,20 +4,35 @@ import { useI18n } from 'vue-i18n'
 import Testimonials from '@/components/Testimonials.vue'
 import AppReveal from '@/components/AppReveal.vue'
 import PricingPaymentModal from '@/components/PricingPaymentModal.vue'
+import AuthRequiredModal from '@/components/AuthRequiredModal.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const { t, tm } = useI18n()
+const authStore = useAuthStore()
 const plans = computed(() => tm('pricing.plans'))
 
 const isPaymentOpen = ref(false)
+const isAuthModalOpen = ref(false)
 const selectedPlan = ref(null)
 
 const openPayment = (plan) => {
+  // Must be registered/logged in to purchase — show the auth prompt instead of
+  // the payment flow so the user can register or sign in first.
+  if (!authStore.isAuthenticated) {
+    isAuthModalOpen.value = true
+    return
+  }
+
   selectedPlan.value = plan
   isPaymentOpen.value = true
 }
 
 const closePayment = () => {
   isPaymentOpen.value = false
+}
+
+const closeAuthModal = () => {
+  isAuthModalOpen.value = false
 }
 </script>
 
@@ -177,6 +192,11 @@ const closePayment = () => {
       :open="isPaymentOpen"
       :plan="selectedPlan"
       @close="closePayment"
+    />
+
+    <AuthRequiredModal
+      :open="isAuthModalOpen"
+      @close="closeAuthModal"
     />
   </main>
 </template>

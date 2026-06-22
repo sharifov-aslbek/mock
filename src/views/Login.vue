@@ -124,6 +124,11 @@ onMounted(() => {
   if (route.query.reason === 'auth-required') {
     message.warning(t('testPage.authRequired'), { duration: 3500 })
   }
+  // Deep-link from the pricing "register" CTA → scroll to + highlight the
+  // Telegram sign-up widget (registration only happens through it).
+  if (route.query.focus === 'telegram') {
+    window.setTimeout(focusTelegram, 400)
+  }
 })
 
 

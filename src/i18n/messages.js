@@ -148,6 +148,13 @@ const messages = {
       cta: 'Demoga hoziroq buyurtma bering',
       moreInfo: "Ko‘proq ma’lumot",
       buy: 'Sotib olish',
+      authModal: {
+        title: "Avval ro'yxatdan o'ting",
+        description: "Tariflarni sotib olish uchun hisobingizga kiring yoki bir daqiqada ro'yxatdan o'ting.",
+        register: "Ro'yxatdan o'tish",
+        login: 'Kirish',
+        close: 'Yopish'
+      },
       tokenSuffix: 'tanga',
       popular: 'Eng ommabop',
       bestValue: 'Eng tejamli',
@@ -184,7 +191,7 @@ const messages = {
         cardHolder: 'AZIMBEK RAHIMOV',
         telegram: "Telegramda davom etish",
         close: 'Yopish',
-        accountLabel: 'Mening hisobim',
+        accountLabel: 'Foydalanuvchi ID',
         telegramMessage: "Assalomu alaykum, men {plan} tarifini ({price}) sotib olmoqchiman.\nTo'lov usuli: UZCARD\nKarta: {card} ({holder})\nTo'lovni amalga oshirgach, chekni shu yerga yuboraman."
       }
     },
@@ -559,6 +566,13 @@ const messages = {
       cta: 'Заказать демо сейчас',
       moreInfo: 'Подробнее',
       buy: 'Купить',
+      authModal: {
+        title: 'Сначала зарегистрируйтесь',
+        description: 'Чтобы покупать тарифы, войдите в аккаунт или зарегистрируйтесь за минуту.',
+        register: 'Зарегистрироваться',
+        login: 'Войти',
+        close: 'Закрыть'
+      },
       tokenSuffix: 'токенов',
       popular: 'Самый популярный',
       bestValue: 'Выгоднее всего',
@@ -595,7 +609,7 @@ const messages = {
         cardHolder: 'AZIMBEK RAHIMOV',
         telegram: 'Продолжить в Telegram',
         close: 'Закрыть',
-        accountLabel: 'Мой аккаунт',
+        accountLabel: 'ID пользователя',
         telegramMessage: 'Здравствуйте! Хочу приобрести: {plan} — {price}.\nСпособ оплаты: UZCARD\nКарта: {card} ({holder})\nПосле оплаты отправлю чек сюда.'
       }
     },

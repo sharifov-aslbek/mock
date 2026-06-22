@@ -36,6 +36,37 @@ const description = computed(() =>
   t('pricing.payment.description', { plan: shortPlanName.value }),
 )
 
+// Decode the user's DB id from the JWT. The backend embeds it as the
+// `nameid` (ClaimTypes.NameIdentifier) claim — see AuthService.GenerateToken.
+// This is the stable, unique identifier admins can look users up by
+// (e.g. api/balance/{userId}); names collide, and Telegram-login users
+// have no email, so the id is what we send.
+const userId = computed(() => {
+  const token = authStore.token
+  if (!token) return ''
+
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return ''
+    const json = decodeURIComponent(
+      atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    )
+    const claims = JSON.parse(json)
+    return String(
+      claims.nameid ||
+        claims.sub ||
+        claims.nameidentifier ||
+        claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ||
+        '',
+    )
+  } catch {
+    return ''
+  }
+})
+
 // Prefill the Telegram chat with the selected package + payment details.
 const telegramMessage = computed(() => {
   const base = t('pricing.payment.telegramMessage', {
@@ -50,10 +81,10 @@ const telegramMessage = computed(() => {
     info.fullName ||
     info.name ||
     [info.firstName, info.lastName].filter(Boolean).join(' ').trim()
-  const account = [name, info.email].filter(Boolean).join(' · ')
 
-  if (account) {
-    return `${base}\n${t('pricing.payment.accountLabel')}: ${account}`
+  if (userId.value) {
+    const suffix = name ? ` (${name})` : ''
+    return `${base}\n${t('pricing.payment.accountLabel')}: ${userId.value}${suffix}`
   }
 
   return base

@@ -34,7 +34,7 @@ const showTopUpModal = ref(false)
 const isCheckingBalance = ref(false)
 const isInProgressCard = computed(() => Boolean(props.test.isInProgressCard))
 
-// Card icon follows the test's subject — f(x) for math, scroll for history, book
+// Card icon follows the test's subject — π for math, scroll for history, book
 // for Ona tili. See src/utils/subjects.js.
 const icon = computed(() => subjectIcon(props.test.subject))
 
@@ -191,7 +191,11 @@ const handleAttemptedCardClick = () => {
       <div class="mb-6 flex items-start justify-between gap-4">
         <div>
           <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a1814] text-white shadow-[0_8px_20px_rgba(26,24,20,0.2)] transition-transform duration-300 group-hover:scale-105">
-            <span v-if="icon.kind === 'fx'" class="select-none font-serif text-[19px] font-medium leading-none tracking-tight"><i>f</i>(<i>x</i>)</span>
+            <!-- Math mark: a typeset π (pi) — the universally recognized symbol for
+                 mathematics, set in italic serif to match the editorial type. Reads
+                 the same to a junior or an exam student. Other subjects use stroke
+                 icons (see src/utils/subjects.js). -->
+            <span v-if="icon.kind === 'pi'" class="select-none font-serif text-[26px] italic leading-none">π</span>
             <svg v-else class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path v-for="(d, i) in icon.paths" :key="i" :d="d" />
             </svg>
@@ -201,9 +205,6 @@ const handleAttemptedCardClick = () => {
         </div>
 
         <div class="flex shrink-0 flex-col items-end gap-2">
-          <span class="font-mono-custom rounded-full bg-[#1a1814] px-3 py-1 text-[11px] font-semibold tracking-wide text-white">
-            #{{ test.id }}
-          </span>
           <span
             v-if="isPremium"
             class="font-mono-custom inline-flex items-center gap-1.5 rounded-full border border-[#e0ddd7] bg-[#faf9f6] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1a1814]"

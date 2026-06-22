@@ -25,10 +25,10 @@ export function subjectMatches(testSubject, aliases) {
 }
 
 // Icon descriptor per subject, keyed by SUBJECT_FILTER_OPTIONS `value`. Math is a
-// typeset f(x) mark (rendered as text); the rest are stroke-path SVG icons. Keep
+// typeset π (pi) mark (rendered as text); the rest are stroke-path SVG icons. Keep
 // these in sync with SubjectPage.vue's SUBJECT_CONFIG.
 const SUBJECT_ICONS = {
-  math: { kind: 'fx' },
+  math: { kind: 'pi' },
   history: {
     // Scroll / manuscript.
     kind: 'paths',
@@ -48,7 +48,7 @@ const SUBJECT_ICONS = {
 }
 
 // Resolve a backend subject string to its icon descriptor. Falls back to the
-// math f(x) mark when the subject is unknown.
+// math π (pi) mark when the subject is unknown.
 export function subjectIcon(testSubject) {
   const match = SUBJECT_FILTER_OPTIONS.find(
     (option) => option.aliases && subjectMatches(testSubject, option.aliases),

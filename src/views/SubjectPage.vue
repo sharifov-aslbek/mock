@@ -283,7 +283,7 @@ const selectSort = (value) => {
 
           <div class="relative flex items-center gap-4">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#1a1814] text-white shadow-[0_8px_20px_rgba(26,24,20,0.2)] transition-transform duration-500 group-hover:scale-105">
-              <span v-if="subjectKey === 'math'" class="select-none font-serif text-[19px] font-medium leading-none tracking-tight"><i>f</i>(<i>x</i>)</span>
+              <span v-if="subjectKey === 'math'" class="select-none font-serif text-[26px] italic leading-none">π</span>
               <svg v-else class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path v-for="(d, i) in config.paths" :key="i" :d="d" />
               </svg>
