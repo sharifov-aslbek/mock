@@ -103,6 +103,48 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
 
+    async function googleLogin(idToken) {
+        const apiBaseUrl = getTestApiBaseUrl()
+
+        if (!apiBaseUrl) {
+            throw new Error('API base URL is missing.')
+        }
+
+        isLoading.value = true
+        errorMessage.value = ''
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/auth/google-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    accept: '*/*',
+                },
+                // `idToken` is the JWT credential Google Identity Services
+                // hands back to the browser; the backend verifies it against
+                // the same Google client id.
+                body: JSON.stringify({ token: idToken }),
+            })
+
+            const payload = await response.json()
+
+            if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
+                throw new Error(payload?.message || 'Login failed.')
+            }
+
+            token.value = payload.data.token
+            localStorage.setItem(TOKEN_KEY, payload.data.token)
+
+        } catch (error) {
+            errorMessage.value =
+                error instanceof Error ? error.message : 'Login failed.'
+            throw error
+        } finally {
+            isLoading.value = false
+        }
+    }
+
+
   async function getUserInfo() {
     const apiBaseUrl = getTestApiBaseUrl()
     if (!apiBaseUrl) {
@@ -148,6 +190,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     telegramLogin,
+    googleLogin,
     getUserInfo,
     userInfo,
     logout,

@@ -8,6 +8,7 @@ import logoBlack from '@/assets/logo-black.jpg'
 import logoMark from '@/assets/logo-removed.png'
 
 const telegramContainer = ref<HTMLElement | null>(null)
+const googleContainer = ref<HTMLElement | null>(null)
 
 interface TelegramUser {
   id: number;
@@ -19,9 +20,23 @@ interface TelegramUser {
   hash: string;
 }
 
+// Minimal shape of the Google Identity Services credential callback payload.
+interface GoogleCredentialResponse {
+  credential: string;
+  select_by?: string;
+}
+
 declare global {
   interface Window {
     onTelegramAuth: (user: TelegramUser) => void;
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: Record<string, unknown>) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
   }
 }
 
@@ -50,11 +65,7 @@ onMounted(() => {
 
       authStore.telegramLogin(user)
           .then(() => {
-            const redirectTarget =
-                typeof route.query.redirect === 'string'
-                    ? route.query.redirect
-                    : '/math'
-            router.push(redirectTarget)
+            redirectAfterAuth()
           })
           .catch(() => {})
     }
@@ -65,11 +76,7 @@ onMounted(() => {
   window.onTelegramAuth = async (user: TelegramUser) => {
     try {
       await authStore.telegramLogin(user)
-      const redirectTarget =
-          typeof route.query.redirect === 'string'
-              ? route.query.redirect
-              : '/math'
-      await router.push(redirectTarget)
+      await redirectAfterAuth()
     } catch {}
   }
 
@@ -90,6 +97,53 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('message', (window as any)._tgMessageHandler)
   delete window.onTelegramAuth
+})
+
+// Google Identity Services. Loads the GIS client, then renders the official
+// sign-in button. On success Google hands us a `credential` (a JWT id token)
+// which we forward to the backend for verification.
+onMounted(() => {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  if (!clientId || !googleContainer.value) return
+
+  const initGoogle = () => {
+    if (!window.google || !googleContainer.value) return
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response: GoogleCredentialResponse) => {
+        try {
+          await authStore.googleLogin(response.credential)
+          await redirectAfterAuth()
+        } catch {
+          // Store state already holds the backend/network error message.
+        }
+      },
+    })
+
+    window.google.accounts.id.renderButton(googleContainer.value, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      shape: 'pill',
+      text: 'continue_with',
+      logo_alignment: 'center',
+      width: 320,
+    })
+  }
+
+  // The script may already be loaded (e.g. SPA navigation back to /login).
+  if (window.google?.accounts?.id) {
+    initGoogle()
+    return
+  }
+
+  const script = document.createElement('script')
+  script.src = 'https://accounts.google.com/gsi/client'
+  script.async = true
+  script.defer = true
+  script.onload = initGoogle
+  document.head.appendChild(script)
 })
 
 
@@ -116,6 +170,14 @@ const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()
 
+// After any successful login, honour a `?redirect=` target if present,
+// otherwise fall back to the math dashboard.
+const redirectAfterAuth = () => {
+  const redirectTarget =
+    typeof route.query.redirect === 'string' ? route.query.redirect : '/math'
+  return router.push(redirectTarget)
+}
+
 // hello world
 // Pages can redirect here with `?reason=auth-required` to explain why the
 // user landed back on login (typically: tried to open the test page while
@@ -140,22 +202,11 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(email.value, password.value)
-
-    const redirectTarget =
-      typeof route.query.redirect === 'string'
-        ? route.query.redirect
-        : '/math'
-
-    await router.push(redirectTarget)
+    await redirectAfterAuth()
   } catch {
     // Store state already contains the backend or network error message.
   }
 }
-
-// Google orqali kirish vaqtincha o'chirildi
-// const handleGoogleLogin = () => {
-//   authStore.errorMessage = t('login.socialDisabled')
-// }
 
 </script>
 
@@ -231,6 +282,12 @@ const handleLogin = async () => {
               ref="telegramContainer"
               class="flex min-h-[44px] items-center justify-center rounded-xl transition duration-500"
               :class="highlightTelegram ? 'tg-pulse ring-2 ring-[#1a1814] ring-offset-4 ring-offset-white' : ''"
+            ></div>
+
+            <!-- Google Identity Services renders its sign-in button here. -->
+            <div
+              ref="googleContainer"
+              class="mt-3 flex min-h-[44px] items-center justify-center"
             ></div>
 
             <div class="my-6 flex items-center gap-3">
