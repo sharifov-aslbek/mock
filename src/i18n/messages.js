@@ -48,8 +48,16 @@ const messages = {
       ]
     },
     partners: {
-      eyebrow: 'Bizga ishonishadi',
-      note: 'O‘zbekistondagi yetakchi o‘quv markazlari va repetitorlar'
+      eyebrow: 'MilliyMock afzalliklari',
+      note: 'Imtihonga tayyorlanish uchun hammasi bir joyda',
+      features: {
+        examFormat: 'Haqiqiy imtihon formati',
+        analysis: 'Chuqur tahlil',
+        mockTests: 'Mock testlar',
+        realInterface: 'Real interfeys',
+        stepByStep: 'Bosqichma-bosqich o‘sish',
+        certPrep: 'Sertifikatga tayyorgarlik'
+      }
     },
     sections: {
       features: 'Imkoniyatlar',
@@ -467,8 +475,16 @@ const messages = {
       ]
     },
     partners: {
-      eyebrow: 'Нам доверяют',
-      note: 'Ведущие учебные центры и репетиторы Узбекистана'
+      eyebrow: 'Преимущества MilliyMock',
+      note: 'Всё для подготовки к экзамену в одном месте',
+      features: {
+        examFormat: 'Реальный формат экзамена',
+        analysis: 'Глубокий анализ',
+        mockTests: 'Mock-тесты',
+        realInterface: 'Реальный интерфейс',
+        stepByStep: 'Поэтапный рост',
+        certPrep: 'Подготовка к сертификату'
+      }
     },
     sections: {
       features: 'Возможности',
