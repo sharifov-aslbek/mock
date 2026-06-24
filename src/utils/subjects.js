@@ -24,6 +24,13 @@ export function subjectMatches(testSubject, aliases) {
   return aliases.some((alias) => value === alias || value.includes(alias) || alias.includes(value))
 }
 
+// True when a backend subject string refers to mathematics. Used to gate the
+// formula reference tool, which only makes sense for math tests.
+export function isMathSubject(testSubject) {
+  const math = SUBJECT_FILTER_OPTIONS.find((option) => option.value === 'math')
+  return subjectMatches(testSubject, math?.aliases)
+}
+
 // Icon descriptor per subject, keyed by SUBJECT_FILTER_OPTIONS `value`. Math is a
 // typeset π (pi) mark (rendered as text); the rest are stroke-path SVG icons. Keep
 // these in sync with SubjectPage.vue's SUBJECT_CONFIG.
