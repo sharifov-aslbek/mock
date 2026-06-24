@@ -535,6 +535,10 @@ const incorrectCount = computed(() =>
 const omittedCount = computed(() =>
   filteredQuestions.value.filter((question) => question.status === 'omitted').length,
 )
+// A skipped question is a mistake too: the "Noto'g'ri" tally counts every
+// question that wasn't answered correctly (answered-wrong + omitted), so the
+// summary reflects the real score rather than hiding skipped questions.
+const mistakesCount = computed(() => incorrectCount.value + omittedCount.value)
 const scorePercent = computed(() => {
   if (!totalQuestions.value) {
     return 0
@@ -658,11 +662,11 @@ const statCards = computed(() => {
     },
     {
       label: t('explanationPage.stats.incorrect'),
-      value: incorrectCount.value,
+      value: mistakesCount.value,
       colorClass: 'text-red-600',
       bgClass: 'bg-rose-50',
       percentLabel: t('explanationPage.stats.percentIncorrect', {
-        value: Math.round((incorrectCount.value / total) * 100),
+        value: Math.round((mistakesCount.value / total) * 100),
       }),
       icon: 'cross',
     },
@@ -700,7 +704,7 @@ const progressLegend = computed(() => [
   },
   {
     colorClass: 'bg-red-600',
-    label: t('explanationPage.legend.incorrect', { value: incorrectCount.value }),
+    label: t('explanationPage.legend.incorrect', { value: mistakesCount.value }),
   },
 ])
 
@@ -1310,7 +1314,7 @@ function answerFeedbackText(question) {
 
             <div class="flex h-2 overflow-hidden rounded-full bg-[#ece8e0]">
               <div :style="{ width: `${(correctCount / (totalQuestions || 1)) * 100}%` }" class="bg-green-600" />
-              <div :style="{ width: `${(incorrectCount / (totalQuestions || 1)) * 100}%` }" class="bg-red-600" />
+              <div :style="{ width: `${(mistakesCount / (totalQuestions || 1)) * 100}%` }" class="bg-red-600" />
             </div>
 
             <div class="mt-3 flex flex-wrap items-center gap-3">

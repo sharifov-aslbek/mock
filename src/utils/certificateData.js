@@ -171,7 +171,9 @@ export function buildCertificateViewModel({
     issuedDate: formatIssuedDate(issuedAt instanceof Date ? issuedAt : new Date()),
     resultRows: [
       { name: "To'g'ri javoblar", score: String(correctCount) },
-      { name: "Noto'g'ri javoblar", score: String(incorrectCount) },
+      // A skipped question is a mistake too — count omitted questions as
+      // "Noto'g'ri" so the certificate matches the results-page tally.
+      { name: "Noto'g'ri javoblar", score: String(incorrectCount + omittedCount) },
       { name: "Umumiy ball", score: `${formatScore(totalScore)} / ${formatScore(effectiveMax)}` },
     ],
   }
