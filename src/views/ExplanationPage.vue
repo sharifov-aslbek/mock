@@ -235,9 +235,57 @@ const userAnswersByQuestionId = computed(() => {
   return map
 })
 const filteredQuestions = computed(() => {
-  const apiQuestions = submittedQuestions.value || testStore.currentTest?.questions
+  // Grouped sub-questions can arrive in two shapes depending on the result
+  // endpoint / backend version: flat in `questions` (carrying a
+  // questionGroupId), or nested under `questionGroups[].questions`. Merge both
+  // by id — the flat copy wins but is enriched with any answer data
+  // (correctAnswer / options) that only the nested copy carries — so the review
+  // screen shows the correct answer regardless of shape, with no duplicate rows.
+  const flatQuestions = Array.isArray(submittedQuestions.value)
+    ? submittedQuestions.value
+    : Array.isArray(testStore.currentTest?.questions)
+      ? testStore.currentTest.questions
+      : []
 
-  if (!Array.isArray(apiQuestions)) {
+  const questionGroups = Array.isArray(testStore.currentTest?.questionGroups)
+    ? testStore.currentTest.questionGroups
+    : []
+
+  const questionsById = new Map()
+  for (const question of flatQuestions) {
+    questionsById.set(Number(question?.id), { ...question })
+  }
+  for (const group of questionGroups) {
+    const groupQuestions = Array.isArray(group?.questions) ? group.questions : []
+    for (const groupQuestion of groupQuestions) {
+      const id = Number(groupQuestion?.id)
+      const nested = {
+        ...groupQuestion,
+        questionGroupId: groupQuestion?.questionGroupId ?? group?.id ?? null,
+      }
+      const existing = questionsById.get(id)
+      if (!existing) {
+        questionsById.set(id, nested)
+        continue
+      }
+      // Keep the flat row, but fill in answer data only the nested copy has.
+      questionsById.set(id, {
+        ...existing,
+        questionGroupId: existing.questionGroupId ?? nested.questionGroupId,
+        correctAnswer: existing.correctAnswer ?? nested.correctAnswer ?? null,
+        options:
+          Array.isArray(existing.options) && existing.options.length
+            ? existing.options
+            : Array.isArray(nested.options)
+              ? nested.options
+              : [],
+      })
+    }
+  }
+
+  const apiQuestions = [...questionsById.values()]
+
+  if (!apiQuestions.length) {
     return []
   }
 

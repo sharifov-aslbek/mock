@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
@@ -14,6 +14,60 @@ const errorMessage = ref('')
 
 const user = computed(() => authStore.userInfo || null)
 
+// Inline edit of the certificate name fields (firstName/lastName/fatherName).
+// Mirrors the first-test gate so users can fill or correct these straight from
+// their profile rather than only when starting a test.
+const isEditing = ref(false)
+const isSaving = ref(false)
+const saveError = ref('')
+const saveSuccess = ref(false)
+const form = reactive({ firstName: '', lastName: '', fatherName: '' })
+
+function startEdit() {
+  form.firstName = user.value?.firstName || ''
+  form.lastName = user.value?.lastName || ''
+  form.fatherName = user.value?.fatherName || ''
+  saveError.value = ''
+  saveSuccess.value = false
+  isEditing.value = true
+}
+
+function cancelEdit() {
+  if (isSaving.value) {
+    return
+  }
+  isEditing.value = false
+  saveError.value = ''
+}
+
+async function saveProfile() {
+  const firstName = form.firstName.trim()
+  const lastName = form.lastName.trim()
+  const fatherName = form.fatherName.trim()
+
+  // All three print on the certificate — require them so saving here can't blank
+  // out a name the way a partial update would.
+  if (!firstName || !lastName || !fatherName) {
+    saveError.value = 'Iltimos, barcha maydonlarni to‘ldiring.'
+    return
+  }
+
+  isSaving.value = true
+  saveError.value = ''
+  saveSuccess.value = false
+
+  try {
+    await authStore.updateProfile({ firstName, lastName, fatherName })
+    isEditing.value = false
+    saveSuccess.value = true
+  } catch (error) {
+    saveError.value =
+      error instanceof Error ? error.message : 'Ma’lumotlarni saqlab bo‘lmadi.'
+  } finally {
+    isSaving.value = false
+  }
+}
+
 const displayValue = (value) => {
   if (value === null || value === undefined || value === '') {
     return '-'
@@ -27,11 +81,11 @@ const displayValue = (value) => {
 }
 
 const profileFields = computed(() => [
-  { label: 'To‘liq ism', value: user.value?.fullName },
-  { label: 'Ism', value: user.value?.firstName },
-  { label: 'Familiya', value: user.value?.lastName },
-  { label: 'Otasining ismi', value: user.value?.fatherName },
-  { label: 'Email', value: user.value?.email },
+  { key: 'fullName', label: 'To‘liq ism', value: user.value?.fullName, editable: false },
+  { key: 'firstName', label: 'Ism', value: user.value?.firstName, editable: true },
+  { key: 'lastName', label: 'Familiya', value: user.value?.lastName, editable: true },
+  { key: 'fatherName', label: 'Otasining ismi', value: user.value?.fatherName, editable: true },
+  { key: 'email', label: 'Email', value: user.value?.email, editable: false },
 ])
 
 const initials = computed(() => {
@@ -160,10 +214,20 @@ onMounted(() => {
         <main class="rounded-[28px] border border-[#e0ddd7] bg-white p-5 shadow-sm sm:p-6">
           <div class="mb-5 flex items-center justify-between gap-3">
             <h2 class="text-xl font-bold tracking-tight text-[#1a1814]">Profil ma'lumotlari</h2>
-            <span
-              v-if="isLoading"
-              class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#1a1814]"
-            ></span>
+            <div class="flex items-center gap-3">
+              <span
+                v-if="isLoading"
+                class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#1a1814]"
+              ></span>
+              <button
+                v-if="!isEditing"
+                type="button"
+                class="inline-flex h-9 items-center justify-center rounded-full border border-[#1a1814] bg-white px-4 text-xs font-semibold text-[#1a1814] transition hover:bg-[#1a1814] hover:text-white"
+                @click="startEdit"
+              >
+                Tahrirlash
+              </button>
+            </div>
           </div>
 
           <p
@@ -173,20 +237,58 @@ onMounted(() => {
             {{ errorMessage }}
           </p>
 
-          <dl class="grid gap-3">
-            <div
-              v-for="field in profileFields"
-              :key="field.label"
-              class="grid gap-1 rounded-2xl border border-[#ece8e0] bg-[#faf8f4] px-4 py-3 sm:grid-cols-[180px_1fr] sm:items-center"
-            >
-              <dt class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a39e94]">
-                {{ field.label }}
-              </dt>
-              <dd class="break-words text-sm font-semibold text-[#1a1814]">
-                {{ displayValue(field.value) }}
-              </dd>
+          <p
+            v-if="saveSuccess && !isEditing"
+            class="mb-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+          >
+            Ma'lumotlar saqlandi.
+          </p>
+
+          <form @submit.prevent="saveProfile">
+            <dl class="grid gap-3">
+              <div
+                v-for="field in profileFields"
+                :key="field.label"
+                class="grid gap-1 rounded-2xl border border-[#ece8e0] bg-[#faf8f4] px-4 py-3 sm:grid-cols-[180px_1fr] sm:items-center"
+              >
+                <dt class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a39e94]">
+                  {{ field.label }}
+                </dt>
+                <dd class="break-words text-sm font-semibold text-[#1a1814]">
+                  <input
+                    v-if="isEditing && field.editable"
+                    v-model="form[field.key]"
+                    type="text"
+                    :placeholder="field.label"
+                    class="w-full rounded-xl border border-[#e0ddd7] bg-white px-3 py-2 text-sm font-semibold text-[#1a1814] outline-none transition focus:border-[#1a1814]"
+                  />
+                  <span v-else>{{ displayValue(field.value) }}</span>
+                </dd>
+              </div>
+            </dl>
+
+            <p v-if="saveError" class="mt-4 text-sm font-medium text-red-600">
+              {{ saveError }}
+            </p>
+
+            <div v-if="isEditing" class="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                :disabled="isSaving"
+                class="inline-flex h-11 items-center justify-center rounded-full border border-[#e0ddd7] bg-white px-6 text-sm font-semibold text-[#8a857c] transition hover:text-[#1a1814] disabled:cursor-not-allowed disabled:opacity-60"
+                @click="cancelEdit"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="submit"
+                :disabled="isSaving"
+                class="inline-flex h-11 items-center justify-center rounded-full bg-[#1a1814] px-6 text-sm font-semibold text-white transition hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {{ isSaving ? 'Saqlanmoqda...' : 'Saqlash' }}
+              </button>
             </div>
-          </dl>
+          </form>
         </main>
       </div>
     </div>

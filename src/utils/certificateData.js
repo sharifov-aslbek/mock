@@ -113,7 +113,41 @@ export function buildCertificateViewModel({
 
   const omittedCount = Math.max(0, totalQuestionCount - correctCount - incorrectCount)
 
-  const identity = submission?.user || user || null
+  // The certificate name must be the test-taker's real, complete name. Two
+  // sources can supply it: the submission snapshot (submission.user) and the
+  // live signed-in profile (user = authStore.userInfo). Either can be only
+  // partially filled, so resolve each field independently — prefer the live
+  // profile and fall back to the snapshot — instead of picking one object
+  // wholesale. (Previously `submission.user || user` let a snapshot carrying
+  // only firstName win over a complete profile, printing blank Familiya/Otasi.)
+  const snapshotIdentity = submission?.user || null
+  const firstNonEmpty = (...values) => {
+    for (const value of values) {
+      if (value != null && String(value).trim()) {
+        return value
+      }
+    }
+    return null
+  }
+  const identity =
+    snapshotIdentity || user
+      ? {
+          id: user?.id ?? snapshotIdentity?.id ?? null,
+          username: user?.username ?? snapshotIdentity?.username ?? null,
+          email: user?.email ?? snapshotIdentity?.email ?? null,
+          firstName: firstNonEmpty(user?.firstName, snapshotIdentity?.firstName),
+          lastName: firstNonEmpty(user?.lastName, snapshotIdentity?.lastName),
+          fatherName: firstNonEmpty(user?.fatherName, snapshotIdentity?.fatherName),
+          personalCode: firstNonEmpty(
+            user?.personalCode,
+            user?.pinfl,
+            user?.jshshir,
+            snapshotIdentity?.personalCode,
+            snapshotIdentity?.pinfl,
+            snapshotIdentity?.jshshir,
+          ),
+        }
+      : null
 
   const certificateNumber = attemptId
     ? `UZ25 ${String(attemptId).padStart(6, '0')}`
@@ -121,11 +155,7 @@ export function buildCertificateViewModel({
 
   return {
     certificateNumber,
-    personalCode:
-      identity?.personalCode ||
-      identity?.pinfl ||
-      identity?.jshshir ||
-      generatePersonalCode(identity),
+    personalCode: identity?.personalCode || generatePersonalCode(identity),
     lastName: String(identity?.lastName || '—').toUpperCase(),
     firstName: String(identity?.firstName || '—').toUpperCase(),
     fatherName: String(identity?.fatherName || '—').toUpperCase(),
