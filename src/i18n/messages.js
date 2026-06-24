@@ -146,7 +146,7 @@ const messages = {
         }
       ],
       contactTitle: 'Biz bilan bog‘laning',
-      contactButton: 'WhatsApp: +998 90 000 00 00',
+      contactButton: 'Telegram: +998 94 507 13 37',
       copyright: '© 2026 Milliy Mock Platformasi. Barcha huquqlar himoyalangan.',
       disclaimer: 'Ushbu platforma Milliy sertifikat imtihoniga tayyorlanish uchun mo‘ljallangan mock test tizimi hisoblanadi. Bu sayt rasmiy imtihon tashkilotlari bilan bevosita bog‘liq emas.'
     },
@@ -573,7 +573,7 @@ const messages = {
         }
       ],
       contactTitle: 'Свяжитесь с нами',
-      contactButton: 'WhatsApp: +998 90 000 00 00',
+      contactButton: 'Telegram: +998 94 507 13 37',
       copyright: '© 2026 Платформа Milliy Mock. Все права защищены.',
       disclaimer: 'Эта платформа предназначена для подготовки к экзамену на национальный сертификат с помощью mock-тестов. Она не связана напрямую с официальными экзаменационными организациями.'
     },
