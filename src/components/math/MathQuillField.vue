@@ -146,48 +146,17 @@ const syncFromMathField = () => {
   }
 }
 
-// This old MathQuill build can corrupt its own node tree on certain edit
-// sequences — it throws internal "prayer failed" errors and leaves an orphan
-// node that backspace can't delete (the field gets stuck). Recovery re-applies
-// the last known-good LaTeX, which rebuilds a clean tree (effectively undoing
-// the bad keystroke) so the user is never stranded.
-let isRecovering = false
-const recover = () => {
-  const mathField = mathFieldRef.value
-  if (!mathField || isRecovering) {
-    return
-  }
-  isRecovering = true
-  try {
-    isApplyingExternalUpdate.value = true
-    try {
-      mathField.latex(lastGoodLatex.value || '')
-    } catch {
-      try {
-        mathField.latex('')
-      } catch {
-        /* nothing more we can safely do */
-      }
-    }
-    isApplyingExternalUpdate.value = false
-    try {
-      syncFromMathField()
-    } catch {
-      /* ignore */
-    }
-  } finally {
-    isRecovering = false
-  }
-}
-
-// Run a MathQuill mutation, recovering instead of leaving the field corrupted
-// if MathQuill throws.
+// This old MathQuill build can throw internal "prayer failed" assertions on
+// some edit sequences. Most are NON-fatal — MathQuill keeps working fine — so
+// we must not "recover" by reverting to a previous value: doing that silently
+// undoes valid keystrokes and makes typing feel broken. We just swallow the
+// error so it can't crash the handler; the Tozalash/clear button is the escape
+// hatch for the rare case the field actually gets stuck.
 const safeOp = (fn) => {
   try {
     fn()
   } catch (error) {
-    console.warn('[MathQuillField] recovered from a MathQuill error:', error)
-    recover()
+    console.warn('[MathQuillField] ignored a MathQuill error:', error)
   }
 }
 
@@ -304,30 +273,14 @@ const attachFieldListeners = () => {
     }, 0)
   }
 
-  // Typing (not just keyboard-button actions) can trip MathQuill's internal
-  // assertions, which surface as uncaught window errors. When that happens to
-  // the focused field, recover it so it never gets stuck.
-  const handleWindowError = (event) => {
-    const message = String(event?.error?.message || event?.message || '')
-    if (!/prayer failed|leftward|withDir|oppDir|addClass/i.test(message)) {
-      return
-    }
-    if (!isFocused.value) {
-      return
-    }
-    recover()
-  }
-
   rootElement.addEventListener('focusin', handleFocusIn)
   rootElement.addEventListener('focusout', handleFocusOut)
   document.addEventListener('keydown', handleNativeKeyDown, true)
-  window.addEventListener('error', handleWindowError)
 
   removeFieldListeners = () => {
     rootElement.removeEventListener('focusin', handleFocusIn)
     rootElement.removeEventListener('focusout', handleFocusOut)
     document.removeEventListener('keydown', handleNativeKeyDown, true)
-    window.removeEventListener('error', handleWindowError)
   }
 }
 
