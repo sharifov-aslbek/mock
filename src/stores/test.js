@@ -101,6 +101,30 @@ export const useTestStore = defineStore('test', () => {
     }
   }
 
+  // start-test omits the test's subject; resolve it from the list endpoint so
+  // subject-gated UI (e.g. the math-only formula tool) works. Best-effort and
+  // non-blocking — a failure just leaves subject undefined.
+  async function enrichSubject(testId, apiBaseUrl) {
+    try {
+      const response = await apiFetch(`${apiBaseUrl}/test`, {
+        headers: buildAuthHeaders(),
+      })
+      const payload = await response.json().catch(() => null)
+      const list = Array.isArray(payload?.data) ? payload.data : []
+      const match = list.find((test) => Number(test.id) === Number(testId))
+
+      if (
+        match?.subject &&
+        currentTest.value &&
+        Number(currentTest.value.id) === Number(testId)
+      ) {
+        currentTest.value = { ...currentTest.value, subject: match.subject }
+      }
+    } catch {
+      // Subject is a nice-to-have; ignore network/parse failures.
+    }
+  }
+
   // Begin an attempt. One backend call now loads the test content, creates the
   // attempt, and (for premium tests) performs the purchase — replacing the old
   // GET /test/{id} + POST /user-test-attempt + POST /balance/purchase trio.
@@ -141,6 +165,9 @@ export const useTestStore = defineStore('test', () => {
       const attemptId =
         payload.data.testAttemptId ?? payload.data.attemptId ?? payload.data.id
       currentAttempt.value = { id: Number(attemptId) }
+
+      // Resolve subject in the background so it never delays test start.
+      void enrichSubject(testId, apiBaseUrl)
 
       return { test: currentTest.value, attempt: currentAttempt.value }
     } catch (error) {

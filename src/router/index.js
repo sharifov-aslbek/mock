@@ -22,8 +22,10 @@ const routes = [
   },
   {
     path: '/mashq',
-    name: 'mashq',
-    component: () => import('@/views/MashqPage.vue')
+    // Mashq page concealed until finished — redirect home. Restore the two lines below when complete.
+    redirect: '/'
+    // name: 'mashq',
+    // component: () => import('@/views/MashqPage.vue')
   },
   {
     path: '/tarix',
@@ -50,8 +52,10 @@ const routes = [
   },
   {
     path: '/mashq-junior',
-    name: 'mashq-junior',
-    component: () => import('@/views/MashqJuniorLevelPage.vue')
+    // Mashq (junior) page concealed until finished — redirect home. Restore the two lines below when complete.
+    redirect: '/'
+    // name: 'mashq-junior',
+    // component: () => import('@/views/MashqJuniorLevelPage.vue')
   },
   {
     path: '/dashboard',

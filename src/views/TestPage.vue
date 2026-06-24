@@ -6,6 +6,7 @@ import { NCard, NModal, NSpin } from 'naive-ui'
 import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
+import { isMathSubject } from '@/utils/subjects'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import TestBottomBar from '@/components/test/TestBottomBar.vue'
 import TestErrorState from '@/components/test/TestErrorState.vue'
@@ -89,6 +90,9 @@ const requestedTestId = computed(() => {
 const shouldRestartTest = computed(() => route.query.restart === '1')
 
 const currentTest = computed(() => testStore.currentTest)
+
+// The formula reference tool is math-only; hide it for history, native language, etc.
+const isMathTest = computed(() => isMathSubject(currentTest.value?.subject))
 const testApiBaseUrl = getTestApiBaseUrl()
 
 const LANGUAGE_BY_LOCALE = {
@@ -1263,7 +1267,7 @@ onBeforeUnmount(() => {
 
 
     <TestReferenceWindow
-      v-if="currentTest && isReferenceOpen"
+      v-if="currentTest && isMathTest && isReferenceOpen"
       :drag-label="t('testPage.dragHere')"
       :shrink-label="t('testPage.referenceShrink')"
       :grow-label="t('testPage.referenceGrow')"
@@ -1287,6 +1291,7 @@ onBeforeUnmount(() => {
           class="mx-auto max-w-[1040px]"
         >
           <button
+            v-if="isMathTest"
             type="button"
             @click="toggleReferenceWindow"
             class="mb-3 inline-flex h-11 items-center justify-center gap-2 self-start rounded-full border border-[#e0ddd7] bg-white/95 px-4 text-center shadow-[0_4px_14px_rgba(15,23,42,0.05)] lg:fixed lg:left-2 lg:top-1/2 lg:z-20 lg:mb-0 lg:h-[168px] lg:w-[72px] lg:-translate-y-1/2 lg:flex-col lg:justify-between lg:gap-0 lg:rounded-[20px] lg:px-2.5 lg:py-4 xl:left-3"

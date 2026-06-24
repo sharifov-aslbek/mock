@@ -41,11 +41,14 @@ const socials = ['f', 'in', '𝕏', '▶', '◎']
           <h4 class="mb-4 font-mono-custom text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
             {{ t('footer.contactTitle') }}
           </h4>
-          <button
-            class="w-full rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition duration-300 hover:border-white hover:bg-white hover:text-[#0d0c0a]"
+          <a
+            href="https://t.me/+998945071337"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block w-full rounded-full border border-white/20 px-4 py-2.5 text-center text-sm font-semibold text-white transition duration-300 hover:border-white hover:bg-white hover:text-[#0d0c0a]"
           >
             {{ t('footer.contactButton') }}
-          </button>
+          </a>
         </div>
       </div>
 
