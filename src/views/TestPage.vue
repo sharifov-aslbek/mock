@@ -771,6 +771,48 @@ const persistCurrentProgress = () => {
   })
 }
 
+// Re-fill the chosen answers from a previous visit (saved in localStorage) after
+// a refresh/reopen, and re-queue them so they sync to the current attempt. The
+// refresh path mints a fresh attempt that starts with no answers, so without
+// this the user's selections disappear and would not count on submit.
+const restoreSavedAnswers = (savedProgress) => {
+  if (!savedProgress) {
+    return
+  }
+
+  const savedOptionAnswers = savedProgress.answers || {}
+  const savedFreeAnswers = savedProgress.freeAnswers || {}
+  const restoredQuestionIds = new Set()
+
+  for (const [questionId, selectedOptionId] of Object.entries(savedOptionAnswers)) {
+    if (selectedOptionId !== undefined && selectedOptionId !== null && selectedOptionId !== '') {
+      answers[questionId] = selectedOptionId
+      restoredQuestionIds.add(String(questionId))
+    }
+  }
+
+  for (const [questionId, freeAnswer] of Object.entries(savedFreeAnswers)) {
+    if (typeof freeAnswer === 'string' && freeAnswer.trim()) {
+      freeAnswers[questionId] = freeAnswer
+      restoredQuestionIds.add(String(questionId))
+    }
+  }
+
+  if (!restoredQuestionIds.size) {
+    return
+  }
+
+  // Queue each restored answer against the current attempt and push it. upsert +
+  // syncDirtyAnswers no-op gracefully if a question isn't found or the attempt
+  // id isn't set yet, so the visual restore above always stands regardless.
+  restoredQuestionIds.forEach((questionId) => {
+    dirtyQuestionIds.add(questionId)
+    upsertAnswerAction(questionId)
+  })
+
+  void syncDirtyAnswers()
+}
+
 const buildCreateAnswerPayload = (action) => {
   if (!action?.attemptId) {
     return null
@@ -1141,11 +1183,21 @@ watch(
     }
 
     // The attempt was created by start-test before navigation; adopt its id.
-    // Every start is a brand-new attempt, so we always begin fresh — answer
-    // restore/resume is deferred.
     activeAttemptId.value = testStore.currentAttempt?.id
       ? Number(testStore.currentAttempt.id)
       : null
+
+    // Saved progress from a previous visit (localStorage). Read it BEFORE
+    // clearAnswers so the persist watcher can't overwrite it first. We use it to
+    // (a) resume the countdown from the saved deadline and (b) restore the
+    // chosen answers — both of which otherwise reset on every refresh. We only
+    // start fresh when the user explicitly restarts (?restart=1).
+    const savedProgress = shouldRestartTest.value
+      ? null
+      : testProgressStore.getProgress(test.id)
+    const savedDeadline = Number(savedProgress?.deadlineAt)
+    const hasSavedDeadline = Number.isFinite(savedDeadline)
+    const remainingMs = hasSavedDeadline ? savedDeadline - Date.now() : null
 
     clearAnswers()
     dirtyQuestionIds.clear()
@@ -1153,7 +1205,22 @@ watch(
 
     setupFullscreen()
     const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
-    startTimer(questionCount, null)
+
+    // Re-fill saved answers first so an expired-deadline auto-submit includes them.
+    restoreSavedAnswers(savedProgress)
+
+    if (hasSavedDeadline && remainingMs <= 0) {
+      // The deadline already passed while the page was closed — time is up, so
+      // submit instead of handing out a fresh timer. autoSubmitOnTimeUp uses the
+      // already-adopted attempt id and never re-calls start-test.
+      stopTimer()
+      testDeadlineAt = savedDeadline
+      remainingSeconds.value = 0
+      void autoSubmitOnTimeUp()
+    } else {
+      startTimer(questionCount, hasSavedDeadline ? Math.ceil(remainingMs / 1000) : null)
+    }
+
     void clearRestartQuery()
   },
   {
