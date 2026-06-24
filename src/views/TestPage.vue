@@ -1438,11 +1438,11 @@ onBeforeUnmount(() => {
               </p>
             </div>
 
-            <div class="flex justify-center gap-3">
+            <div class="mx-auto flex max-w-xs gap-3">
               <button
                 type="button"
                 @click="cancelLeave"
-                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
+                class="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-black bg-white px-6 text-sm font-semibold text-black transition duration-200 hover:bg-black hover:text-white active:scale-[0.98]"
               >
                 {{ t('testPage.leaveConfirmStay') }}
               </button>
@@ -1450,7 +1450,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 @click="confirmLeave"
-                class="inline-flex h-11 min-w-[7rem] items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+                class="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-black bg-black px-6 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
               >
                 {{ t('testPage.leaveConfirmLeave') }}
               </button>
