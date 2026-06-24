@@ -266,9 +266,14 @@ const handleNativeKeyDown = (event) => {
     return
   }
 
+  // Space advances the cursor out of the current sub-block (root, exponent,
+  // fraction…) instead of injecting a "\ " space inside it. Injecting a space
+  // used to trap the cursor inside the construct (e.g. typing inside a root,
+  // pressing space, then being unable to type after it — producing malformed
+  // output like \sqrt{3\ }).
   if (event.key === ' ' || event.code === 'Space') {
     event.preventDefault()
-    mathField.write('\\ ')
+    safeOp(() => mathField.keystroke('Right'))
     return
   }
 
