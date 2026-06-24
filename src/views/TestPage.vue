@@ -12,9 +12,11 @@ import TestErrorState from '@/components/test/TestErrorState.vue'
 import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
 import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
 import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
+import ProfileGateModal from '@/components/ProfileGateModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
+import { useProfileGate } from '@/composables/useProfileGate'
 import { getTestApiBaseUrl } from '@/utils/api'
 
 const route = useRoute()
@@ -23,6 +25,8 @@ const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
+const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
+  useProfileGate()
 const answers = reactive({})
 const freeAnswers = reactive({})
 const pageErrorKey = ref('')
@@ -922,6 +926,18 @@ const loadTest = async (testId) => {
     activeAttemptId.value = null
     dirtyQuestionIds.clear()
 
+    // First-time gate: a direct link / refresh starts a brand-new attempt here,
+    // so the test-taker must have a real name on file for the certificate. No-op
+    // once the profile is complete; otherwise this blocks on the
+    // ProfileGateModal. Backing out returns them to where they came from rather
+    // than starting a nameless attempt.
+    const profileOk = await ensureProfileComplete()
+    if (!profileOk) {
+      shouldPersistProgress.value = false
+      router.back()
+      return
+    }
+
     try {
       await testStore.startTest(testId)
     } catch (error) {
@@ -1233,6 +1249,12 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
+
+    <ProfileGateModal
+      v-model:show="showProfileGate"
+      @completed="onProfileCompleted"
+      @cancel="onProfileCancel"
+    />
 
     <TestFloatingTools
       v-if="currentTest"

@@ -12,6 +12,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => Boolean(token.value))
 
+  // The certificate is printed from the user's real name. A profile is only
+  // "complete" once firstName, lastName and fatherName are all filled — that's
+  // what the first-time test gate checks before an attempt is started.
+  // See src/composables/useProfileGate.js.
+  const isProfileComplete = computed(() => {
+    const info = userInfo.value
+    return Boolean(
+      info &&
+        String(info.firstName || '').trim() &&
+        String(info.lastName || '').trim() &&
+        String(info.fatherName || '').trim(),
+    )
+  })
+
   async function login(email, password) {
     const apiBaseUrl = getTestApiBaseUrl()
 
@@ -176,6 +190,46 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Persist the test-taker's name details (PUT /api/user). Used by the
+  // first-time test gate so the certificate can be issued with their real name.
+  // On success we merge the values into userInfo immediately (and refresh from
+  // the server) so the gate won't ask again.
+  async function updateProfile({ firstName, lastName, fatherName }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    const response = await apiFetch(`${apiBaseUrl}/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        accept: '*/*',
+        Authorization: `Bearer ${token.value}`,
+      },
+      body: JSON.stringify({ firstName, lastName, fatherName }),
+    })
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || (payload?.code && payload.code !== 200)) {
+      throw new Error(payload?.message || 'Failed to update profile.')
+    }
+
+    // Optimistically merge so isProfileComplete flips right away, then refresh
+    // from the server to pick up anything it derived (e.g. fullName).
+    userInfo.value = { ...(userInfo.value || {}), firstName, lastName, fatherName }
+
+    try {
+      await getUserInfo()
+    } catch {
+      // Refresh is best-effort — the optimistic merge above already unblocks
+      // the gate even if the follow-up GET fails.
+    }
+
+    return userInfo.value
+  }
+
   function logout() {
     token.value = ''
     errorMessage.value = ''
@@ -188,10 +242,12 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     errorMessage,
     isAuthenticated,
+    isProfileComplete,
     login,
     telegramLogin,
     googleLogin,
     getUserInfo,
+    updateProfile,
     userInfo,
     logout,
   }
