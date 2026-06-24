@@ -126,6 +126,10 @@ const extractIncomingValue = (value) => {
 
 currentLatex.value = extractIncomingValue(props.modelValue)
 
+// Last LaTeX we read back cleanly from MathQuill. Used to recover if a later
+// edit corrupts MathQuill's internal tree (see recover()).
+const lastGoodLatex = ref('')
+
 const syncFromMathField = () => {
   const mathField = mathFieldRef.value
 
@@ -135,9 +139,79 @@ const syncFromMathField = () => {
 
   const nextLatex = normalizeLatexInput(mathField.latex())
   currentLatex.value = nextLatex
+  lastGoodLatex.value = nextLatex
 
   if (!isApplyingExternalUpdate.value) {
     emit('update:modelValue', nextLatex)
+  }
+}
+
+// This old MathQuill build can corrupt its own node tree on certain edit
+// sequences — it throws internal "prayer failed" errors and leaves an orphan
+// node that backspace can't delete (the field gets stuck). Recovery re-applies
+// the last known-good LaTeX, which rebuilds a clean tree (effectively undoing
+// the bad keystroke) so the user is never stranded.
+let isRecovering = false
+const recover = () => {
+  const mathField = mathFieldRef.value
+  if (!mathField || isRecovering) {
+    return
+  }
+  isRecovering = true
+  try {
+    isApplyingExternalUpdate.value = true
+    try {
+      mathField.latex(lastGoodLatex.value || '')
+    } catch {
+      try {
+        mathField.latex('')
+      } catch {
+        /* nothing more we can safely do */
+      }
+    }
+    isApplyingExternalUpdate.value = false
+    try {
+      syncFromMathField()
+    } catch {
+      /* ignore */
+    }
+  } finally {
+    isRecovering = false
+  }
+}
+
+// Run a MathQuill mutation, recovering instead of leaving the field corrupted
+// if MathQuill throws.
+const safeOp = (fn) => {
+  try {
+    fn()
+  } catch (error) {
+    console.warn('[MathQuillField] recovered from a MathQuill error:', error)
+    recover()
+  }
+}
+
+// Reset the field to empty. Always works (latex('') rebuilds the tree from
+// scratch), so it doubles as the escape hatch for a stuck field.
+const clear = () => {
+  const mathField = mathFieldRef.value
+  if (!mathField || props.disabled) {
+    return
+  }
+  isApplyingExternalUpdate.value = true
+  try {
+    mathField.latex('')
+  } catch {
+    /* ignore */
+  }
+  isApplyingExternalUpdate.value = false
+  lastGoodLatex.value = ''
+  currentLatex.value = ''
+  emit('update:modelValue', '')
+  try {
+    mathField.focus()
+  } catch {
+    /* ignore */
   }
 }
 
@@ -225,14 +299,30 @@ const attachFieldListeners = () => {
     }, 0)
   }
 
+  // Typing (not just keyboard-button actions) can trip MathQuill's internal
+  // assertions, which surface as uncaught window errors. When that happens to
+  // the focused field, recover it so it never gets stuck.
+  const handleWindowError = (event) => {
+    const message = String(event?.error?.message || event?.message || '')
+    if (!/prayer failed|leftward|withDir|oppDir|addClass/i.test(message)) {
+      return
+    }
+    if (!isFocused.value) {
+      return
+    }
+    recover()
+  }
+
   rootElement.addEventListener('focusin', handleFocusIn)
   rootElement.addEventListener('focusout', handleFocusOut)
   document.addEventListener('keydown', handleNativeKeyDown, true)
+  window.addEventListener('error', handleWindowError)
 
   removeFieldListeners = () => {
     rootElement.removeEventListener('focusin', handleFocusIn)
     rootElement.removeEventListener('focusout', handleFocusOut)
     document.removeEventListener('keydown', handleNativeKeyDown, true)
+    window.removeEventListener('error', handleWindowError)
   }
 }
 
@@ -275,28 +365,28 @@ const cmd = (latexCmd) => {
   const mathField = mathFieldRef.value
   if (!mathField || props.disabled) return
   mathField.focus()
-  mathField.cmd(latexCmd)
+  safeOp(() => mathField.cmd(latexCmd))
 }
 
 const write = (latex) => {
   const mathField = mathFieldRef.value
   if (!mathField || props.disabled) return
   mathField.focus()
-  mathField.write(latex)
+  safeOp(() => mathField.write(latex))
 }
 
 const typedText = (text) => {
   const mathField = mathFieldRef.value
   if (!mathField || props.disabled) return
   mathField.focus()
-  mathField.typedText(text)
+  safeOp(() => mathField.typedText(text))
 }
 
 const keystroke = (key) => {
   const mathField = mathFieldRef.value
   if (!mathField || props.disabled) return
   mathField.focus()
-  mathField.keystroke(key)
+  safeOp(() => mathField.keystroke(key))
 }
 
 const getLatex = () => mathFieldRef.value?.latex() ?? ''
@@ -332,6 +422,7 @@ defineExpose({
   keystroke,
   focus,
   getLatex,
+  clear,
 })
 </script>
 
