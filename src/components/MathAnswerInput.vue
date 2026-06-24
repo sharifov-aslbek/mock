@@ -2,6 +2,13 @@
 import { computed, ref } from 'vue'
 import MathQuillField from '@/components/math/MathQuillField.vue'
 import MathQuillKeyboard from '@/components/math/MathQuillKeyboard.vue'
+import { useTestStore } from '@/stores/test'
+import { isMathSubject } from '@/utils/subjects'
+
+const testStore = useTestStore()
+// The math keyboard only makes sense for math tests — hide it for history,
+// native language, etc. (free-answer typing still works via the field).
+const isMathTest = computed(() => isMathSubject(testStore.currentTest?.subject))
 
 const props = defineProps({
   modelValue: {
@@ -68,7 +75,7 @@ const handleKeyboardAction = (action) => {
       @update:model-value="emit('update:modelValue', $event)"
     />
 
-    <div class="flex justify-end">
+    <div v-if="isMathTest" class="flex justify-end">
       <button
         type="button"
         class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[16px] border border-[#d1cec7] bg-[#faf8f4] px-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:w-auto sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:whitespace-nowrap"
@@ -106,6 +113,7 @@ const handleKeyboardAction = (action) => {
     </div>
 
     <MathQuillKeyboard
+      v-if="isMathTest"
       :is-visible="isFormulaPanelOpen"
       @action="handleKeyboardAction"
       @close="isFormulaPanelOpen = false"
