@@ -342,16 +342,36 @@ defineExpose({
       :class="[
         disabled ? 'pointer-events-none opacity-60' : '',
         isFocused ? 'border-[#1a1814] shadow-[0_4px_14px_rgba(15,23,42,0.08)]' : '',
+        (!currentLatex && isFocused) ? 'mq-hide-native-caret' : '',
       ]"
       @click="focus"
     >
+      <!-- A clear blinking caret, shown only when THIS field is focused and
+           empty (i.e. the user clicked into it), so just the active field shows
+           a cursor — never every empty field at once. MathQuill's own thin
+           caret is hidden in that state so there's exactly one cursor; once the
+           user types, this hides and MathQuill's caret takes over. -->
+      <span
+        v-if="!currentLatex && isFocused"
+        class="mq-fake-caret"
+        aria-hidden="true"
+      ></span>
+
       <span
         v-if="!currentLatex && placeholder"
-        class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-[15px] font-normal text-[#9b958c]"
+        class="pointer-events-none absolute inset-y-0 flex items-center text-[15px] font-normal text-[#9b958c]"
+        :class="isFocused ? 'left-[34px]' : 'left-5'"
       >
         {{ placeholder }}
       </span>
 
+      <!-- IMPORTANT: this element is owned by MathQuill, which adds its own
+           classes (mq-editable-field, mq-math-mode, mq-focused) directly to the
+           DOM. Do NOT put a *changing* :class binding here — Vue would re-patch
+           the class attribute on every keystroke/focus change and clobber
+           MathQuill's classes, breaking all of MathQuill's CSS. `compact` is a
+           fixed prop, so its binding never changes and is safe. State-dependent
+           classes (e.g. mq-hide-native-caret) live on the shell instead. -->
       <div
         ref="mathFieldHostRef"
         class="mq-host mq-field-root"
@@ -373,113 +393,114 @@ defineExpose({
   cursor: text;
 }
 
-:deep(.mq-field-root) {
-  display: flex !important;
-  align-items: center !important;
-  width: 100% !important;
-  min-height: 96px !important;
-  max-height: 400px !important;
-  overflow-x: auto !important;
-  overflow-y: auto !important;
-  padding: 28px 24px !important;
+/* Custom typing indicator shown while the field is empty. Sits at the field's
+   text start (matches the 24px content padding) and blinks like a native caret. */
+.mq-fake-caret {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 22px;
+  background: #1a1814;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 2;
+  animation: mq-caret-blink 1.06s steps(1, end) infinite;
+}
+
+@keyframes mq-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* While the custom caret is showing (empty field), hide MathQuill's own thin
+   caret so there is exactly one cursor. */
+:deep(.mq-hide-native-caret .mq-cursor) {
+  display: none !important;
+}
+
+/* MathQuill's input proxy is a real <textarea>. A global textarea reset
+   (Tailwind preflight: resize:vertical + a focus outline) was overriding
+   MathQuill's own hiding rules, leaving a visible ~177x48 box with a resize
+   grip and focus ring on click. Force it back to an invisible 1px proxy so the
+   only thing the user sees is our caret. Input still works (it stays focused). */
+:deep(.mq-field-root .mq-textarea textarea),
+:deep(.mq-field-root textarea) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  resize: none !important;
+  opacity: 0 !important;
+  clip: rect(0 0 0 0) !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Field container. We present MathQuill's editable field as a large, padded
+   text box (it defaults to a small inline field with a 1px border + blue focus
+   glow). Everything below is intentional container/caret styling only — the
+   math layout itself (exponents, fractions, roots, parens…) is left to
+   MathQuill's own CSS, which is loaded and wins the cascade. Do NOT re-add
+   per-construct layout overrides here; they fight MathQuill and cause the
+   "fix one thing, break another" churn.
+   --------------------------------------------------------------------------- */
+:deep(.mq-field-root.mq-editable-field) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 96px;
+  max-height: 400px;
+  overflow: auto;
+  padding: 24px;
+  margin: 0;
+  font-size: 16px;
+  color: #1a1814;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  cursor: text;
 }
 
 :deep(.mq-compact) {
-  min-height: 96px !important;
-  padding: 28px 24px !important;
+  min-height: 96px;
+  padding: 24px;
 }
 
-:deep(.mq-compact .mq-root-block) {
-  padding: 0 !important;
+:deep(.mq-field-root.mq-editable-field.mq-focused) {
+  box-shadow: none;
+  outline: none;
 }
 
-:deep(.mq-field-root.mq-editable-field) {
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  width: 100% !important;
-  min-height: 96px !important;
-  max-width: 100% !important;
-  padding: 28px 24px !important;
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  color: #1a1814 !important;
-  background: transparent !important;
-  cursor: text;
-  overflow: visible !important;
-  word-wrap: break-word !important;
-}
-
-:deep(.mq-field-root .mq-root-block) {
-  display: inline-block !important;
-  font-weight: 500 !important;
-  padding: 0 !important;
-  vertical-align: middle !important;
-}
-
-:deep(.mq-field-root .mq-nthroot) {
-  margin-left: 4px !important;
-}
-
-:deep(.mq-field-root .mq-editable-field.mq-focused) {
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-:deep(.mq-field-root .mq-math-mode),
-:deep(.mq-field-root .mq-math-mode *) {
-  color: #111827 !important;
-  font-weight: 700 !important;
-}
-
+/* MathQuill's own caret (shown once the user has typed content). Our custom
+   empty-field caret is .mq-fake-caret above. */
 :deep(.mq-field-root .mq-cursor) {
-  border-left: 1.5px solid #1a1814 !important;
-  vertical-align: middle !important;
-  height: 1.1em !important;
+  border-left: 2px solid #1a1814;
 }
 
+/* Selection highlight */
 :deep(.mq-field-root .mq-selection),
 :deep(.mq-field-root .mq-selection .mq-non-leaf),
 :deep(.mq-field-root .mq-selection span) {
-  background-color: rgba(37, 99, 235, 0.15) !important;
-  color: #111827 !important;
+  background-color: rgba(37, 99, 235, 0.15);
 }
 
-:deep(.mq-field-root .mq-fraction .mq-fraction-line) {
-  border-top-color: #111827 !important;
-  border-top-width: 1.5px !important;
-}
-
-:deep(.mq-field-root .mq-sup),
-:deep(.mq-field-root .mq-sub) {
-  color: #111827 !important;
-  font-size: 1.2em !important;
-}
-
-:deep(.mq-field-root .mq-sup .mq-text) {
-  font-size: 1.6em !important;
-  line-height: 0.8 !important;
-  font-family: Arial, sans-serif !important;
-  display: inline-block;
-  transform: translateY(2px);
-}
-
+/* Suppress MathQuill's empty-field 'c' placeholder glyph — we draw our own
+   caret + placeholder. */
 :deep(.mq-field-root .mq-empty .mq-root-block:before) {
   content: '' !important;
-}
-
-:deep(.mq-field-root .mq-non-leaf),
-:deep(.mq-field-root .mq-array.mq-non-leaf) {
-  background: transparent !important;
-}
-
-:deep(.mq-field-root .mq-paren),
-:deep(.mq-field-root .mq-bracket-l),
-:deep(.mq-field-root .mq-bracket-r) {
-  color: #374151 !important;
-  padding: 0 1px !important;
-  font-weight: 700 !important;
-  font-size: 0.75em !important;
-  vertical-align: baseline !important;
 }
 </style>
