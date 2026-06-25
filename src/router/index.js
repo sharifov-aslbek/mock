@@ -42,7 +42,8 @@ const routes = [
   {
     path: '/result-exam',
     name: 'result-exam',
-    component: () => import('@/views/ResultExamPage.vue')
+    component: () => import('@/views/ResultExamPage.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/test',

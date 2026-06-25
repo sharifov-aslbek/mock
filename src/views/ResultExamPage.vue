@@ -2,39 +2,25 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MathTestCard from '@/components/MathTestCard.vue'
-import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { useTestStore } from '@/stores/test'
 import { SUBJECT_FILTER_OPTIONS, subjectMatches } from '@/utils/subjects'
 
 const { t } = useI18n()
+const testStore = useTestStore()
 const selectedSort = ref('newest')
 const isLoading = ref(true)
 const errorKey = ref('')
-const rawTests = ref([])
-const apiBaseUrl = getTestApiBaseUrl()
+const rawAttempts = ref([])
 
-const fetchTests = async () => {
+const fetchAttempts = async () => {
   isLoading.value = true
   errorKey.value = ''
 
-  if (!apiBaseUrl) {
-    errorKey.value = 'resultExam.errorConfig'
-    isLoading.value = false
-    return
-  }
-
   try {
-    const response = await apiFetch(`${apiBaseUrl}/test`, {
-      headers: {
-        accept: '*/*',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const payload = await response.json()
-    rawTests.value = Array.isArray(payload.data) ? payload.data : []
+    // This page lists the signed-in user's own attempts (the backend reads the
+    // user from the token via GET /user-test-attempt/get-user-attempts), not the
+    // public test catalogue.
+    rawAttempts.value = await testStore.fetchUserAttempts()
   } catch (error) {
     console.error(error)
     errorKey.value = 'resultExam.errorFetch'
@@ -44,7 +30,7 @@ const fetchTests = async () => {
 }
 
 onMounted(() => {
-  fetchTests()
+  fetchAttempts()
 })
 
 const selectedSubject = ref('all')
@@ -58,31 +44,71 @@ const selectSubject = (value) => {
   subjectOpen.value = false
 }
 
+// An attempt's recency, used to pick the latest one per test and to sort. The
+// sample data leaves startedAt unset ("0001-01-01") on finished attempts, so we
+// take whichever of finishedAt/startedAt is more recent.
+const attemptTimestamp = (attempt) => {
+  const finished = Date.parse(attempt?.finishedAt)
+  const started = Date.parse(attempt?.startedAt)
+
+  return Math.max(
+    Number.isNaN(finished) ? -Infinity : finished,
+    Number.isNaN(started) ? -Infinity : started,
+  )
+}
+
 const attemptedTests = computed(() => {
-  // This page aggregates attempts across ALL subjects, so we must NOT blanket
-  // a missing subject to "Matematika" (that would mislabel a History/Ona-tili
-  // test and hide it from its real filter). Keep the backend subject as-is.
-  let tests = rawTests.value
-    .filter((test) => Number(test.attemptCount) > 0)
-    .map((test) => ({
-      ...test,
-      subject: test.subject || '',
-    }))
+  // get-user-attempts returns one row per attempt, so a test tried several times
+  // comes back several times. Collapse to one card per test, keeping the most
+  // recent attempt — that's the "oxirgi natija" the card opens.
+  //
+  // This page aggregates attempts across ALL subjects, so we must NOT blanket a
+  // missing subject to "Matematika" (that would mislabel a History/Ona-tili test
+  // and hide it from its real filter). Keep the backend subject as-is.
+  const latestByTest = new Map()
+
+  for (const attempt of rawAttempts.value) {
+    const test = attempt?.test
+    const testId = Number(test?.id ?? attempt?.testId)
+
+    if (!test || !testId) {
+      continue
+    }
+
+    const candidate = {
+      attemptId: Number(attempt.id),
+      attemptTime: attemptTimestamp(attempt),
+      test: { ...test, subject: test.subject || '' },
+    }
+
+    const existing = latestByTest.get(testId)
+    if (
+      !existing ||
+      candidate.attemptTime > existing.attemptTime ||
+      (candidate.attemptTime === existing.attemptTime &&
+        candidate.attemptId > existing.attemptId)
+    ) {
+      latestByTest.set(testId, candidate)
+    }
+  }
+
+  let entries = [...latestByTest.values()]
 
   if (selectedSubject.value !== 'all') {
     const option = SUBJECT_OPTIONS.find((item) => item.value === selectedSubject.value)
-    tests = tests.filter((test) => subjectMatches(test.subject, option?.aliases))
+    entries = entries.filter((entry) => subjectMatches(entry.test.subject, option?.aliases))
   }
 
   if (selectedSort.value === 'popular') {
-    return tests.sort((a, b) => Number(b.attemptCount) - Number(a.attemptCount))
+    return entries.sort((a, b) => Number(b.test.attemptCount) - Number(a.test.attemptCount))
   }
 
   if (selectedSort.value === 'score') {
-    return tests.sort((a, b) => Number(b.questionCount) - Number(a.questionCount))
+    return entries.sort((a, b) => Number(b.test.questionCount) - Number(a.test.questionCount))
   }
 
-  return tests.sort((a, b) => Number(b.id) - Number(a.id))
+  // newest → most recently attempted first
+  return entries.sort((a, b) => b.attemptTime - a.attemptTime || b.attemptId - a.attemptId)
 })
 
 const SKELETON_COUNT = 6
@@ -242,12 +268,12 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
         class="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
       >
         <div
-          v-for="(test, index) in attemptedTests"
-          :key="test.id"
+          v-for="(entry, index) in attemptedTests"
+          :key="entry.test.id"
           class="card-enter"
           :style="{ animationDelay: Math.min(index, 12) * 55 + 'ms' }"
         >
-          <MathTestCard :test="test" is-attempted-card />
+          <MathTestCard :test="entry.test" :attempt-id="entry.attemptId" is-attempted-card />
         </div>
       </div>
 

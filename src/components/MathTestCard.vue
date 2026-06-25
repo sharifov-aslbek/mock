@@ -19,7 +19,13 @@ const props = defineProps({
   isAttemptedCard: {
     type: Boolean,
     default: false,
-  }
+  },
+  // The results page already knows this card's latest attempt id; when supplied,
+  // "view last result" opens it directly instead of re-resolving from history.
+  attemptId: {
+    type: [Number, String],
+    default: null,
+  },
 })
 
 const router = useRouter()
@@ -188,23 +194,29 @@ const openLastResult = async () => {
   isStarting.value = true
   startError.value = ''
   try {
-    // The results endpoint is keyed by attempt, but the card only knows the
-    // test — resolve the user's most recent attempt for it from their history.
-    const attempts = await testStore.fetchUserAttempts()
-    const latest = attempts
-      .filter((attempt) => Number(attempt?.testId ?? attempt?.test?.id) === Number(props.test.id))
-      .sort(
-        (a, b) =>
-          new Date(b?.startedAt || 0) - new Date(a?.startedAt || 0) ||
-          Number(b?.id || 0) - Number(a?.id || 0),
-      )[0]
+    // The results endpoint is keyed by attempt. Prefer an attempt id handed down
+    // by the caller (the results page knows it); otherwise the card only knows
+    // the test, so resolve the user's most recent attempt for it from history.
+    let attemptId = props.attemptId ? Number(props.attemptId) : null
 
-    if (!latest?.id) {
+    if (!attemptId) {
+      const attempts = await testStore.fetchUserAttempts()
+      const latest = attempts
+        .filter((attempt) => Number(attempt?.testId ?? attempt?.test?.id) === Number(props.test.id))
+        .sort(
+          (a, b) =>
+            new Date(b?.startedAt || 0) - new Date(a?.startedAt || 0) ||
+            Number(b?.id || 0) - Number(a?.id || 0),
+        )[0]
+      attemptId = latest?.id ? Number(latest.id) : null
+    }
+
+    if (!attemptId) {
       startError.value = t('mathCard.startError')
       return
     }
 
-    await router.push(`/explanation?testId=${props.test.id}&attemptId=${latest.id}`)
+    await router.push(`/explanation?testId=${props.test.id}&attemptId=${attemptId}`)
   } catch (error) {
     console.error(error)
     startError.value = testStore.errorMessage || t('mathCard.startError')
