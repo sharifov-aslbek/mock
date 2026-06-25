@@ -818,20 +818,26 @@ const buildCreateAnswerPayload = (action) => {
     return null
   }
 
+  // FreeAnswer questions carry a text answer and no option; send null for
+  // selectedOptionId rather than 0 so the backend doesn't treat it as a choice.
+  const isFreeAnswer = typeof action.textAnswer === 'string'
+
   return {
     userTestAttemptId: Number(action.attemptId),
     questionId: Number(action.questionId),
-    selectedOptionId: Number(action.selectedOptionId || 0),
-    textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
+    selectedOptionId: isFreeAnswer ? null : Number(action.selectedOptionId || 0),
+    textAnswer: isFreeAnswer ? action.textAnswer : null,
   }
 }
 
 const buildUpdateAnswerPayload = (action) => {
+  const isFreeAnswer = typeof action.textAnswer === 'string'
+
   return {
     userTestAttemptId: Number(action.attemptId || 0),
     questionId: Number(action.questionId),
-    selectedOptionId: Number(action.selectedOptionId || 0),
-    textAnswer: typeof action.textAnswer === 'string' ? action.textAnswer : null,
+    selectedOptionId: isFreeAnswer ? null : Number(action.selectedOptionId || 0),
+    textAnswer: isFreeAnswer ? action.textAnswer : null,
   }
 }
 
