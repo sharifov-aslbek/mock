@@ -21,7 +21,7 @@ const authStore = useAuthStore()
 
 // Static payment details (manual activation flow).
 const CARD_NUMBER = '5614 6824 1850 4058'
-const TELEGRAM_USERNAME = 'AzimRkhmv'
+const TELEGRAM_USERNAME = 'Milliymocksupport'
 
 const planName = computed(() => props.plan?.name || '')
 const planPrice = computed(() => props.plan?.price || '')

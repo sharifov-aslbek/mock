@@ -146,7 +146,7 @@ const messages = {
         }
       ],
       contactTitle: 'Biz bilan bog‘laning',
-      contactButton: 'Telegram: +998 94 507 13 37',
+      contactButton: "Telegram: {'@'}Milliymocksupport",
       copyright: '© 2026 Milliy Mock Platformasi. Barcha huquqlar himoyalangan.',
       disclaimer: 'Ushbu platforma Milliy sertifikat imtihoniga tayyorlanish uchun mo‘ljallangan mock test tizimi hisoblanadi. Bu sayt rasmiy imtihon tashkilotlari bilan bevosita bog‘liq emas.'
     },
@@ -318,6 +318,7 @@ const messages = {
       confirmNo: 'Yo‘q',
       discuss: 'Muhokamaga o‘tish',
       select: 'Tanlash',
+      viewResult: 'Ko‘rish',
       checking: 'Tekshirilmoqda…',
       chooseTitle: 'Bu test bilan nima qilmoqchisiz?',
       restart: 'Boshidan ishlash',
@@ -577,7 +578,7 @@ const messages = {
         }
       ],
       contactTitle: 'Свяжитесь с нами',
-      contactButton: 'Telegram: +998 94 507 13 37',
+      contactButton: "Telegram: {'@'}Milliymocksupport",
       copyright: '© 2026 Платформа Milliy Mock. Все права защищены.',
       disclaimer: 'Эта платформа предназначена для подготовки к экзамену на национальный сертификат с помощью mock-тестов. Она не связана напрямую с официальными экзаменационными организациями.'
     },
@@ -749,6 +750,7 @@ const messages = {
       confirmNo: 'Нет',
       discuss: 'К обсуждению',
       select: 'Выбрать',
+      viewResult: 'Посмотреть',
       checking: 'Проверка…',
       chooseTitle: 'Что вы хотите сделать с этим тестом?',
       restart: 'Начать сначала',

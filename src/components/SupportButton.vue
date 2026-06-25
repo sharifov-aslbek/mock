@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 <template>
   <a
-    href="https://t.me/AzimRkhmv"
+    href="https://t.me/Milliymocksupport"
     target="_blank"
     rel="noopener noreferrer"
     class="fixed bottom-6 right-6 z-50 inline-flex items-center gap-3 rounded-full border border-black bg-black px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:bg-neutral-900"

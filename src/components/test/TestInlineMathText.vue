@@ -596,11 +596,29 @@ const collapseNthRootWhitespace = (value) =>
     // value isn't braced, e.g. `\sqrt[3]2x` → `\sqrt[3]{2}x`.
     .replace(/\\sqrt\[([^\]]+)\]\s+([A-Za-z0-9])/g, '\\sqrt[$1]{$2}')
 
+// Brace the BARE (unbraced) argument of a backslash command that REQUIRES one,
+// BEFORE tokenisation. The tokenizer keeps `\cmd{…}` together but splits
+// `\sqrt3` / `\frac12` into a lone `\sqrt`/`\frac` token (which throws in KaTeX
+// and leaks out as raw `\sqrt3` text) plus a stray number. Argument-less
+// commands (`\pi`, `\alpha`, `\circ`, …) are deliberately left untouched so we
+// never glue a following number onto them. The bracketed nth-root form is
+// handled above by collapseNthRootWhitespace.
+const braceBareCommandArguments = (value) =>
+  String(value)
+    // `\frac12` → `\frac{1}{2}` (two single-token args). Leave `\frac{…}{…}`,
+    // `\frac1{…}` etc. for KaTeX — only the fully-bare form breaks tokenisation.
+    .replace(/\\frac\s*([A-Za-z0-9])\s*([A-Za-z0-9])/g, '\\frac{$1}{$2}')
+    // `\sqrt3` / `\sqrt x` → `\sqrt{3}` / `\sqrt{x}`. `\sqrt[`/`\sqrt{` are
+    // skipped (next char isn't alphanumeric), so nth-roots stay intact.
+    .replace(/\\sqrt\s*([A-Za-z0-9])/g, '\\sqrt{$1}')
+
 const preprocessTestText = (value) =>
-  normalizeMangledTrigExpressions(
-    demangleSemicolons(
-      collapseNthRootWhitespace(
-        String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+  braceBareCommandArguments(
+    normalizeMangledTrigExpressions(
+      demangleSemicolons(
+        collapseNthRootWhitespace(
+          String(value).replace(DISPLAYLINES_PATTERN, (_, body) => `\n${body}\n`),
+        ),
       ),
     ),
   )

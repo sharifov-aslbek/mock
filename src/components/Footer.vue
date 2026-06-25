@@ -42,7 +42,7 @@ const socials = ['f', 'in', '𝕏', '▶', '◎']
             {{ t('footer.contactTitle') }}
           </h4>
           <a
-            href="https://t.me/+998945071337"
+            href="https://t.me/Milliymocksupport"
             target="_blank"
             rel="noopener noreferrer"
             class="block w-full rounded-full border border-white/20 px-4 py-2.5 text-center text-sm font-semibold text-white transition duration-300 hover:border-white hover:bg-white hover:text-[#0d0c0a]"

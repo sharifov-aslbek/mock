@@ -216,6 +216,25 @@ const complexityFromScore = (score) => {
   return 'Hard'
 }
 
+// FreeAnswer correct answers arrive from the backend as several accepted forms
+// joined by `||` — a canonical LaTeX form plus plain-text fallbacks the
+// auto-grader matches against, e.g. `16\frac{\sqrt2}{3}||16\sqrt2/3`. For the
+// review screen we only want the first (canonical) form; otherwise the raw
+// `||…` alternates leak in as unrendered text next to the typeset answer.
+const pickPrimaryAnswer = (value) => {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  const [primary] = trimmed.split(/\s*\|\|\s*/)
+  return (primary || trimmed).trim()
+}
+
 const userAnswersByQuestionId = computed(() => {
   const map = new Map()
   const userAnswers = testStore.lastSubmission?.userAnswers
@@ -499,7 +518,7 @@ const filteredQuestions = computed(() => {
         correctOption?.letter ||
         (typeof apiQuestion.correctAnswer === 'string' &&
         apiQuestion.correctAnswer.trim()
-          ? apiQuestion.correctAnswer.trim()
+          ? pickPrimaryAnswer(apiQuestion.correctAnswer)
           : '-'),
 
       yourAnswer,

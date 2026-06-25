@@ -315,11 +315,17 @@ const handleAttemptedCardClick = () => {
           :disabled="isStarting"
           class="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a1814] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(26,24,20,0.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-black hover:shadow-[0_14px_36px_rgba(26,24,20,0.24)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <!-- Results page (already-attempted card) is for reviewing a past
+               result → eye + "Ko‘rish". A fresh test card → play + "Boshlash". -->
+          <svg v-if="isAttemptedCard" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1 1 0 0 1 0-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178a1 1 0 0 1 0 .644C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          </svg>
+          <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.752 11.168-4.586-2.65A1 1 0 0 0 8.667 9.39v5.22a1 1 0 0 0 1.499.872l4.586-2.65a1 1 0 0 0 0-1.664Z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          {{ isStarting ? t('mathCard.starting') : isAttemptedCard ? t('mathCard.select') : t('mathCard.start') }}
+          {{ isStarting ? t('mathCard.starting') : isAttemptedCard ? t('mathCard.viewResult') : t('mathCard.start') }}
         </button>
 
         <!-- Premium variant: outlined "locked" CTA (matches the site's
@@ -332,11 +338,17 @@ const handleAttemptedCardClick = () => {
           :disabled="isStarting || isCheckingBalance"
           class="flex w-full items-center justify-center gap-2 rounded-full border border-[#1a1814] bg-white/70 px-4 py-3.5 text-sm font-semibold text-[#1a1814] shadow-[0_4px_14px_rgba(26,24,20,0.05)] backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:bg-[#1a1814] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <!-- On the results page even a premium card is about reviewing a past
+               result → eye + "Ko‘rish". Off the results page it's the locked CTA. -->
+          <svg v-if="isAttemptedCard" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1 1 0 0 1 0-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178a1 1 0 0 1 0 .644C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          </svg>
+          <svg v-else class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="5" y="11" width="14" height="9" rx="2" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          {{ isStarting ? t('mathCard.starting') : isCheckingBalance ? t('mathCard.checking') : isAttemptedCard ? t('mathCard.select') : 'Premium' }}
+          {{ isStarting ? t('mathCard.starting') : isCheckingBalance ? t('mathCard.checking') : isAttemptedCard ? t('mathCard.viewResult') : 'Premium' }}
         </button>
 
         <button
