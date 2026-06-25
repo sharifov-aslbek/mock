@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /profile
+Disallow: /test
+Disallow: /explanation
+Disallow: /result-exam
+Disallow: /login
+
+Sitemap: https://milliymock.uz/sitemap.xml
