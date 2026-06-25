@@ -322,6 +322,7 @@ const messages = {
       checking: 'Tekshirilmoqda…',
       chooseTitle: 'Bu test bilan nima qilmoqchisiz?',
       restart: 'Boshidan ishlash',
+      buyRetake: 'Sotib olib qayta ishlash',
       viewLast: 'Oxirgi natijalarni ko‘rish',
       cancel: 'Bekor qilish'
     },
@@ -754,6 +755,7 @@ const messages = {
       checking: 'Проверка…',
       chooseTitle: 'Что вы хотите сделать с этим тестом?',
       restart: 'Начать сначала',
+      buyRetake: 'Купить и пройти заново',
       viewLast: 'Посмотреть последний результат',
       cancel: 'Отмена'
     },

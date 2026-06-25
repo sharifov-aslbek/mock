@@ -56,6 +56,11 @@ const isPremium = computed(
 // Free tests, admins, and already-bought premium tests come back purchased.
 const isPurchased = computed(() => isTestPurchased(props.test))
 
+// On the results page a paid test whose single attempt is already used comes
+// back un-purchased, so re-taking it means buying it again ("sotib olish").
+// Free tests (and any still-owned premium) just restart, no charge.
+const requiresPurchaseToRetake = computed(() => isPremium.value && !isPurchased.value)
+
 const tokenCost = computed(() => testTokenCost(props.test))
 const availableTanga = computed(() => balanceStore.available)
 const purchaseError = ref('')
@@ -75,6 +80,30 @@ const handlePremiumClick = async () => {
     return
   }
 
+  // On the results page every premium card is one the user already attempted —
+  // offer the same choice (view last result / buy to re-take) as a free card
+  // rather than jumping straight into a purchase. The choice modal's re-take
+  // button drives the buy flow from there.
+  if (props.isAttemptedCard) {
+    showAttemptChoiceModal.value = true
+    return
+  }
+
+  // Already owns it → no charge, just open.
+  if (isPurchased.value) {
+    await openTest()
+    return
+  }
+
+  await beginPremiumPurchase()
+}
+
+// Refreshes the balance, then routes to the purchase confirm modal (enough
+// tanga) or the top-up prompt (not enough). The backend stays the final
+// authority — confirmPremiumPurchase can still be rejected if the balance
+// changed underneath us, and that rejection path also steers to top-up — but
+// checking here gives instant feedback instead of waiting on a server error.
+const beginPremiumPurchase = async () => {
   isCheckingBalance.value = true
   try {
     // Refresh so the balance is current before we offer to spend it.
@@ -85,23 +114,6 @@ const handlePremiumClick = async () => {
     isCheckingBalance.value = false
   }
 
-  // Already owns it → no charge, just open (or let an attempted card choose).
-  if (isPurchased.value) {
-    if (props.isAttemptedCard) {
-      showAttemptChoiceModal.value = true
-    } else {
-      await openTest()
-    }
-    return
-  }
-
-  // Needs to buy it first. We just refreshed the balance above, so when we have
-  // a confirmed balance we can tell up front whether the user can afford it and
-  // skip a doomed round-trip: not enough tanga → go straight to the top-up
-  // prompt. The backend stays the final authority — confirmPremiumPurchase can
-  // still be rejected (e.g. the balance changed underneath us), and that
-  // rejection path still steers to top-up — but this gives instant feedback
-  // instead of waiting on a server error.
   purchaseError.value = ''
 
   if (balanceStore.isLoaded && availableTanga.value < tokenCost.value) {
@@ -225,11 +237,15 @@ const openLastResult = async () => {
   }
 }
 
-const restartAttemptedTest = async () => {
+const reattemptTest = async () => {
   showAttemptChoiceModal.value = false
-  // Premium tests are bought once and the backend allows a single attempt — it
-  // governs restarts (a second premium attempt is rejected server-side). Free
-  // tests restart freely. Nothing to charge here.
+  // A paid test whose attempt is already used must be bought again before it
+  // can be re-taken → route through the purchase confirm/top-up flow. Free
+  // tests (and any still-owned premium) just restart with no charge.
+  if (requiresPurchaseToRetake.value) {
+    await beginPremiumPurchase()
+    return
+  }
   await openTest()
 }
 
@@ -430,11 +446,11 @@ const handleAttemptedCardClick = () => {
             <div class="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                @click="restartAttemptedTest"
-                :disabled="isStarting"
+                @click="reattemptTest"
+                :disabled="isStarting || isCheckingBalance"
                 class="inline-flex min-h-12 items-center justify-center rounded-2xl border border-black bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {{ t('mathCard.restart') }}
+                {{ requiresPurchaseToRetake ? t('mathCard.buyRetake') : t('mathCard.restart') }}
               </button>
 
               <button
