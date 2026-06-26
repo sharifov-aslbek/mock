@@ -114,6 +114,8 @@ const tests = computed(() =>
 const startedTests = computed(() =>
   testProgressStore.inProgressTests.map((progress) => ({
     id: progress.testId,
+    // The attempt to resume when "continue" is pressed (saved alongside progress).
+    attemptId: progress.attemptId,
     title: progress.title,
     subject: progress.subject || t('math.subjectValue'),
     questionCount: progress.questionCount,
@@ -360,7 +362,7 @@ const selectSort = (value) => {
           class="card-enter"
           :style="{ animationDelay: Math.min(index, 12) * 55 + 'ms' }"
         >
-          <MathTestCard :test="test" />
+          <MathTestCard :test="test" :attempt-id="test.attemptId" />
         </div>
       </div>
 

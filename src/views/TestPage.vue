@@ -87,6 +87,14 @@ const requestedTestId = computed(() => {
   return ''
 })
 
+// Present on a refresh / direct link / "continue" card — the attempt to resume
+// instead of minting a fresh one. The card's start path appends it to the URL so
+// it survives a reload.
+const requestedAttemptId = computed(() => {
+  const value = route.query.attemptId
+  return typeof value === 'string' && value ? Number(value) : null
+})
+
 const shouldRestartTest = computed(() => route.query.restart === '1')
 
 const currentTest = computed(() => testStore.currentTest)
@@ -293,9 +301,13 @@ const totalQuestions = computed(() => {
   return maxOrder || renderedQuestions.value.length
 })
 
-const TEST_DURATION_MINUTES = 60
-const TEST_DURATION_SECONDS = TEST_DURATION_MINUTES * 60
-const totalDurationMinutes = computed(() => TEST_DURATION_MINUTES)
+// The countdown length comes from the test's configured duration (start-test and
+// resume both return durationMinutes); falls back to 60 if the backend omits it.
+const totalDurationMinutes = computed(() => {
+  const minutes = Number(currentTest.value?.durationMinutes)
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : 60
+})
+const totalDurationSeconds = computed(() => totalDurationMinutes.value * 60)
 
 const hasFreeAnswerContent = (value) => {
   if (typeof value !== 'string') {
@@ -711,7 +723,7 @@ const startTimer = (_questionCount, initialRemainingSeconds = null) => {
 
   const resumeSeconds = Number(initialRemainingSeconds)
   const canResume = Number.isFinite(resumeSeconds) && resumeSeconds > 0
-  const durationInSeconds = canResume ? resumeSeconds : TEST_DURATION_SECONDS
+  const durationInSeconds = canResume ? resumeSeconds : totalDurationSeconds.value
   const durationInMilliseconds = Math.max(durationInSeconds, 0) * 1000
   const startedAt = Date.now()
   testDeadlineAt = startedAt + durationInMilliseconds
@@ -771,46 +783,24 @@ const persistCurrentProgress = () => {
   })
 }
 
-// Re-fill the chosen answers from a previous visit (saved in localStorage) after
-// a refresh/reopen, and re-queue them so they sync to the current attempt. The
-// refresh path mints a fresh attempt that starts with no answers, so without
-// this the user's selections disappear and would not count on submit.
-const restoreSavedAnswers = (savedProgress) => {
-  if (!savedProgress) {
-    return
-  }
+// Re-fill the chosen answers from the resume payload after a refresh / reopen.
+// The server is the source of truth — these answers are already saved against
+// the attempt, so we set them straight into the UI without re-queuing a sync
+// (only fresh edits need to push). Option answers carry an option id; FreeAnswer
+// questions carry text.
+const applyServerAnswers = (userAnswers) => {
+  for (const answer of userAnswers || []) {
+    const questionId = Number(answer?.questionId)
+    if (!questionId) {
+      continue
+    }
 
-  const savedOptionAnswers = savedProgress.answers || {}
-  const savedFreeAnswers = savedProgress.freeAnswers || {}
-  const restoredQuestionIds = new Set()
-
-  for (const [questionId, selectedOptionId] of Object.entries(savedOptionAnswers)) {
-    if (selectedOptionId !== undefined && selectedOptionId !== null && selectedOptionId !== '') {
-      answers[questionId] = selectedOptionId
-      restoredQuestionIds.add(String(questionId))
+    if (typeof answer.textAnswer === 'string' && answer.textAnswer.trim()) {
+      freeAnswers[questionId] = answer.textAnswer
+    } else if (answer.selectedOptionId !== undefined && answer.selectedOptionId !== null) {
+      answers[questionId] = Number(answer.selectedOptionId)
     }
   }
-
-  for (const [questionId, freeAnswer] of Object.entries(savedFreeAnswers)) {
-    if (typeof freeAnswer === 'string' && freeAnswer.trim()) {
-      freeAnswers[questionId] = freeAnswer
-      restoredQuestionIds.add(String(questionId))
-    }
-  }
-
-  if (!restoredQuestionIds.size) {
-    return
-  }
-
-  // Queue each restored answer against the current attempt and push it. upsert +
-  // syncDirtyAnswers no-op gracefully if a question isn't found or the attempt
-  // id isn't set yet, so the visual restore above always stands regardless.
-  restoredQuestionIds.forEach((questionId) => {
-    dirtyQuestionIds.add(questionId)
-    upsertAnswerAction(questionId)
-  })
-
-  void syncDirtyAnswers()
 }
 
 const buildCreateAnswerPayload = (action) => {
@@ -967,9 +957,8 @@ const loadTest = async (testId) => {
 
   // The card starts the attempt (and, for premium, pays) before navigating, so
   // the test + attempt are normally already in the store. If they're not — a
-  // direct link or a page refresh — start it here too. start-test mints a FRESH
-  // attempt each call (resume is deferred), which is acceptable for now; the
-  // card path still owns the premium confirm / top-up UX.
+  // direct link or a page refresh — we either RESUME the attempt named in the URL
+  // (no new attempt, no charge) or, with no attempt id, start a fresh one.
   const hasLiveSession =
     Number(currentTest.value?.id) === Number(testId) && testStore.currentAttempt != null
 
@@ -978,26 +967,51 @@ const loadTest = async (testId) => {
     activeAttemptId.value = null
     dirtyQuestionIds.clear()
 
-    // First-time gate: a direct link / refresh starts a brand-new attempt here,
-    // so the test-taker must have a real name on file for the certificate. No-op
-    // once the profile is complete; otherwise this blocks on the
-    // ProfileGateModal. Backing out returns them to where they came from rather
-    // than starting a nameless attempt.
-    const profileOk = await ensureProfileComplete()
-    if (!profileOk) {
-      shouldPersistProgress.value = false
-      router.back()
-      return
-    }
+    if (requestedAttemptId.value) {
+      // Resume path (refresh / continue). The server returns the saved answers and
+      // the remaining time; the currentTest watcher applies them. If the window
+      // already elapsed the attempt is finished server-side — go straight to the
+      // graded result rather than resuming an expired test.
+      try {
+        const { isCompleted } = await testStore.resumeAttempt(requestedAttemptId.value)
+        if (isCompleted) {
+          shouldPersistProgress.value = false
+          testProgressStore.clearProgress(testId)
+          await router.replace({
+            name: 'explanation',
+            query: { testId, attemptId: requestedAttemptId.value },
+          })
+          return
+        }
+      } catch (error) {
+        // Resume failed (not the user's attempt, deleted, etc.); surface via
+        // resolvedErrorMessage rather than silently minting a new attempt.
+        console.error(error)
+        shouldPersistProgress.value = false
+        return
+      }
+    } else {
+      // First-time gate: a direct link with no attempt starts a brand-new attempt
+      // here, so the test-taker must have a real name on file for the certificate.
+      // No-op once the profile is complete; otherwise this blocks on the
+      // ProfileGateModal. Backing out returns them to where they came from rather
+      // than starting a nameless attempt.
+      const profileOk = await ensureProfileComplete()
+      if (!profileOk) {
+        shouldPersistProgress.value = false
+        router.back()
+        return
+      }
 
-    try {
-      await testStore.startTest(testId)
-    } catch (error) {
-      // start-test failed (e.g. insufficient balance on a premium test opened
-      // directly). testStore.errorMessage surfaces via resolvedErrorMessage.
-      console.error(error)
-      shouldPersistProgress.value = false
-      return
+      try {
+        await testStore.startTest(testId)
+      } catch (error) {
+        // start-test failed (e.g. insufficient balance on a premium test opened
+        // directly). testStore.errorMessage surfaces via resolvedErrorMessage.
+        console.error(error)
+        shouldPersistProgress.value = false
+        return
+      }
     }
   }
 
@@ -1176,6 +1190,12 @@ watch(
   },
 )
 
+// The attempt the timer/answers were last initialized for. currentTest is
+// reassigned for incidental reasons (e.g. background subject enrichment) that
+// must NOT reset the clock or wipe answers — so we only (re)initialize when the
+// attempt id actually changes.
+let initializedAttemptId = null
+
 watch(
   currentTest,
   (test) => {
@@ -1185,25 +1205,29 @@ watch(
       teardownFullscreen()
       remainingSeconds.value = 0
       activeAttemptId.value = null
+      initializedAttemptId = null
       return
     }
 
-    // The attempt was created by start-test before navigation; adopt its id.
-    activeAttemptId.value = testStore.currentAttempt?.id
+    // The attempt was created by start-test (or adopted by resume) before
+    // currentTest changed; adopt its id.
+    const attemptId = testStore.currentAttempt?.id
       ? Number(testStore.currentAttempt.id)
       : null
+    activeAttemptId.value = attemptId
 
-    // Saved progress from a previous visit (localStorage). Read it BEFORE
-    // clearAnswers so the persist watcher can't overwrite it first. We use it to
-    // (a) resume the countdown from the saved deadline and (b) restore the
-    // chosen answers — both of which otherwise reset on every refresh. We only
-    // start fresh when the user explicitly restarts (?restart=1).
-    const savedProgress = shouldRestartTest.value
-      ? null
-      : testProgressStore.getProgress(test.id)
-    const savedDeadline = Number(savedProgress?.deadlineAt)
-    const hasSavedDeadline = Number.isFinite(savedDeadline)
-    const remainingMs = hasSavedDeadline ? savedDeadline - Date.now() : null
+    // Already set up for this attempt — a later currentTest reassignment (subject
+    // enrichment) must not restart the timer or re-clear answers.
+    if (attemptId && attemptId === initializedAttemptId) {
+      return
+    }
+    initializedAttemptId = attemptId
+
+    // The window already elapsed: loadTest is redirecting to the graded result,
+    // so don't arm a timer or enter fullscreen for an attempt we're leaving.
+    if (testStore.lastResume?.isCompleted) {
+      return
+    }
 
     clearAnswers()
     dirtyQuestionIds.clear()
@@ -1212,19 +1236,16 @@ watch(
     setupFullscreen()
     const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
 
-    // Re-fill saved answers first so an expired-deadline auto-submit includes them.
-    restoreSavedAnswers(savedProgress)
+    // Resume payload (refresh / continue): re-fill the saved answers and run the
+    // clock down from the server's remaining time. On a fresh start there is no
+    // resume state, so the timer begins from the test's full duration.
+    const resume = testStore.lastResume
 
-    if (hasSavedDeadline && remainingMs <= 0) {
-      // The deadline already passed while the page was closed — time is up, so
-      // submit instead of handing out a fresh timer. autoSubmitOnTimeUp uses the
-      // already-adopted attempt id and never re-calls start-test.
-      stopTimer()
-      testDeadlineAt = savedDeadline
-      remainingSeconds.value = 0
-      void autoSubmitOnTimeUp()
+    if (resume) {
+      applyServerAnswers(resume.userAnswers)
+      startTimer(questionCount, resume.remainingSeconds)
     } else {
-      startTimer(questionCount, hasSavedDeadline ? Math.ceil(remainingMs / 1000) : null)
+      startTimer(questionCount, null)
     }
 
     void clearRestartQuery()

@@ -79,6 +79,10 @@ export const useTestStore = defineStore('test', () => {
   const currentTest = ref(null)
   const currentAttempt = ref(null)
   const lastSubmission = ref(null)
+  // Set by resumeAttempt right before currentTest changes; read once by the test
+  // page to re-fill saved answers and start the clock from the server's remaining
+  // time. Null on a fresh start so that path begins from the full duration.
+  const lastResume = ref(null)
   const isLoading = ref(false)
   const errorMessage = ref('')
 
@@ -155,6 +159,11 @@ export const useTestStore = defineStore('test', () => {
         throw new Error(payload?.message || 'Could not start the test.')
       }
 
+      // Fresh attempt: no resume state, so the page starts from the full duration
+      // with no pre-filled answers. Clear before currentTest changes (the page's
+      // watcher reads lastResume when the attempt first initializes).
+      lastResume.value = null
+
       // start-test returns the same content shape as the old detail endpoint
       // plus testAttemptId, but no test id — inject the requested one so the
       // test page can match it against the route's testId.
@@ -179,46 +188,60 @@ export const useTestStore = defineStore('test', () => {
     }
   }
 
-  // Derive the correct/incorrect/max-score tallies the certificate needs from a
-  // graded results payload. get-results returns per-option `isCorrect` and the
-  // user's picks but no aggregate counts, so we compute them here. Free-text
-  // answers can't be judged from options — matching the explanation table, an
-  // answered free response counts as incorrect (the point-based TotalScore from
-  // the backend remains the source of truth for the grade).
-  function computeResultAggregates(test, userAnswers) {
-    const answerByQuestionId = new Map(
-      (userAnswers || []).map((answer) => [Number(answer?.questionId), answer]),
-    )
+  // Resume an in-progress attempt by id (page refresh / direct link / "continue"
+  // card). Returns the answer-less exam content plus the answers already saved
+  // for this attempt and the server's remaining time — no new attempt, no charge.
+  // If the window has elapsed the backend finishes the attempt and returns
+  // isCompleted; the caller then routes to the graded result instead of resuming.
+  async function resumeAttempt(attemptId) {
+    const apiBaseUrl = getTestApiBaseUrl()
 
-    let correctCount = 0
-    let incorrectCount = 0
-    let maxScore = 0
-
-    for (const question of test.questions || []) {
-      maxScore += Number(question?.score) || 0
-
-      const answer = answerByQuestionId.get(Number(question.id))
-      if (!answer) {
-        continue
-      }
-
-      const selectedOptionId = Number(answer.selectedOptionId || 0)
-
-      if (selectedOptionId > 0) {
-        const option = (question.options || []).find(
-          (candidate) => Number(candidate.id) === selectedOptionId,
-        )
-        if (option?.isCorrect) {
-          correctCount += 1
-        } else {
-          incorrectCount += 1
-        }
-      } else if (typeof answer.textAnswer === 'string' && answer.textAnswer.trim()) {
-        incorrectCount += 1
-      }
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
     }
 
-    return { correctCount, incorrectCount, maxScore }
+    ensureAuth()
+
+    isLoading.value = true
+    errorMessage.value = ''
+
+    try {
+      const response = await apiFetch(
+        `${apiBaseUrl}/user-test-attempt/resume?testAttemptId=${Number(attemptId)}`,
+        {
+          headers: buildAuthHeaders(),
+        },
+      )
+
+      const payload = await response.json()
+
+      if (!response.ok || payload?.code !== 200 || !payload?.data) {
+        throw new Error(payload?.message || 'Could not resume the test.')
+      }
+
+      const data = payload.data
+      const resumeState = {
+        isCompleted: Boolean(data.isCompleted),
+        remainingSeconds: Number(data.remainingSeconds) || 0,
+        userAnswers: Array.isArray(data.userAnswers) ? data.userAnswers : [],
+      }
+
+      // Set resume state BEFORE currentTest so the page's watcher (which fires
+      // when the attempt first initializes) sees it on this same change.
+      lastResume.value = resumeState
+      currentTest.value = normalizeTest({ ...data, id: Number(data.testId) }, apiBaseUrl)
+      currentAttempt.value = { id: Number(data.testAttemptId) }
+
+      void enrichSubject(data.testId, apiBaseUrl)
+
+      return resumeState
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Could not resume the test.'
+      throw error
+    } finally {
+      isLoading.value = false
+    }
   }
 
   // Read-only graded results for a single attempt (no charge, no new attempt).
@@ -255,13 +278,18 @@ export const useTestStore = defineStore('test', () => {
       currentTest.value = normalizeTest(data, apiBaseUrl)
 
       const userAnswers = Array.isArray(data.userAnswers) ? data.userAnswers : []
-      const aggregates = computeResultAggregates(currentTest.value, userAnswers)
 
+      // The backend grades on read (get-results) and returns the tallies the
+      // certificate needs — score, max, correct/incorrect counts — so we pass
+      // them straight through instead of recomputing (which couldn't judge free
+      // answers or grouped questions). TotalScore stays the authoritative grade.
       lastSubmission.value = {
         testAttemptId: data.testAttemptId,
         totalScore: data.totalScore,
+        maxScore: data.maxScore,
+        correctCount: data.correctCount,
+        incorrectCount: data.incorrectCount,
         userAnswers,
-        ...aggregates,
       }
 
       return { test: currentTest.value, submission: lastSubmission.value }
@@ -299,6 +327,10 @@ export const useTestStore = defineStore('test', () => {
     return Array.isArray(payload?.data) ? payload.data : []
   }
 
+  // Lean finalize: grade + mark the attempt completed server-side. The graded
+  // review payload (questions, groups, answers, score) is read separately via
+  // fetchAttemptResults (get-results), so we don't consume this response for
+  // rendering — it just confirms the submit succeeded.
   async function submitTestAttempt(testId, testAttemptId) {
     const apiBaseUrl = getTestApiBaseUrl()
 
@@ -322,9 +354,7 @@ export const useTestStore = defineStore('test', () => {
       throw new Error(payload?.message || 'Could not submit the test.')
     }
 
-    lastSubmission.value = payload?.data ?? null
-
-    return lastSubmission.value
+    return payload?.data ?? null
   }
 
   async function fetchQuestionExplanation(questionId) {
@@ -385,6 +415,7 @@ export const useTestStore = defineStore('test', () => {
   function clearCurrentTest() {
     currentTest.value = null
     currentAttempt.value = null
+    lastResume.value = null
     errorMessage.value = ''
   }
 
@@ -396,11 +427,13 @@ export const useTestStore = defineStore('test', () => {
     currentTest,
     currentAttempt,
     lastSubmission,
+    lastResume,
     isLoading,
     errorMessage,
     fetchAttemptResults,
     fetchUserAttempts,
     startTest,
+    resumeAttempt,
     submitTestAttempt,
     fetchQuestionExplanation,
     createUserAnswer,

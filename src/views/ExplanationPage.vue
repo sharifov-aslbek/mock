@@ -235,6 +235,26 @@ const pickPrimaryAnswer = (value) => {
   return (primary || trimmed).trim()
 }
 
+// Mirror the backend's FreeAnswer grading so the review badge agrees with the
+// score. The author lists accepted forms joined by `||` (a LaTeX form plus
+// plain-text fallbacks); a student is correct when their answer matches any one.
+// Comparison drops case and all whitespace — LaTeX spacing isn't significant and
+// the math editor pads inline math with spaces.
+const normalizeFreeAnswer = (value) =>
+  typeof value === 'string' ? value.replace(/\s+/g, '').toLowerCase() : ''
+
+const matchesFreeAnswer = (userAnswer, correctAnswer) => {
+  const normalizedUser = normalizeFreeAnswer(userAnswer)
+  if (!normalizedUser || typeof correctAnswer !== 'string') {
+    return false
+  }
+
+  return correctAnswer
+    .split('||')
+    .map(normalizeFreeAnswer)
+    .some((accepted) => accepted && accepted === normalizedUser)
+}
+
 const userAnswersByQuestionId = computed(() => {
   const map = new Map()
   const userAnswers = testStore.lastSubmission?.userAnswers
@@ -473,7 +493,9 @@ const filteredQuestions = computed(() => {
       status = userAnswerOption.isCorrect ? 'correct' : 'incorrect'
     } else if (textAnswer) {
       yourAnswer = textAnswer
-      status = 'incorrect'
+      status = matchesFreeAnswer(textAnswer, sourceQuestion?.correctAnswer)
+        ? 'correct'
+        : 'incorrect'
     }
 
     // QUESTION TEXT
@@ -820,8 +842,9 @@ async function initializeExplanationPage() {
   }
 
   try {
-    // Finish the attempt first (when arriving straight from the test), then read
-    // the graded result back. Both paths end at the same get-results render.
+    // Finish the attempt first (when arriving straight from the test) — submit is
+    // a lean grade-only command — then read the full graded result back via
+    // loadResults (get-results). Both paths end at the same get-results render.
     if (readyToSubmit) {
       await finalizeTestSubmission()
       await stripRouteFlags(['readyToSubmit'])

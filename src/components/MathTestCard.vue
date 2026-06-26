@@ -166,12 +166,20 @@ const startAndOpen = async () => {
     return
   }
 
-  const redirectTarget = props.isAttemptedCard
-    ? `/test?testId=${props.test.id}&restart=1`
-    : `/test?testId=${props.test.id}`
-
   await testStore.startTest(props.test.id)
-  await router.push(redirectTarget)
+
+  // Carry the freshly minted attempt id in the URL so a refresh resumes THIS
+  // attempt instead of starting over.
+  const attemptId = testStore.currentAttempt?.id ? Number(testStore.currentAttempt.id) : null
+  const params = new URLSearchParams({ testId: String(props.test.id) })
+  if (attemptId) {
+    params.set('attemptId', String(attemptId))
+  }
+  if (props.isAttemptedCard) {
+    params.set('restart', '1')
+  }
+
+  await router.push(`/test?${params.toString()}`)
 }
 
 const openTest = async () => {
@@ -193,6 +201,26 @@ const handleStartTest = async () => {
 }
 
 const handleContinueTest = async () => {
+  const attemptId = props.attemptId ? Number(props.attemptId) : null
+
+  // In-progress card: resume the existing attempt (no new attempt, no charge).
+  // The test page reads the attempt id from the URL and restores saved answers
+  // and remaining time from the server.
+  if (attemptId) {
+    isStarting.value = true
+    startError.value = ''
+    try {
+      await router.push(`/test?testId=${props.test.id}&attemptId=${attemptId}`)
+    } catch (error) {
+      console.error(error)
+      startError.value = testStore.errorMessage || t('mathCard.startError')
+    } finally {
+      isStarting.value = false
+    }
+    return
+  }
+
+  // No known attempt id — fall back to starting fresh.
   await openTest()
 }
 
