@@ -20,6 +20,8 @@ const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+// Sub-question part labels within a group (36a, 36b, …), matching the test page.
+const GROUP_SUB_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('')
 const LANGUAGE_BY_LOCALE = { uz: 'Uzbek', ru: 'Russian' }
 
 const reviewingQuestionId = ref(null)
@@ -235,25 +237,9 @@ const pickPrimaryAnswer = (value) => {
   return (primary || trimmed).trim()
 }
 
-// Mirror the backend's FreeAnswer grading so the review badge agrees with the
-// score. The author lists accepted forms joined by `||` (a LaTeX form plus
-// plain-text fallbacks); a student is correct when their answer matches any one.
-// Comparison drops case and all whitespace — LaTeX spacing isn't significant and
-// the math editor pads inline math with spaces.
-const normalizeFreeAnswer = (value) =>
-  typeof value === 'string' ? value.replace(/\s+/g, '').toLowerCase() : ''
-
-const matchesFreeAnswer = (userAnswer, correctAnswer) => {
-  const normalizedUser = normalizeFreeAnswer(userAnswer)
-  if (!normalizedUser || typeof correctAnswer !== 'string') {
-    return false
-  }
-
-  return correctAnswer
-    .split('||')
-    .map(normalizeFreeAnswer)
-    .some((accepted) => accepted && accepted === normalizedUser)
-}
+// Free-answer grading now lives ONLY on the backend (get-results returns each
+// answer's IsCorrect). The review screen reads that flag, so there is no longer a
+// client-side LaTeX matcher to drift out of sync with the server.
 
 const userAnswersByQuestionId = computed(() => {
   const map = new Map()
@@ -394,40 +380,47 @@ const filteredQuestions = computed(() => {
     const order = Number(apiQuestion?.order)
 
     let displayLabel
+    let baseDisplayLabel
     if (isGroupedQuestion) {
       const info = groupOrderInfo.get(groupId)
       const subIndex = groupSubIndexes.get(groupId) || 0
-      // If every sub-question carries the SAME order (backend quirk),
-      // distribute sequentially: start, start+1, start+2…
-      // If they already differ, honour each question's actual order.
-      if (info && info.distinctOrders.size <= 1 && Number.isFinite(info.min)) {
+      const sharesOneOrder =
+        info && info.distinctOrders.size <= 1 && Number.isFinite(info.min)
+      // Matching groups are several distinct numbered tasks the backend happens to
+      // ship with one shared order (e.g. tasks 33-35). FreeAnswer groups are one
+      // problem split into parts a)/b). So only FreeAnswer parts get letters;
+      // Matching items get sequential numbers.
+      const isMatchingGroup = apiQuestion.type === 'Matching'
+
+      if (sharesOneOrder && !isMatchingGroup) {
+        // FreeAnswer parts: ONE numbered question (its shared order) → "36a"/"36b",
+        // and the group header shows just "36" (not a range overlapping the next).
+        const letter = GROUP_SUB_LETTERS[subIndex] || String(subIndex + 1)
+        displayLabel = `${info.min}${letter}`
+        baseDisplayLabel = String(info.min)
+      } else if (sharesOneOrder && isMatchingGroup) {
+        // Matching items: distribute sequential numbers from the start (33, 34,
+        // 35…); the header spans the whole range.
         displayLabel = String(info.min + subIndex)
+        baseDisplayLabel =
+          info.count > 1 ? `${info.min}-${info.min + info.count - 1}` : String(info.min)
       } else {
-        displayLabel = Number.isFinite(order) && order > 0
-          ? String(order)
-          : String(fallbackCounter)
+        // Sub-questions carry genuinely different orders — honour each one, and
+        // let the header span the real min–max range.
+        displayLabel =
+          Number.isFinite(order) && order > 0 ? String(order) : String(fallbackCounter)
+        baseDisplayLabel =
+          info && Number.isFinite(info.min)
+            ? info.min === info.max
+              ? String(info.min)
+              : `${info.min}-${info.max}`
+            : displayLabel
       }
       groupSubIndexes.set(groupId, subIndex + 1)
     } else {
-      displayLabel = Number.isFinite(order) && order > 0
-        ? String(order)
-        : String(fallbackCounter)
-    }
-
-    // Group header label = the sequential range (start..start+count-1) when
-    // sub-questions all share one order, otherwise the actual min-max range.
-    let baseDisplayLabel = displayLabel
-    if (isGroupedQuestion) {
-      const info = groupOrderInfo.get(groupId)
-      if (info && Number.isFinite(info.min)) {
-        const startNumber = info.min
-        const endNumber = info.distinctOrders.size <= 1
-          ? info.min + info.count - 1
-          : info.max
-        baseDisplayLabel = startNumber === endNumber
-          ? String(startNumber)
-          : `${startNumber}-${endNumber}`
-      }
+      displayLabel =
+        Number.isFinite(order) && order > 0 ? String(order) : String(fallbackCounter)
+      baseDisplayLabel = displayLabel
     }
 
     const showGroupHeader =
@@ -481,22 +474,22 @@ const filteredQuestions = computed(() => {
         ? userAnswer.textAnswer.trim()
         : ''
 
-    let status = 'omitted'
+    // What the test-taker picked — for DISPLAY only.
     let yourAnswer = '-'
-
     if (selectedOption) {
       yourAnswer = selectedOption.letter
-      status = selectedOption.isCorrect ? 'correct' : 'incorrect'
     } else if (userAnswerOption) {
       yourAnswer =
         stripHtml(getEntityText(userAnswerOption) || userAnswerOption.text || '') || '-'
-      status = userAnswerOption.isCorrect ? 'correct' : 'incorrect'
     } else if (textAnswer) {
       yourAnswer = textAnswer
-      status = matchesFreeAnswer(textAnswer, sourceQuestion?.correctAnswer)
-        ? 'correct'
-        : 'incorrect'
     }
+
+    // Correctness is whatever the backend graded (userAnswer.isCorrect) — the UI
+    // never re-grades, so the badge always agrees with the score and the counts.
+    // A question with no submitted answer is omitted, not incorrect.
+    const hasAnswer = Boolean(userAnswer && (Number(selectedOptionId) > 0 || textAnswer))
+    const status = hasAnswer ? (userAnswer.isCorrect ? 'correct' : 'incorrect') : 'omitted'
 
     // QUESTION TEXT
     const groupTitle = isGroupedQuestion
@@ -565,16 +558,20 @@ const filteredQuestions = computed(() => {
 })
 
 const totalQuestions = computed(() => filteredQuestions.value.length)
-const correctCount = computed(() =>
-  testStore.lastSubmission?.correctCount ??
-  filteredQuestions.value.filter((question) => question.status === 'correct').length,
+// Derive correct / incorrect / omitted from ONE source — the per-question status
+// shown in each table row — so they always sum to the question total (never
+// >100%) and match the green/red badge the user sees. Mixing the backend's
+// aggregate counts with a frontend-derived omitted count is what produced the
+// "56 / 102%" artifact. The authoritative POINTS still come from the backend
+// (totalScore / maxScore), shown separately; these are just the answered tally.
+const correctCount = computed(
+  () => filteredQuestions.value.filter((question) => question.status === 'correct').length,
 )
-const incorrectCount = computed(() =>
-  testStore.lastSubmission?.incorrectCount ??
-  filteredQuestions.value.filter((question) => question.status === 'incorrect').length,
+const incorrectCount = computed(
+  () => filteredQuestions.value.filter((question) => question.status === 'incorrect').length,
 )
-const omittedCount = computed(() =>
-  filteredQuestions.value.filter((question) => question.status === 'omitted').length,
+const omittedCount = computed(
+  () => filteredQuestions.value.filter((question) => question.status === 'omitted').length,
 )
 // A skipped question is a mistake too: the "Noto'g'ri" tally counts every
 // question that wasn't answered correctly (answered-wrong + omitted), so the
