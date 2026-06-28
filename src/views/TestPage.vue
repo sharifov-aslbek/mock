@@ -1016,70 +1016,16 @@ const loadTest = async (testId) => {
   }
 
   // Adopt the attempt the store now holds; the currentTest watcher wires up the
-  // timer and fullscreen.
+  // timer.
   activeAttemptId.value = testStore.currentAttempt?.id
     ? Number(testStore.currentAttempt.id)
     : null
   await clearRestartQuery()
 }
 
-const enterFullscreen = async () => {
-  if (typeof document === 'undefined' || document.fullscreenElement) {
-    return
-  }
-
-  const element = document.documentElement
-  const request =
-    element.requestFullscreen || element.webkitRequestFullscreen || element.msRequestFullscreen
-
-  if (typeof request !== 'function') {
-    return
-  }
-
-  try {
-    await request.call(element)
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-const exitFullscreen = () => {
-  if (typeof document === 'undefined' || !document.fullscreenElement) {
-    return
-  }
-
-  const exit =
-    document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen
-
-  if (typeof exit !== 'function') {
-    return
-  }
-
-  try {
-    void exit.call(document)
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-function removeFullscreenGestureListeners() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.removeEventListener('pointerdown', handleFullscreenGesture)
-  window.removeEventListener('keydown', handleFullscreenGesture)
-}
-
-const handleFullscreenGesture = () => {
-  removeFullscreenGestureListeners()
-  void enterFullscreen()
-}
-
 const finishTestAndGoToExplanation = async () => {
   await syncDirtyAnswers()
   stopTimer()
-  teardownFullscreen()
   showSubmitModal.value = false
 
   await router.push({
@@ -1090,48 +1036,6 @@ const finishTestAndGoToExplanation = async () => {
       readyToSubmit: '1',
     },
   })
-}
-
-// Browsers only allow fullscreen from a user gesture, so try immediately and
-// fall back to entering on the test taker's first interaction with the page.
-const armFullscreen = () => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  void enterFullscreen()
-  removeFullscreenGestureListeners()
-  window.addEventListener('pointerdown', handleFullscreenGesture)
-  window.addEventListener('keydown', handleFullscreenGesture)
-}
-
-const handleFullscreenChange = () => {
-  if (!currentTest.value || isCompletingTest.value) {
-    return
-  }
-
-  if (!document.fullscreenElement) {
-    armFullscreen()
-  }
-}
-
-const setupFullscreen = () => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  document.addEventListener('fullscreenchange', handleFullscreenChange)
-  armFullscreen()
-}
-
-const teardownFullscreen = () => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  document.removeEventListener('fullscreenchange', handleFullscreenChange)
-  removeFullscreenGestureListeners()
-  exitFullscreen()
 }
 
 // True whenever the test is loaded and the user has not finished it. We do
@@ -1202,7 +1106,6 @@ watch(
     if (!test) {
       closeReferenceWindow()
       stopTimer()
-      teardownFullscreen()
       remainingSeconds.value = 0
       activeAttemptId.value = null
       initializedAttemptId = null
@@ -1224,7 +1127,7 @@ watch(
     initializedAttemptId = attemptId
 
     // The window already elapsed: loadTest is redirecting to the graded result,
-    // so don't arm a timer or enter fullscreen for an attempt we're leaving.
+    // so don't arm a timer for an attempt we're leaving.
     if (testStore.lastResume?.isCompleted) {
       return
     }
@@ -1233,7 +1136,6 @@ watch(
     dirtyQuestionIds.clear()
     clearAnswerActionsForTest(test.id)
 
-    setupFullscreen()
     const questionCount = totalQuestions.value || Number(test.questions?.length || 0)
 
     // Resume payload (refresh / continue): re-fill the saved answers and run the
@@ -1338,7 +1240,6 @@ onBeforeUnmount(() => {
   void syncDirtyAnswers()
   persistCurrentProgress()
   stopTimer()
-  teardownFullscreen()
   if (typeof window !== 'undefined') {
     window.removeEventListener('beforeunload', handleBeforeUnload)
   }
