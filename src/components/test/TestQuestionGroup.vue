@@ -210,6 +210,12 @@ const formattedQuestions = computed(() => {
              <!-- {{ question.groupSubLabel ? `${question.groupSubLabel}.` : '' }} -->
           </span>
 
+          <!-- Mobile stacks the answer dropdown and the prompt vertically (each
+               full width) so the prompt can't get squeezed into a sliver of a
+               column and wrap one character per line. sm+ keeps them side by
+               side (dropdown first, then prompt) via the order utilities. -->
+          <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
+          <div class="order-2 w-full sm:order-1 sm:w-auto sm:flex-shrink-0">
           <NPopover
             trigger="click"
             placement="bottom-start"
@@ -219,7 +225,7 @@ const formattedQuestions = computed(() => {
             <template #trigger>
               <button
                 type="button"
-                class="flex min-h-[38px] min-w-[180px] max-w-[260px] items-center gap-3 rounded-[14px] border border-[#d1cec7] bg-white px-3.5 py-2 text-left text-[13px] text-[#1a1814] shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-[#b8b4ad] focus:border-[#1a1814] focus:outline-none sm:min-h-[40px] sm:min-w-[220px] sm:rounded-[4px] sm:px-4 sm:text-[14px]"
+                class="flex min-h-[38px] w-full items-center gap-3 rounded-[14px] border border-[#d1cec7] bg-white px-3.5 py-2 text-left text-[13px] text-[#1a1814] shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-[#b8b4ad] focus:border-[#1a1814] focus:outline-none sm:min-h-[40px] sm:w-auto sm:min-w-[220px] sm:max-w-[260px] sm:rounded-[4px] sm:px-4 sm:text-[14px]"
               >
                 <span
                   v-if="getSelectedMatchingOption(question)"
@@ -279,8 +285,9 @@ const formattedQuestions = computed(() => {
               </button>
             </div>
           </NPopover>
+          </div>
 
-          <div class="min-w-0 flex-1 space-y-2 pt-1 sm:pt-1.5">
+          <div class="order-1 min-w-0 flex-1 space-y-2 sm:order-2 sm:pt-1.5">
             <TestInlineMathText
               tag="p"
               :text="question.text"
@@ -297,6 +304,7 @@ const formattedQuestions = computed(() => {
                 class="max-h-[420px] w-full object-contain"
               />
             </div>
+          </div>
           </div>
 
           <button

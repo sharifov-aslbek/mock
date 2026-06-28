@@ -32,6 +32,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 const mathFieldRef = ref(null)
 const textFieldRef = ref(null)
+const keyboardWrapRef = ref(null)
 const isFormulaPanelOpen = ref(false)
 
 const toggleLabel = computed(() =>
@@ -44,6 +45,13 @@ const handleFormulaToggle = () => {
   if (isFormulaPanelOpen.value) {
     window.setTimeout(() => {
       mathFieldRef.value?.focus()
+      // Focusing the field pops the native mobile keyboard. Once it has
+      // animated in (and the layout has resized — see index.html's
+      // interactive-widget meta), scroll the in-app math keyboard into view so
+      // it sits just above the native keyboard instead of behind it.
+      window.setTimeout(() => {
+        keyboardWrapRef.value?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      }, 300)
     }, 0)
   }
 }
@@ -159,11 +167,12 @@ const handleKeyboardAction = (action) => {
       </button>
     </div>
 
-    <MathQuillKeyboard
-      v-if="isMathTest"
-      :is-visible="isFormulaPanelOpen"
-      @action="handleKeyboardAction"
-      @close="isFormulaPanelOpen = false"
-    />
+    <div v-if="isMathTest && isFormulaPanelOpen" ref="keyboardWrapRef">
+      <MathQuillKeyboard
+        :is-visible="true"
+        @action="handleKeyboardAction"
+        @close="isFormulaPanelOpen = false"
+      />
+    </div>
   </div>
 </template>
