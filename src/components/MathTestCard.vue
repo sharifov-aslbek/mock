@@ -196,6 +196,28 @@ const openTest = async () => {
   }
 }
 
+// Free test card CTA ("Testni boshlash"). On the results page the card opens
+// the attempt-choice modal. Otherwise an unauthenticated user is sent straight
+// to login the instant they click — before the confirm modal or any backend
+// call — mirroring the premium card's gate. An authenticated user gets the
+// usual confirm modal and the unchanged start flow.
+const handleStartClick = () => {
+  if (props.isAttemptedCard) {
+    showAttemptChoiceModal.value = true
+    return
+  }
+
+  if (!authStore.isAuthenticated) {
+    router.push({
+      path: '/login',
+      query: { reason: 'auth-required', redirect: `/test?testId=${props.test.id}` },
+    })
+    return
+  }
+
+  showStartModal.value = true
+}
+
 const handleStartTest = async () => {
   await openTest()
 }
@@ -367,7 +389,7 @@ const handleAttemptedCardClick = () => {
         <button
           v-if="!isInProgressCard && !isPremium"
           type="button"
-          @click.stop="isAttemptedCard ? (showAttemptChoiceModal = true) : (showStartModal = true)"
+          @click.stop="handleStartClick"
           :disabled="isStarting"
           class="flex w-full items-center justify-center gap-2 rounded-full bg-[#1a1814] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(26,24,20,0.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-black hover:shadow-[0_14px_36px_rgba(26,24,20,0.24)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
