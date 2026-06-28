@@ -253,6 +253,120 @@ const handleNativeKeyDown = (event) => {
   }
 }
 
+// MathQuill 0.10.1 only inserts typed characters when a `keypress` event fires
+// (saneKeyboardEvents arms text insertion from onKeypress only). Android soft
+// keyboards (Gboard, etc.) don't fire `keypress` for typing — they fire
+// `keydown` with keyCode 229 and deliver text through `input`/composition
+// events — so the character lands in MathQuill's hidden <textarea> but is never
+// read out, and nothing appears. iOS/desktop fire real `keypress` events, so
+// they work. This bridge reads those dropped characters and feeds them through
+// `typedText()` (the same path the on-screen keyboard uses) — but only when no
+// `keypress` handled the keystroke, so it never double-inserts where MathQuill's
+// native path already works.
+const INSERTING_INPUT_TYPES = new Set([
+  'insertText',
+  'insertReplacementText',
+  'insertCompositionText',
+])
+
+const attachAndroidInputBridge = (rootElement) => {
+  const textarea = rootElement?.querySelector?.('textarea')
+
+  if (!textarea) {
+    return null
+  }
+
+  // Whether a `keypress` already armed MathQuill's own insertion for the
+  // current keystroke. Reset on every keydown; set on keypress.
+  let keypressHandledInput = false
+  // True between compositionstart/compositionend (swipe, autocorrect,
+  // suggestion strip) — we wait for the final committed text instead of
+  // inserting partial composition buffers.
+  let isComposing = false
+
+  const handleKeydown = () => {
+    keypressHandledInput = false
+  }
+  const handleKeypress = () => {
+    keypressHandledInput = true
+  }
+  const handleCompositionStart = () => {
+    isComposing = true
+  }
+
+  const flushTypedText = () => {
+    const mathField = mathFieldRef.value
+
+    if (!mathField || props.disabled) {
+      return
+    }
+
+    // A selection in the textarea means its contents mirror selected math (put
+    // there by MathQuill for copy), not freshly typed text — don't insert it.
+    if (textarea.selectionStart !== textarea.selectionEnd) {
+      return
+    }
+
+    const text = textarea.value
+
+    if (!text) {
+      return
+    }
+
+    // Clear first so any trailing `input` (e.g. the event browsers fire right
+    // after compositionend) sees an empty textarea and no-ops.
+    textarea.value = ''
+    safeOp(() => mathField.typedText(text))
+  }
+
+  const handleInput = (event) => {
+    // Desktop / iOS: a keypress already armed MathQuill's own insertion — let
+    // it run so the character isn't inserted twice.
+    if (keypressHandledInput) {
+      return
+    }
+
+    // Mid-composition: wait for the committed word on compositionend.
+    if (isComposing || event.isComposing) {
+      return
+    }
+
+    // Only bridge real text insertion. Paste has its own MathQuill handler;
+    // deletions go through the native keyCode path.
+    if (event.inputType && !INSERTING_INPUT_TYPES.has(event.inputType)) {
+      return
+    }
+
+    flushTypedText()
+  }
+
+  const handleCompositionEnd = () => {
+    isComposing = false
+
+    // If a keypress drove this composition (desktop dead keys), MathQuill
+    // already inserted it — don't duplicate.
+    if (keypressHandledInput) {
+      return
+    }
+
+    flushTypedText()
+  }
+
+  textarea.addEventListener('keydown', handleKeydown)
+  textarea.addEventListener('keypress', handleKeypress)
+  textarea.addEventListener('input', handleInput)
+  textarea.addEventListener('compositionstart', handleCompositionStart)
+  textarea.addEventListener('compositionend', handleCompositionEnd)
+
+  return () => {
+    textarea.removeEventListener('keydown', handleKeydown)
+    textarea.removeEventListener('keypress', handleKeypress)
+    textarea.removeEventListener('input', handleInput)
+    textarea.removeEventListener('compositionstart', handleCompositionStart)
+    textarea.removeEventListener('compositionend', handleCompositionEnd)
+  }
+}
+
 const attachFieldListeners = () => {
   const mathField = mathFieldRef.value
   const rootElement = typeof mathField?.el === 'function' ? mathField.el() : mathFieldHostRef.value
@@ -277,10 +391,15 @@ const attachFieldListeners = () => {
   rootElement.addEventListener('focusout', handleFocusOut)
   document.addEventListener('keydown', handleNativeKeyDown, true)
 
+  // Recover Android soft-keyboard typing, which MathQuill 0.10.1 can't capture
+  // on its own (see attachAndroidInputBridge).
+  const detachInputBridge = attachAndroidInputBridge(rootElement)
+
   removeFieldListeners = () => {
     rootElement.removeEventListener('focusin', handleFocusIn)
     rootElement.removeEventListener('focusout', handleFocusOut)
     document.removeEventListener('keydown', handleNativeKeyDown, true)
+    detachInputBridge?.()
   }
 }
 
