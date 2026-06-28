@@ -59,6 +59,14 @@ const loadMathQuill = async () => {
   return mathQuillLoaderPromise
 }
 
+// Android soft keyboards (Gboard, Samsung, …) type through an IME path: keydown
+// arrives as keyCode 229 and the keypress event this old MathQuill build needs
+// to insert a character never fires, so native-keyboard digits/operators do
+// nothing. iOS and desktop fire normal keypress and work fine, so the bridge
+// below is scoped to Android only and never runs on those platforms.
+const isAndroid =
+  typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '')
+
 const mathFieldHostRef = ref(null)
 const mathFieldRef = ref(null)
 const currentLatex = ref('')
@@ -253,6 +261,68 @@ const handleNativeKeyDown = (event) => {
   }
 }
 
+// Bridges Android soft-keyboard input into MathQuill. Reads what the user typed
+// into MathQuill's hidden <textarea> and feeds it in via typedText(). The
+// keypress guard keeps it inert on the normal path: if a real keypress fired
+// (iOS/desktop/hardware keyboards), MathQuill already inserted the character, so
+// we skip; we only act on the Android IME path where keypress never fires. The
+// composition guard avoids double-inserting predictive-text suggestions.
+const attachAndroidKeyboardBridge = (rootElement) => {
+  const textarea = rootElement.querySelector('textarea')
+
+  if (!textarea) {
+    return null
+  }
+
+  let isComposing = false
+  let sawKeypress = false
+
+  const flush = () => {
+    const typed = textarea.value
+    if (!typed) {
+      return
+    }
+    // Clear first so MathQuill's own (deferred) textarea read can't re-insert
+    // the same text and the next input event carries only new characters.
+    textarea.value = ''
+    safeOp(() => mathFieldRef.value?.typedText(typed))
+  }
+
+  const onKeydown = () => {
+    sawKeypress = false
+  }
+  const onKeypress = () => {
+    sawKeypress = true
+  }
+  const onInput = () => {
+    if (sawKeypress || isComposing) {
+      return
+    }
+    flush()
+  }
+  const onCompositionStart = () => {
+    isComposing = true
+  }
+  const onCompositionEnd = () => {
+    isComposing = false
+    flush()
+  }
+
+  textarea.addEventListener('keydown', onKeydown)
+  textarea.addEventListener('keypress', onKeypress)
+  textarea.addEventListener('input', onInput)
+  textarea.addEventListener('compositionstart', onCompositionStart)
+  textarea.addEventListener('compositionend', onCompositionEnd)
+
+  return () => {
+    textarea.removeEventListener('keydown', onKeydown)
+    textarea.removeEventListener('keypress', onKeypress)
+    textarea.removeEventListener('input', onInput)
+    textarea.removeEventListener('compositionstart', onCompositionStart)
+    textarea.removeEventListener('compositionend', onCompositionEnd)
+  }
+}
+
 const attachFieldListeners = () => {
   const mathField = mathFieldRef.value
   const rootElement = typeof mathField?.el === 'function' ? mathField.el() : mathFieldHostRef.value
@@ -277,10 +347,13 @@ const attachFieldListeners = () => {
   rootElement.addEventListener('focusout', handleFocusOut)
   document.addEventListener('keydown', handleNativeKeyDown, true)
 
+  const removeAndroidBridge = isAndroid ? attachAndroidKeyboardBridge(rootElement) : null
+
   removeFieldListeners = () => {
     rootElement.removeEventListener('focusin', handleFocusIn)
     rootElement.removeEventListener('focusout', handleFocusOut)
     document.removeEventListener('keydown', handleNativeKeyDown, true)
+    removeAndroidBridge?.()
   }
 }
 
