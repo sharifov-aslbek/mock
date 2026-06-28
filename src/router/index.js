@@ -56,15 +56,15 @@ const routes = [
     }
   },
   {
-    path: '/ona-tili',
-    name: 'ona-tili',
+    path: '/fizika',
+    name: 'fizika',
     component: () => import('@/views/SubjectPage.vue'),
     meta: {
-      subjectKey: 'nativeLanguage',
+      subjectKey: 'physics',
       seo: {
-        title: 'Ona tili testlari',
+        title: 'Fizika testlari',
         description:
-          'Ona tili va adabiyot bo‘yicha milliy sertifikat testlarini real test formatida ishlang va darhol boshlang.',
+          'Fizikadan milliy sertifikat testlarini real test formatida ishlang. O‘zingizga mos testni tanlang va darhol boshlang.',
       },
     }
   },
