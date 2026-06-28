@@ -31,6 +31,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 const mathFieldRef = ref(null)
+const textFieldRef = ref(null)
 const isFormulaPanelOpen = ref(false)
 
 const toggleLabel = computed(() =>
@@ -47,11 +48,24 @@ const handleFormulaToggle = () => {
   }
 }
 
-// Escape hatch: reset the field. Always recovers a stuck field (e.g. an
-// undeletable orphan node from a MathQuill glitch) since clearing rebuilds the
-// editor tree from scratch.
+// Plain-text path: history / native-language free answers are ordinary prose
+// (e.g. a person's name like "Ali Sattor"), so spaces and normal typing must
+// work. MathQuill hijacks the spacebar as a cursor-move, which mangles such
+// answers — so for non-math tests we use a real <textarea> instead.
+const handleTextInput = (event) => {
+  emit('update:modelValue', event.target.value)
+}
+
+// Escape hatch: reset the field. For math, MathQuill's clear() rebuilds the
+// editor tree from scratch (also recovers a stuck field). For plain text we
+// just empty the model and refocus the textarea.
 const clearField = () => {
-  mathFieldRef.value?.clear()
+  if (isMathTest.value) {
+    mathFieldRef.value?.clear()
+    return
+  }
+  emit('update:modelValue', '')
+  window.setTimeout(() => textFieldRef.value?.focus(), 0)
 }
 
 const handleKeyboardAction = (action) => {
@@ -74,7 +88,18 @@ const handleKeyboardAction = (action) => {
 
 <template>
   <div class="space-y-3">
+    <textarea
+      v-if="!isMathTest"
+      ref="textFieldRef"
+      :value="modelValue"
+      :placeholder="placeholder"
+      rows="3"
+      class="min-h-[96px] w-full resize-none rounded-2xl border border-[#e0ddd7] bg-white p-6 text-[16px] leading-[1.6] text-[#1a1814] shadow-[0_2px_8px_rgba(15,23,42,0.04)] outline-none transition-all duration-150 placeholder:text-[#9b958c] hover:border-[#bcb7ad] focus:border-[#1a1814] focus:shadow-[0_4px_14px_rgba(15,23,42,0.08)] focus:outline-none"
+      @input="handleTextInput"
+    ></textarea>
+
     <MathQuillField
+      v-else
       ref="mathFieldRef"
       compact
       :model-value="modelValue"

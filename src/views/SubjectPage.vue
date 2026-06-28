@@ -23,12 +23,13 @@ const SUBJECT_CONFIG = {
       'M19 17V5a2 2 0 0 0-2-2H4',
     ],
   },
-  nativeLanguage: {
-    // Open book (til / adabiyot).
-    aliases: ['nativelanguage', 'native', 'mothertongue', 'uzbek', 'onatili', 'ona tili', 'til', 'language', 'родной', 'язык'],
+  physics: {
+    // Atom — nucleus with two crossing electron orbits.
+    aliases: ['physics', 'fizika', 'физика'],
     paths: [
-      'M12 7v14',
-      'M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z',
+      'M12 11.3a0.7 0.7 0 1 0 0 1.4 0.7 0.7 0 1 0 0-1.4',
+      'M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z',
+      'M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z',
     ],
   },
 }

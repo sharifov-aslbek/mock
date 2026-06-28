@@ -40,7 +40,7 @@ watch(
 const navItems = computed(() => [
   { label: t('navbar.items.math'), to: '/math' },
   { label: t('navbar.items.history'), to: '/tarix' },
-  { label: t('navbar.items.nativeLanguage'), to: '/ona-tili' },
+  { label: t('navbar.items.physics'), to: '/fizika' },
   // Mashq page hidden until it's finished — re-enable when complete
   // { label: t('navbar.items.mashq'), to: '/mashq' },
   { label: t('navbar.result'), to: '/result-exam' },

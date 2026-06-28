@@ -19,7 +19,7 @@ const messages = {
         act: 'ACT',
         math: 'Matematika',
         history: 'Tarix',
-        nativeLanguage: 'Ona tili',
+        physics: 'Fizika',
         mashq: 'Mashq',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -42,7 +42,7 @@ const messages = {
       secondary: 'Batafsil ma’lumot',
       scrollHint: 'Pastga aylantiring',
       stats: [
-        { value: '10 000+', label: 'ishlangan test' },
+        { value: '500+', label: 'ishlangan test' },
         { value: '98%', label: 'mamnun foydalanuvchi' },
         { value: '24/7', label: 'ochiq platforma' }
       ]
@@ -222,11 +222,11 @@ const messages = {
         description: 'O‘zbekiston va jahon tarixi bo‘yicha testlarni tanlang va bilimingizni sinab ko‘ring.',
         subjectValue: 'Tarix'
       },
-      nativeLanguage: {
-        eyebrow: 'Ona tili markazi',
-        title: 'Ona tili testlari',
-        description: 'Ona tili va adabiyot bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
-        subjectValue: 'Ona tili'
+      physics: {
+        eyebrow: 'Fizika markazi',
+        title: 'Fizika testlari',
+        description: 'Fizika bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
+        subjectValue: 'Fizika'
       }
     },
     login: {
@@ -452,7 +452,7 @@ const messages = {
         act: 'ACT',
         math: 'Математика',
         history: 'Тарих',
-        nativeLanguage: 'Родной язык',
+        physics: 'Физика',
         mashq: 'Практика',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -475,7 +475,7 @@ const messages = {
       secondary: 'Подробнее',
       scrollHint: 'Листайте вниз',
       stats: [
-        { value: '10 000+', label: 'пройдено тестов' },
+        { value: '500+', label: 'пройдено тестов' },
         { value: '98%', label: 'довольных пользователей' },
         { value: '24/7', label: 'доступ к платформе' }
       ]
@@ -655,11 +655,11 @@ const messages = {
         description: 'Выберите тесты по истории Узбекистана и мира и проверьте свои знания.',
         subjectValue: 'История'
       },
-      nativeLanguage: {
-        eyebrow: 'Центр родного языка',
-        title: 'Тесты по родному языку',
-        description: 'Выберите тесты по родному языку и литературе и начните сразу.',
-        subjectValue: 'Родной язык'
+      physics: {
+        eyebrow: 'Центр физики',
+        title: 'Тесты по физике',
+        description: 'Выберите тесты по физике и начните сразу.',
+        subjectValue: 'Физика'
       }
     },
     login: {

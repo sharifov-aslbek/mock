@@ -44,8 +44,8 @@ const showTopUpModal = ref(false)
 const isCheckingBalance = ref(false)
 const isInProgressCard = computed(() => Boolean(props.test.isInProgressCard))
 
-// Card icon follows the test's subject — π for math, scroll for history, book
-// for Ona tili. See src/utils/subjects.js.
+// Card icon follows the test's subject — π for math, scroll for history, atom
+// for Fizika. See src/utils/subjects.js.
 const icon = computed(() => subjectIcon(props.test.subject))
 
 // Premium marking comes from the backend (see src/utils/premium.js). In-progress
