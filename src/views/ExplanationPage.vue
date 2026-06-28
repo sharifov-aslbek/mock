@@ -1844,9 +1844,12 @@ function answerFeedbackText(question) {
                       <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-[#a39e94]">
                         - (O'tkazilgan)
                       </span>
-                      <span v-else class="break-words text-lg font-bold text-[#1a1814]">
-                        {{ currentQuestion.yourAnswer }}
-                      </span>
+                      <TestInlineMathText
+                        v-else
+                        tag="span"
+                        :text="currentQuestion.yourAnswer"
+                        wrapper-class="break-words text-lg font-bold text-[#1a1814]"
+                      />
                     </div>
                   </div>
 
@@ -1957,9 +1960,12 @@ function answerFeedbackText(question) {
                       <span v-if="currentQuestion.status === 'omitted'" class="text-sm italic text-[#a39e94]">
                         - (O'tkazilgan)
                       </span>
-                      <span v-else class="break-words text-lg font-bold text-[#1a1814]">
-                        {{ currentQuestion.yourAnswer }}
-                      </span>
+                      <TestInlineMathText
+                        v-else
+                        tag="span"
+                        :text="currentQuestion.yourAnswer"
+                        wrapper-class="break-words text-lg font-bold text-[#1a1814]"
+                      />
                     </div>
                   </div>
 
