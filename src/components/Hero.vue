@@ -2,14 +2,23 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { useMobileMenu } from '@/composables/useMobileMenu'
 
 const { t, tm } = useI18n()
 const router = useRouter()
+const { open: openMobileMenu } = useMobileMenu()
 
 const stats = computed(() => tm('hero.stats') as Array<{ value: string; label: string }>)
 
-const goToMath = () => {
-  router.push('/math')
+// Desktop (lg+, where the navbar shows inline links) goes straight to the math
+// tests; below lg — where only the hamburger is visible — the CTA opens the
+// drawer menu so the user can pick a subject.
+const onPrimaryClick = () => {
+  if (window.matchMedia('(min-width: 1024px)').matches) {
+    router.push('/math')
+  } else {
+    openMobileMenu()
+  }
 }
 </script>
 
@@ -71,7 +80,7 @@ const goToMath = () => {
         <button
           type="button"
           class="group inline-flex h-[52px] items-center justify-center gap-2 rounded-full bg-[#1a1814] px-9 text-[15px] font-semibold text-white shadow-[0_10px_30px_rgba(26,24,20,0.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-black hover:shadow-[0_14px_36px_rgba(26,24,20,0.24)] active:scale-[0.98] min-[1300px]:h-[58px] min-[1300px]:px-11 min-[1300px]:text-base"
-          @click="goToMath"
+          @click="onPrimaryClick"
         >
           {{ t('hero.primary') }}
           <svg

@@ -5,9 +5,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { setLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
+import { useMobileMenu } from '@/composables/useMobileMenu'
 import logoMark from '@/assets/logo-removed.png'
 
-const isMobileMenuOpen = ref(false)
+// Drawer open/close lives in a shared composable so the Hero CTA (and anything
+// else) can open the same menu.
+const { isMobileMenuOpen, open: openMobileMenu, close: closeMobileMenu } = useMobileMenu()
 const isUserMenuOpen = ref(false)
 const isScrolled = ref(false)
 
@@ -78,10 +81,6 @@ const isActiveItem = (item: { to?: string | Record<string, unknown>; label: stri
   }
 
   return false
-}
-
-const closeMobileMenu = () => {
-  isMobileMenuOpen.value = false
 }
 
 const toggleUserMenu = () => {
@@ -235,11 +234,11 @@ onBeforeUnmount(() => {
 
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center rounded-lg text-[#aaa] transition hover:bg-white/10 lg:hidden"
+          class="flex h-10 w-10 items-center justify-center rounded-lg border border-[#3a3a3a] bg-[#1e1e1e] text-white transition hover:border-white/40 hover:bg-[#2a2a2a] lg:hidden"
           :aria-label="t('navbar.openMenu')"
-          @click="isMobileMenuOpen = true"
+          @click="openMobileMenu"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" />
           </svg>
         </button>
