@@ -1006,10 +1006,17 @@ const loadTest = async (testId) => {
       try {
         await testStore.startTest(testId)
       } catch (error) {
-        // start-test failed (e.g. insufficient balance on a premium test opened
-        // directly). testStore.errorMessage surfaces via resolvedErrorMessage.
+        // start-test failed. For a premium test reached directly (a deep link or
+        // the auth guard's post-login redirect) this is usually "insufficient
+        // balance" — don't strand the user in a half-loaded test shell; clear it
+        // and send them to pricing to top up. Any other error surfaces via
+        // resolvedErrorMessage instead.
         console.error(error)
         shouldPersistProgress.value = false
+        if (/insufficient/i.test(error?.message || '')) {
+          testStore.clearCurrentTest()
+          await router.replace('/pricing')
+        }
         return
       }
     }
