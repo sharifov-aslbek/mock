@@ -122,10 +122,10 @@ const handleKeyboardAction = (action) => {
       <button
         v-if="modelValue"
         type="button"
-        class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[16px] border border-[#e0ddd7] bg-white px-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[#8a857c] transition hover:border-[#1a1814] hover:text-[#1a1814] sm:w-auto sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:whitespace-nowrap"
+        class="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[16px] border border-[#e0ddd7] bg-white px-3 py-2 text-center text-[10px] font-medium uppercase leading-tight tracking-[0.04em] text-[#8a857c] transition hover:border-[#1a1814] hover:text-[#1a1814] sm:w-auto sm:gap-2 sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:tracking-[0.08em] sm:whitespace-nowrap"
         @click="clearField"
       >
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 18 18 6M6 6l12 12" />
         </svg>
         Tozalash
@@ -133,12 +133,12 @@ const handleKeyboardAction = (action) => {
       <button
         v-if="isMathTest"
         type="button"
-        class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[16px] border border-[#d1cec7] bg-[#faf8f4] px-4 text-[11px] font-medium uppercase tracking-[0.08em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:w-auto sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:whitespace-nowrap"
+        class="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[16px] border border-[#d1cec7] bg-[#faf8f4] px-3 py-2 text-center text-[10px] font-medium uppercase leading-tight tracking-[0.04em] text-[#1a1814] transition hover:border-[#1a1814] hover:bg-[#f2ede4] sm:w-auto sm:gap-2 sm:rounded-[18px] sm:px-5 sm:text-[12px] sm:tracking-[0.08em] sm:whitespace-nowrap"
         @click="handleFormulaToggle"
       >
         <svg
           v-if="isFormulaPanelOpen"
-          class="h-4 w-4 transition-transform duration-200"
+          class="h-4 w-4 shrink-0 transition-transform duration-200"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -151,7 +151,7 @@ const handleKeyboardAction = (action) => {
         </svg>
         <svg
           v-else
-          class="h-4 w-4 transition-transform duration-200"
+          class="h-4 w-4 shrink-0 transition-transform duration-200"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
