@@ -147,9 +147,6 @@ onMounted(() => {
 })
 
 
-const email = ref('')
-const password = ref('')
-const showPassword = ref(false)
 const highlightTelegram = ref(false)
 
 // Registration happens through the Telegram widget — there is no separate
@@ -193,20 +190,6 @@ onMounted(() => {
   }
 })
 
-
-const handleLogin = async () => {
-  if (!email.value || !password.value) {
-    authStore.errorMessage = t('login.validation')
-    return
-  }
-
-  try {
-    await authStore.login(email.value, password.value)
-    await redirectAfterAuth()
-  } catch {
-    // Store state already contains the backend or network error message.
-  }
-}
 
 </script>
 
@@ -290,80 +273,14 @@ const handleLogin = async () => {
               class="mt-3 flex min-h-[44px] items-center justify-center"
             ></div>
 
-            <div class="my-6 flex items-center gap-3">
-              <div class="h-px flex-1 bg-[#ece8e0]"></div>
-              <span class="font-mono-custom text-[11px] uppercase tracking-[0.14em] text-[#a39e94]">{{ t('login.or') }}</span>
-              <div class="h-px flex-1 bg-[#ece8e0]"></div>
-            </div>
-
-            <form class="space-y-4" @submit.prevent="handleLogin">
-              <div>
-                <label class="mb-2 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('login.email') }}
-                </label>
-                <input
-                  v-model="email"
-                  type="text"
-                  :placeholder="t('login.emailPlaceholder')"
-                  class="w-full rounded-xl border border-[#e4e0d8] bg-[#faf9f6] px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#a39e94] focus:border-[#1a1814] focus:bg-white focus:ring-4 focus:ring-[#1a1814]/5"
-                  :disabled="authStore.isLoading"
-                />
-              </div>
-
-              <div>
-                <label class="mb-2 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('login.password') }}
-                </label>
-
-                <div class="relative">
-                  <input
-                    v-model="password"
-                    :type="showPassword ? 'text' : 'password'"
-                    :placeholder="t('login.passwordPlaceholder')"
-                    class="w-full rounded-xl border border-[#e4e0d8] bg-[#faf9f6] px-4 py-3 pr-16 text-sm text-[#1a1814] outline-none transition placeholder:text-[#a39e94] focus:border-[#1a1814] focus:bg-white focus:ring-4 focus:ring-[#1a1814]/5"
-                    :disabled="authStore.isLoading"
-                  />
-
-                  <button
-                    type="button"
-                    @click="showPassword = !showPassword"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-[#8a857c] transition hover:bg-[#f5f3ef] hover:text-[#1a1814]"
-                    :disabled="authStore.isLoading"
-                  >
-                    {{ showPassword ? t('login.hide') : t('login.show') }}
-                  </button>
-                </div>
-              </div>
-
-              <p
-                v-if="authStore.errorMessage"
-                class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-              >
-                {{ authStore.errorMessage }}
-              </p>
-
-              <div class="flex items-center justify-between pt-1">
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-[#6b6760]">
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-[#d8d3ca] text-[#1a1814] focus:ring-0"
-                  />
-                  {{ t('login.remember') }}
-                </label>
-
-                <a href="#" class="text-sm font-medium text-[#8a857c] transition hover:text-[#1a1814]">
-                  {{ t('login.forgot') }}
-                </a>
-              </div>
-
-              <button
-                type="submit"
-                class="inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] px-4 text-sm font-semibold text-white transition duration-300 hover:bg-black active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#a39e94]"
-                :disabled="authStore.isLoading"
-              >
-                {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
-              </button>
-            </form>
+            <!-- Login is social-only (Telegram / Google). Any auth error from
+                 those flows surfaces here. -->
+            <p
+              v-if="authStore.errorMessage"
+              class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              {{ authStore.errorMessage }}
+            </p>
           </div>
 
           <p class="mt-6 text-center text-sm text-[#6b6760]">

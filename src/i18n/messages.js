@@ -232,7 +232,7 @@ const messages = {
     login: {
       home: 'Bosh sahifa',
       title: 'Tizimga kirish',
-      description: 'Email va parol orqali yoki ijtimoiy tarmoqlar orqali kiring',
+      description: 'Telegram yoki Google orqali kiring',
       google: 'Google orqali kirish',
       telegram: 'Telegram orqali kirish',
       or: 'yoki',
@@ -665,7 +665,7 @@ const messages = {
     login: {
       home: 'Главная',
       title: 'Вход в систему',
-      description: 'Войдите через email и пароль или через социальные сети',
+      description: 'Войдите через Telegram или Google',
       google: 'Войти через Google',
       telegram: 'Войти через Telegram',
       or: 'или',
