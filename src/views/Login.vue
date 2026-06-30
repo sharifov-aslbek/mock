@@ -85,6 +85,10 @@ onMounted(() => {
   script.async = true
   script.setAttribute('data-telegram-login', 'milliymock_bot')
   script.setAttribute('data-size', 'large')
+  // Hide the user's Telegram avatar. Telegram renders it as a small thumbnail
+  // beside the button; for many accounts it shows up as a low-res / broken-looking
+  // block, so drop it for a clean "Войти как …" button. The widget still works.
+  script.setAttribute('data-userpic', 'false')
   script.setAttribute('data-onauth', 'window.onTelegramAuth')
   script.setAttribute('data-request-access', 'write')
 
