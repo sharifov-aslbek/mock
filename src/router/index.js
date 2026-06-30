@@ -109,7 +109,19 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  // Without this, SPA navigations inherit the previous page's scroll offset — e.g.
+  // tapping "Hisobni to‘ldirish" while scrolled down a test page landed the pricing
+  // page mid-list (on an expensive plan) instead of at the top (the cheapest plan).
+  // Reset to the top on every fresh navigation, while still honouring back/forward
+  // restoration and in-page #anchors, and leaving same-path query updates (e.g. the
+  // test page syncing testId/attemptId into the URL) exactly where they are.
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) return { el: to.hash, top: 80, behavior: 'smooth' }
+    if (to.path === from.path) return false
+    return { top: 0 }
+  },
 })
 
 router.beforeEach((to) => {

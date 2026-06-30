@@ -9,17 +9,16 @@ const { t } = useI18n()
     href="https://t.me/Milliymocksupport"
     target="_blank"
     rel="noopener noreferrer"
-    class="fixed bottom-6 right-6 z-50 inline-flex items-center gap-3 rounded-full border border-black bg-black px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:bg-neutral-900"
+    :aria-label="t('supportButton.label')"
+    class="fixed bottom-6 right-6 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full border border-black bg-black text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:bg-neutral-900 sm:h-auto sm:w-auto sm:gap-3 sm:px-5 sm:py-3"
   >
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      class="h-5 w-5 shrink-0"
+      class="h-6 w-6 shrink-0 sm:h-5 sm:w-5"
       fill="currentColor"
     >
-      <path
-        d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"
-      />
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
     </svg>
     <span class="hidden sm:inline">{{ t('supportButton.label') }}</span>
   </a>
