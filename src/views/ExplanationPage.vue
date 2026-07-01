@@ -1038,6 +1038,125 @@ function closeResultModal() {
   showResultModal.value = false
 }
 
+// html2canvas (used by html2pdf) can't rasterize the gerb when it's an inline
+// <svg>: it's a 780-path, full-colour emblem, and html2canvas's foreignObject
+// path renders it blank — which is why the coat of arms went missing from the
+// PDF. Browsers DO rasterize an <svg> loaded as an <img> natively, so we pre-bake
+// the logo to a PNG and swap it into the clone before capture. No-op (keeps the
+// inline SVG) if anything fails.
+async function rasterizeCertificateLogo(root) {
+  const logoSvg = root.querySelector('.logo svg')
+
+  if (!logoSvg) {
+    return
+  }
+
+  try {
+    const svgString = new XMLSerializer().serializeToString(logoSvg)
+    const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString)
+
+    const svgImage = await new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = reject
+      image.src = svgUrl
+    })
+
+    // 2× the on-screen 140px logo for a crisp print.
+    const size = 280
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    canvas.getContext('2d').drawImage(svgImage, 0, 0, size, size)
+
+    const pngUrl = canvas.toDataURL('image/png')
+    const pngImage = document.createElement('img')
+    pngImage.style.width = '100%'
+    pngImage.style.height = '100%'
+    pngImage.style.objectFit = 'contain'
+
+    await new Promise((resolve) => {
+      pngImage.onload = resolve
+      pngImage.onerror = resolve
+      pngImage.src = pngUrl
+    })
+
+    logoSvg.replaceWith(pngImage)
+  } catch {
+    /* leave the inline SVG in place — better a vector that may blank than a crash */
+  }
+}
+
+// The corner ornaments fade out via `mask-image: radial-gradient(...)`, but
+// html2canvas DROPS mask-image — so in the PDF they'd render as hard, full-
+// opacity diamond squares instead of the soft fade shown on the frontend. We
+// reproduce the fade here by drawing the tiled pattern to a canvas and erasing
+// the far edge with a radial gradient (destination-out), then swap the result
+// in as a plain background image (no mask) that html2canvas renders faithfully.
+async function rasterizeCertificateOrnaments(root) {
+  // Same diamond tile the CSS uses (80×80, gold strokes at 0.75 opacity).
+  const tileUrl =
+    "data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='%23c19c5c' stroke-width='2' fill='none' opacity='0.75'%3E%3Cpath d='M30 0 L60 30 L30 60 L0 30 Z' /%3E%3Cpath d='M15 15 L45 15 L45 45 L15 45 Z' /%3E%3Cpath d='M0 0 L60 60 M60 0 L0 60' /%3E%3C/g%3E%3C/svg%3E"
+
+  try {
+    const tileImage = await new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = reject
+      image.src = tileUrl
+    })
+
+    const SIZE = 360 // matches the .ornament-* box size
+    const SCALE = 2 // crisp on print
+    const farthest = Math.hypot(SIZE, SIZE) // farthest-corner radius the mask uses
+
+    // corner the radial fade is anchored to, per ornament
+    const ornaments = [
+      { selector: '.ornament-top-right', cornerX: SIZE, cornerY: 0 },
+      { selector: '.ornament-bottom-left', cornerX: 0, cornerY: SIZE },
+    ]
+
+    for (const ornament of ornaments) {
+      const el = root.querySelector(ornament.selector)
+
+      if (!el) {
+        continue
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = SIZE * SCALE
+      canvas.height = SIZE * SCALE
+      const ctx = canvas.getContext('2d')
+      ctx.scale(SCALE, SCALE)
+
+      // Tile the diamond pattern across the whole box.
+      ctx.fillStyle = ctx.createPattern(tileImage, 'repeat')
+      ctx.fillRect(0, 0, SIZE, SIZE)
+
+      // Erase from 15%→70% of the farthest-corner radius, matching the CSS mask
+      // `radial-gradient(circle at <corner>, black 15%, transparent 70%)`.
+      const fade = ctx.createRadialGradient(
+        ornament.cornerX, ornament.cornerY, farthest * 0.15,
+        ornament.cornerX, ornament.cornerY, farthest * 0.7,
+      )
+      fade.addColorStop(0, 'rgba(0,0,0,0)')
+      fade.addColorStop(1, 'rgba(0,0,0,1)')
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.fillStyle = fade
+      ctx.fillRect(0, 0, SIZE, SIZE)
+      ctx.globalCompositeOperation = 'source-over'
+
+      el.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`
+      el.style.backgroundSize = `${SIZE}px ${SIZE}px`
+      el.style.backgroundRepeat = 'no-repeat'
+      el.style.webkitMaskImage = 'none'
+      el.style.maskImage = 'none'
+    }
+  } catch {
+    /* leave the masked ornaments as-is if baking fails */
+  }
+}
+
 async function downloadCertificate() {
   if (typeof window === 'undefined') {
     return
@@ -1049,15 +1168,43 @@ async function downloadCertificate() {
     return
   }
 
-  // The fit-to-viewport scale lives on certEl itself (certFrameStyle binds
-  // `translate(-50%,-50%) scale(certScale)` to the .certificate-page root), NOT
-  // on its parent. Neutralize the transform on certEl so html2pdf captures the
-  // full-size 794×1123 certificate instead of the shrunken on-screen version.
-  const previousTransform = certEl.style.transform || ''
-  const previousTransition = certEl.style.transition || ''
+  // Render from a DETACHED, FULL-SIZE CLONE — never the live on-screen node.
+  // On screen the certificate is shrunk to fit the viewport via
+  // `transform: translate(-50%,-50%) scale(certScale)`, and html2canvas honours
+  // that transform. Capturing the live node would either bake in the shrink or,
+  // once the transform is stripped, make the full 794×1123 certificate visibly
+  // jump on top of the page mid-capture (and on mobile that overflowing,
+  // transform-sensitive node makes the rasterisation unreliable). A clone kept
+  // off-screen at native size leaves the UI untouched and gives html2canvas a
+  // clean, predictable box.
+  const clone = certEl.cloneNode(true)
+  clone.style.transform = 'none'
+  clone.style.transition = 'none'
+  clone.style.animation = 'none'
+  clone.style.position = 'static'
+  clone.style.left = 'auto'
+  clone.style.top = 'auto'
+  clone.style.margin = '0'
 
-  certEl.style.transition = 'none'
-  certEl.style.transform = 'none'
+  const host = document.createElement('div')
+  // Off-screen (not display:none / visibility:hidden — those would make
+  // html2canvas render nothing) at the certificate's native dimensions.
+  host.style.cssText =
+    `position:fixed; left:-10000px; top:0; z-index:-1; pointer-events:none; ` +
+    `width:${CERT_FRAME_WIDTH}px; height:${CERT_FRAME_HEIGHT}px; overflow:hidden; background:#ffffff;`
+  host.appendChild(clone)
+  document.body.appendChild(host)
+
+  // Bake the inline gerb SVG and the masked corner ornaments into images so
+  // they survive html2canvas (it can't rasterize the heavy SVG or honour
+  // mask-image).
+  await rasterizeCertificateLogo(clone)
+  await rasterizeCertificateOrnaments(clone)
+
+  // Size the page to the certificate's real height so nothing is clipped — it's
+  // designed for 1123px but can grow a little with longer content.
+  const renderHeight = Math.max(CERT_FRAME_HEIGHT, Math.ceil(clone.getBoundingClientRect().height))
+  host.style.height = `${renderHeight}px`
 
   const { default: html2pdf } = await import('html2pdf.js')
   const data = certificateViewModel.value || {}
@@ -1068,24 +1215,25 @@ async function downloadCertificate() {
 
   try {
     await html2pdf()
-      .from(certEl)
+      .from(clone)
       .set({
         margin: 0,
         filename,
-        image: { type: 'jpeg', quality: 0.98 },
+        // PNG (lossless) so the gradient and gold tones match the on-screen
+        // certificate exactly — JPEG subtly warms/bands the cream background.
+        image: { type: 'png' },
         html2canvas: {
           scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
           windowWidth: CERT_FRAME_WIDTH,
-          windowHeight: CERT_FRAME_HEIGHT,
+          windowHeight: renderHeight,
         },
-        jsPDF: { unit: 'px', format: [CERT_FRAME_WIDTH, CERT_FRAME_HEIGHT], orientation: 'portrait' },
+        jsPDF: { unit: 'px', format: [CERT_FRAME_WIDTH, renderHeight], orientation: 'portrait' },
       })
       .save()
   } finally {
-    certEl.style.transform = previousTransform
-    certEl.style.transition = previousTransition
+    host.remove()
   }
 }
 

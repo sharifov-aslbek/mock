@@ -3,12 +3,18 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import logoBlack from '@/assets/logo-black.jpg'
 import logoMark from '@/assets/logo-removed.png'
 
-const telegramContainer = ref<HTMLElement | null>(null)
-const googleContainer = ref<HTMLElement | null>(null)
+// Telegram Login. We drive the OAuth popup ourselves via `Telegram.Login.auth`
+// (defined by telegram-widget.js) instead of embedding Telegram's iframe widget.
+// The iframe button lives on a cross-origin origin so its look can't be changed,
+// and in the "Log in as <name>" state it draws a bordered avatar/logo circle that
+// looks off against our design. A custom button gives us a clean, on-brand plane
+// icon with no stray borders. 8302060174 is the public numeric id of @milliymock_bot.
+const TELEGRAM_BOT_ID = 8302060174
+const TELEGRAM_WIDGET_SRC = 'https://telegram.org/js/telegram-widget.js?22'
 
 interface TelegramUser {
   id: number;
@@ -28,7 +34,14 @@ interface GoogleCredentialResponse {
 
 declare global {
   interface Window {
-    onTelegramAuth: (user: TelegramUser) => void;
+    Telegram?: {
+      Login?: {
+        auth: (
+          options: { bot_id: number; request_access?: string; lang?: string },
+          callback: (user: TelegramUser | false | null) => void,
+        ) => void;
+      };
+    };
     google?: {
       accounts: {
         id: {
@@ -40,64 +53,74 @@ declare global {
   }
 }
 
+const { t, tm } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const message = useMessage()
 
+const telegramButton = ref<HTMLElement | null>(null)
+const googleContainer = ref<HTMLElement | null>(null)
+const telegramReady = ref(false)
+const telegramSubmitting = ref(false)
+
+// After any successful login, honour a `?redirect=` target if present,
+// otherwise fall back to the math dashboard.
+const redirectAfterAuth = () => {
+  const redirectTarget =
+    typeof route.query.redirect === 'string' ? route.query.redirect : '/math'
+  return router.push(redirectTarget)
+}
+
+// Load telegram-widget.js once so `window.Telegram.Login.auth` exists. Loaded
+// WITHOUT any data-telegram-login attributes, so it only defines the API and
+// renders no iframe of its own — our custom button drives the popup.
 onMounted(() => {
-  if (!telegramContainer.value) return
+  const markReady = () => {
+    telegramReady.value = Boolean(window.Telegram?.Login?.auth)
+  }
+  if (window.Telegram?.Login?.auth) {
+    markReady()
+    return
+  }
+  const existing = document.querySelector<HTMLScriptElement>(
+    'script[src^="https://telegram.org/js/telegram-widget.js"]',
+  )
+  if (existing) {
+    existing.addEventListener('load', markReady)
+    markReady()
+    return
+  }
+  const script = document.createElement('script')
+  script.src = TELEGRAM_WIDGET_SRC
+  script.async = true
+  script.onload = markReady
+  document.head.appendChild(script)
+})
 
-  // Listen for postMessage from Telegram popup
-  const handleMessage = (event: MessageEvent) => {
-    if (event.origin !== 'https://oauth.telegram.org') return
+// Open Telegram's OAuth popup. Called synchronously from the click handler so
+// the browser keeps `window.open` inside the user gesture (no popup blocker).
+// The button is disabled until `telegramReady`, so `auth` is present here.
+const loginWithTelegram = () => {
+  const auth = window.Telegram?.Login?.auth
+  if (!auth || telegramSubmitting.value) return
 
-    // Telegram's OAuth origin posts several message types, not all JSON — guard
-    // the parse so a non-JSON payload doesn't throw inside the listener.
-    let data
-    try {
-      data =
-        typeof event.data === 'string'
-            ? JSON.parse(event.data)
-            : event.data
-    } catch {
+  telegramSubmitting.value = true
+  auth({ bot_id: TELEGRAM_BOT_ID, request_access: 'write' }, (user) => {
+    // `user` is false/null when the popup is closed or access is declined.
+    if (!user) {
+      telegramSubmitting.value = false
       return
     }
-
-    if (data?.event === 'auth_user' && data?.auth_data) {
-      const user: TelegramUser = data.auth_data
-
-      authStore.telegramLogin(user)
-          .then(() => {
-            redirectAfterAuth()
-          })
-          .catch(() => {})
-    }
-  }
-
-  window.addEventListener('message', handleMessage)
-
-  window.onTelegramAuth = async (user: TelegramUser) => {
-    try {
-      await authStore.telegramLogin(user)
-      await redirectAfterAuth()
-    } catch {}
-  }
-
-  const script = document.createElement('script')
-  script.src = 'https://telegram.org/js/telegram-widget.js?66'
-  script.async = true
-  script.setAttribute('data-telegram-login', 'milliymock_bot')
-  script.setAttribute('data-size', 'large')
-  script.setAttribute('data-onauth', 'window.onTelegramAuth')
-  script.setAttribute('data-request-access', 'write')
-
-  telegramContainer.value.appendChild(script)
-
-  // Store handler ref for cleanup
-  ;(window as any)._tgMessageHandler = handleMessage
-})
-
-onUnmounted(() => {
-  window.removeEventListener('message', (window as any)._tgMessageHandler)
-  delete window.onTelegramAuth
-})
+    authStore
+      .telegramLogin(user)
+      .then(() => redirectAfterAuth())
+      .catch(() => {})
+      .finally(() => {
+        telegramSubmitting.value = false
+      })
+  })
+}
 
 // Google Identity Services. Loads the GIS client, then renders the official
 // sign-in button. On success Google hands us a `credential` (a JWT id token)
@@ -147,15 +170,12 @@ onMounted(() => {
 })
 
 
-const email = ref('')
-const password = ref('')
-const showPassword = ref(false)
 const highlightTelegram = ref(false)
 
-// Registration happens through the Telegram widget — there is no separate
-// sign-up page. The "sign up" link scrolls to and highlights the widget.
+// Registration happens through the Telegram button — there is no separate
+// sign-up page. The "sign up" link scrolls to and highlights the button.
 const focusTelegram = () => {
-  const element = telegramContainer.value
+  const element = telegramButton.value
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
@@ -164,21 +184,7 @@ const focusTelegram = () => {
     highlightTelegram.value = false
   }, 1800)
 }
-const { t, tm } = useI18n()
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-const message = useMessage()
 
-// After any successful login, honour a `?redirect=` target if present,
-// otherwise fall back to the math dashboard.
-const redirectAfterAuth = () => {
-  const redirectTarget =
-    typeof route.query.redirect === 'string' ? route.query.redirect : '/math'
-  return router.push(redirectTarget)
-}
-
-// hello world
 // Pages can redirect here with `?reason=auth-required` to explain why the
 // user landed back on login (typically: tried to open the test page while
 // logged out). Show a small toast so the prompt isn't silent.
@@ -193,20 +199,6 @@ onMounted(() => {
   }
 })
 
-
-const handleLogin = async () => {
-  if (!email.value || !password.value) {
-    authStore.errorMessage = t('login.validation')
-    return
-  }
-
-  try {
-    await authStore.login(email.value, password.value)
-    await redirectAfterAuth()
-  } catch {
-    // Store state already contains the backend or network error message.
-  }
-}
 
 </script>
 
@@ -277,12 +269,22 @@ const handleLogin = async () => {
           </div>
 
           <div class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]">
-            <!-- Telegram login widget mounts here (also used for registration) -->
-            <div
-              ref="telegramContainer"
-              class="flex min-h-[44px] items-center justify-center rounded-xl transition duration-500"
+            <!-- Custom Telegram login button (also the registration entry point).
+                 Drives Telegram's OAuth popup via Telegram.Login.auth so we own
+                 the styling — a clean plane icon, no cross-origin iframe. -->
+            <button
+              ref="telegramButton"
+              type="button"
+              :disabled="!telegramReady || telegramSubmitting"
+              @click="loginWithTelegram"
+              class="tg-button mx-auto flex h-11 w-[320px] max-w-full items-center justify-center gap-2.5 rounded-full bg-[#29a9eb] text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(41,169,235,0.28)] transition hover:bg-[#1e97d6] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
               :class="highlightTelegram ? 'tg-pulse ring-2 ring-[#1a1814] ring-offset-4 ring-offset-white' : ''"
-            ></div>
+            >
+              <svg class="h-[18px] w-[18px]" viewBox="0 0 448 512" fill="currentColor" aria-hidden="true">
+                <path d="M446.7 98.6l-67.6 318.8c-5.1 22.5-18.4 28.1-37.3 17.5l-103-75.9-49.7 47.8c-5.5 5.5-10.1 10.1-20.7 10.1l7.4-104.9 190.9-172.5c8.3-7.4-1.8-11.5-12.9-4.1L117.8 284 16.2 252.2c-22.1-6.9-22.5-22.1 4.6-32.7L418.2 66.4c18.4-6.9 34.5 4.1 28.5 32.2z" />
+              </svg>
+              <span>{{ telegramSubmitting ? t('login.loading') : t('login.telegram') }}</span>
+            </button>
 
             <!-- Google Identity Services renders its sign-in button here. -->
             <div
@@ -290,80 +292,14 @@ const handleLogin = async () => {
               class="mt-3 flex min-h-[44px] items-center justify-center"
             ></div>
 
-            <div class="my-6 flex items-center gap-3">
-              <div class="h-px flex-1 bg-[#ece8e0]"></div>
-              <span class="font-mono-custom text-[11px] uppercase tracking-[0.14em] text-[#a39e94]">{{ t('login.or') }}</span>
-              <div class="h-px flex-1 bg-[#ece8e0]"></div>
-            </div>
-
-            <form class="space-y-4" @submit.prevent="handleLogin">
-              <div>
-                <label class="mb-2 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('login.email') }}
-                </label>
-                <input
-                  v-model="email"
-                  type="text"
-                  :placeholder="t('login.emailPlaceholder')"
-                  class="w-full rounded-xl border border-[#e4e0d8] bg-[#faf9f6] px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#a39e94] focus:border-[#1a1814] focus:bg-white focus:ring-4 focus:ring-[#1a1814]/5"
-                  :disabled="authStore.isLoading"
-                />
-              </div>
-
-              <div>
-                <label class="mb-2 block text-sm font-semibold text-[#1a1814]">
-                  {{ t('login.password') }}
-                </label>
-
-                <div class="relative">
-                  <input
-                    v-model="password"
-                    :type="showPassword ? 'text' : 'password'"
-                    :placeholder="t('login.passwordPlaceholder')"
-                    class="w-full rounded-xl border border-[#e4e0d8] bg-[#faf9f6] px-4 py-3 pr-16 text-sm text-[#1a1814] outline-none transition placeholder:text-[#a39e94] focus:border-[#1a1814] focus:bg-white focus:ring-4 focus:ring-[#1a1814]/5"
-                    :disabled="authStore.isLoading"
-                  />
-
-                  <button
-                    type="button"
-                    @click="showPassword = !showPassword"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-[#8a857c] transition hover:bg-[#f5f3ef] hover:text-[#1a1814]"
-                    :disabled="authStore.isLoading"
-                  >
-                    {{ showPassword ? t('login.hide') : t('login.show') }}
-                  </button>
-                </div>
-              </div>
-
-              <p
-                v-if="authStore.errorMessage"
-                class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-              >
-                {{ authStore.errorMessage }}
-              </p>
-
-              <div class="flex items-center justify-between pt-1">
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-[#6b6760]">
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-[#d8d3ca] text-[#1a1814] focus:ring-0"
-                  />
-                  {{ t('login.remember') }}
-                </label>
-
-                <a href="#" class="text-sm font-medium text-[#8a857c] transition hover:text-[#1a1814]">
-                  {{ t('login.forgot') }}
-                </a>
-              </div>
-
-              <button
-                type="submit"
-                class="inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] px-4 text-sm font-semibold text-white transition duration-300 hover:bg-black active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#a39e94]"
-                :disabled="authStore.isLoading"
-              >
-                {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
-              </button>
-            </form>
+            <!-- Login is social-only (Telegram / Google). Any auth error from
+                 those flows surfaces here. -->
+            <p
+              v-if="authStore.errorMessage"
+              class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              {{ authStore.errorMessage }}
+            </p>
           </div>
 
           <p class="mt-6 text-center text-sm text-[#6b6760]">

@@ -269,6 +269,27 @@ const INSERTING_INPUT_TYPES = new Set([
   'insertCompositionText',
 ])
 
+// Android soft keyboards (Gboard, Samsung, etc.) report Backspace/Delete as an
+// `input` event carrying one of these inputTypes while the keydown is the IME
+// placeholder (keyCode 229) — so MathQuill's keydown path never sees a real
+// Backspace and the deletion is silently dropped. We translate these into
+// MathQuill keystrokes. iOS/desktop send a real keyCode 8/46 keydown, which
+// MathQuill already handles, so the bridge stands down for those (see
+// `nativeDeleteFromKeydown`).
+const DELETING_BACKWARD_INPUT_TYPES = new Set([
+  'deleteContentBackward',
+  'deleteWordBackward',
+  'deleteSoftLineBackward',
+  'deleteHardLineBackward',
+  'deleteContent',
+])
+const DELETING_FORWARD_INPUT_TYPES = new Set([
+  'deleteContentForward',
+  'deleteWordForward',
+  'deleteSoftLineForward',
+  'deleteHardLineForward',
+])
+
 const attachAndroidInputBridge = (rootElement) => {
   const textarea = rootElement?.querySelector?.('textarea')
 
@@ -279,13 +300,42 @@ const attachAndroidInputBridge = (rootElement) => {
   // Whether a `keypress` already armed MathQuill's own insertion for the
   // current keystroke. Reset on every keydown; set on keypress.
   let keypressHandledInput = false
+  // Whether the current keydown was a real Backspace/Delete (keyCode 8/46, as
+  // sent by desktop and iOS) that MathQuill's own path will handle — so our
+  // delete bridge must NOT fire for it and double-delete.
+  let nativeDeleteFromKeydown = false
+  // Whether this keystroke's delete was already bridged from `beforeinput`, so
+  // the later `input` event (if any) doesn't delete a second time.
+  let deleteBridgedInBeforeInput = false
   // True between compositionstart/compositionend (swipe, autocorrect,
   // suggestion strip) — we wait for the final committed text instead of
   // inserting partial composition buffers.
   let isComposing = false
 
-  const handleKeydown = () => {
+  const handleKeydown = (event) => {
     keypressHandledInput = false
+    deleteBridgedInBeforeInput = false
+    nativeDeleteFromKeydown =
+      event.keyCode === 8 ||
+      event.keyCode === 46 ||
+      event.key === 'Backspace' ||
+      event.key === 'Delete'
+  }
+
+  // Delete one unit in MathQuill (Backspace = back, Del = forward). Translates
+  // Android's delete `input` events into the keystroke MathQuill understands.
+  const deleteOneUnit = (key) => {
+    const mathField = mathFieldRef.value
+
+    if (!mathField || props.disabled) {
+      return
+    }
+
+    // The textarea may mirror a MathQuill selection (placed there for copy);
+    // clear it so the delete doesn't leave a stray buffer that a later `input`
+    // re-inserts, then delete inside MathQuill.
+    textarea.value = ''
+    safeOp(() => mathField.keystroke(key))
   }
   const handleKeypress = () => {
     keypressHandledInput = true
@@ -319,6 +369,42 @@ const attachAndroidInputBridge = (rootElement) => {
     safeOp(() => mathField.typedText(text))
   }
 
+  // Android delete handling lives here, on `beforeinput`, NOT on `input`. After
+  // every insert we clear the hidden textarea, so when the cursor sits in an
+  // empty spot — e.g. right after inserting a √ or fraction from the on-screen
+  // keyboard — a soft-keyboard Backspace changes nothing in the textarea and
+  // fires NO `input` event, only `beforeinput`. That's why deleting a freshly
+  // inserted symbol felt impossible. `beforeinput` fires regardless of textarea
+  // contents, so we bridge the delete here and cancel the textarea's own edit.
+  const handleBeforeInput = (event) => {
+    const inputType = event.inputType
+    const isBackward = DELETING_BACKWARD_INPUT_TYPES.has(inputType)
+    const isForward = DELETING_FORWARD_INPUT_TYPES.has(inputType)
+
+    if (!isBackward && !isForward) {
+      // Insertions and everything else are handled on `input`.
+      return
+    }
+
+    // Let an in-progress IME composition manage its own edits.
+    if (isComposing || event.isComposing) {
+      return
+    }
+
+    // A real Backspace/Delete keydown (desktop, iOS) is already handled by
+    // MathQuill's own keystroke path — don't delete twice.
+    if (nativeDeleteFromKeydown) {
+      return
+    }
+
+    if (event.cancelable) {
+      event.preventDefault()
+    }
+
+    deleteBridgedInBeforeInput = true
+    deleteOneUnit(isForward ? 'Del' : 'Backspace')
+  }
+
   const handleInput = (event) => {
     // Desktop / iOS: a keypress already armed MathQuill's own insertion — let
     // it run so the character isn't inserted twice.
@@ -331,9 +417,25 @@ const attachAndroidInputBridge = (rootElement) => {
       return
     }
 
-    // Only bridge real text insertion. Paste has its own MathQuill handler;
-    // deletions go through the native keyCode path.
-    if (event.inputType && !INSERTING_INPUT_TYPES.has(event.inputType)) {
+    const inputType = event.inputType
+
+    // Deletes are normally bridged on `beforeinput` above. If one reaches here,
+    // only act when neither `beforeinput` nor a native keydown already handled
+    // it — a fallback for browsers that don't fire a usable beforeinput — so we
+    // never double-delete.
+    if (
+      inputType &&
+      (DELETING_BACKWARD_INPUT_TYPES.has(inputType) || DELETING_FORWARD_INPUT_TYPES.has(inputType))
+    ) {
+      if (deleteBridgedInBeforeInput || nativeDeleteFromKeydown) {
+        return
+      }
+      deleteOneUnit(DELETING_FORWARD_INPUT_TYPES.has(inputType) ? 'Del' : 'Backspace')
+      return
+    }
+
+    // Only bridge real text insertion. Paste has its own MathQuill handler.
+    if (inputType && !INSERTING_INPUT_TYPES.has(inputType)) {
       return
     }
 
@@ -354,6 +456,7 @@ const attachAndroidInputBridge = (rootElement) => {
 
   textarea.addEventListener('keydown', handleKeydown)
   textarea.addEventListener('keypress', handleKeypress)
+  textarea.addEventListener('beforeinput', handleBeforeInput)
   textarea.addEventListener('input', handleInput)
   textarea.addEventListener('compositionstart', handleCompositionStart)
   textarea.addEventListener('compositionend', handleCompositionEnd)
@@ -361,6 +464,7 @@ const attachAndroidInputBridge = (rootElement) => {
   return () => {
     textarea.removeEventListener('keydown', handleKeydown)
     textarea.removeEventListener('keypress', handleKeypress)
+    textarea.removeEventListener('beforeinput', handleBeforeInput)
     textarea.removeEventListener('input', handleInput)
     textarea.removeEventListener('compositionstart', handleCompositionStart)
     textarea.removeEventListener('compositionend', handleCompositionEnd)

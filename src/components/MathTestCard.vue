@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NCard, NModal, NButton } from 'naive-ui'
 import { useTestStore } from '@/stores/test'
@@ -29,6 +29,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const testStore = useTestStore()
 const authStore = useAuthStore()
@@ -71,11 +72,16 @@ const isPurchasing = ref(false)
 // the purchase before creating the attempt. Free tests and already-purchased
 // tests start straight away — no charge.
 const handlePremiumClick = async () => {
-  // Must be signed in to have a tanga balance / make a purchase.
+  // Must be signed in to have a tanga balance / make a purchase. Send guests to
+  // login and bring them BACK to this tests listing (not straight into /test):
+  // a premium test has to clear the purchase/balance gate that lives on the card,
+  // so after signing up the user re-picks the test and goes through the normal
+  // buy / top-up flow. Redirecting into /test would auto-start the premium test
+  // and strand a 0-balance user on the broken "insufficient balance" screen.
   if (!authStore.isAuthenticated) {
     router.push({
       path: '/login',
-      query: { reason: 'auth-required', redirect: `/test?testId=${props.test.id}` },
+      query: { reason: 'auth-required', redirect: route.fullPath },
     })
     return
   }

@@ -147,7 +147,6 @@ const controlButtons = [
   { id: 'left', content: '←', variant: 'gray', action: { type: 'key', arg: 'Left' } },
   { id: 'right', content: '→', variant: 'gray', action: { type: 'key', arg: 'Right' } },
   { id: 'bs', content: '⌫', span: 2, variant: 'gray', action: { type: 'key', arg: 'Backspace' } },
-  { id: 'enter', content: '↵', span: 2, tall: true, variant: 'blue', action: { type: 'key', arg: 'Enter' } },
 ]
 
 const keyClasses = (button) => {
