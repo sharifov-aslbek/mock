@@ -14,19 +14,38 @@ const errorMessage = ref('')
 
 const user = computed(() => authStore.userInfo || null)
 
-// Inline edit of the certificate name fields (firstName/lastName/fatherName).
-// Mirrors the first-test gate so users can fill or correct these straight from
-// their profile rather than only when starting a test.
+// Inline edit of the certificate fields (firstName/lastName/fatherName) plus the
+// contact phone. Mirrors the first-test gate so users can fill or correct these
+// straight from their profile rather than only when starting a test.
 const isEditing = ref(false)
 const isSaving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
-const form = reactive({ firstName: '', lastName: '', fatherName: '' })
+const form = reactive({ firstName: '', lastName: '', fatherName: '', phoneNumber: '' })
+
+// The backend stores the phone as bare digits (e.g. "998770343363") but it is
+// shown/edited in the familiar "+998..." form. Format digits for display.
+function formatPhone(digits) {
+  const clean = String(digits || '').replace(/\D/g, '').slice(0, 12)
+  return clean ? `+${clean}` : ''
+}
+
+// Keep the phone field as "+" followed by at most 12 digits. Re-assigning the
+// DOM value keeps things in sync even when the formatted result is unchanged,
+// e.g. the user typed a rejected character.
+function onPhoneInput(event) {
+  const formatted = formatPhone(event.target.value)
+  form.phoneNumber = formatted
+  event.target.value = formatted
+}
 
 function startEdit() {
   form.firstName = user.value?.firstName || ''
   form.lastName = user.value?.lastName || ''
   form.fatherName = user.value?.fatherName || ''
+  // Default to the +998 country code so the user only types the operator +
+  // subscriber digits.
+  form.phoneNumber = formatPhone(user.value?.phoneNumber) || '+998'
   saveError.value = ''
   saveSuccess.value = false
   isEditing.value = true
@@ -44,11 +63,18 @@ async function saveProfile() {
   const firstName = form.firstName.trim()
   const lastName = form.lastName.trim()
   const fatherName = form.fatherName.trim()
+  const phoneDigits = form.phoneNumber.replace(/\D/g, '')
 
-  // All three print on the certificate — require them so saving here can't blank
-  // out a name the way a partial update would.
+  // All three names print on the certificate — require them so saving here can't
+  // blank out a name the way a partial update would.
   if (!firstName || !lastName || !fatherName) {
     saveError.value = 'Iltimos, barcha maydonlarni to‘ldiring.'
+    return
+  }
+
+  // Uzbek numbers are 12 digits, country code 998 + 9 subscriber digits.
+  if (!/^998\d{9}$/.test(phoneDigits)) {
+    saveError.value = 'Iltimos, telefon raqamini to‘g‘ri kiriting (+998 XX XXX XX XX).'
     return
   }
 
@@ -57,7 +83,7 @@ async function saveProfile() {
   saveSuccess.value = false
 
   try {
-    await authStore.updateProfile({ firstName, lastName, fatherName })
+    await authStore.updateProfile({ firstName, lastName, fatherName, phoneNumber: phoneDigits })
     isEditing.value = false
     saveSuccess.value = true
   } catch (error) {
@@ -85,6 +111,13 @@ const profileFields = computed(() => [
   { key: 'firstName', label: 'Ism', value: user.value?.firstName, editable: true },
   { key: 'lastName', label: 'Familiya', value: user.value?.lastName, editable: true },
   { key: 'fatherName', label: 'Otasining ismi', value: user.value?.fatherName, editable: true },
+  {
+    key: 'phoneNumber',
+    label: 'Telefon raqami',
+    value: user.value?.phoneNumber ? formatPhone(user.value.phoneNumber) : null,
+    editable: true,
+    type: 'phone',
+  },
   { key: 'email', label: 'Email', value: user.value?.email, editable: false },
 ])
 
@@ -256,7 +289,17 @@ onMounted(() => {
                 </dt>
                 <dd class="break-words text-sm font-semibold text-[#1a1814]">
                   <input
-                    v-if="isEditing && field.editable"
+                    v-if="isEditing && field.editable && field.type === 'phone'"
+                    :value="form.phoneNumber"
+                    type="tel"
+                    inputmode="numeric"
+                    autocomplete="tel"
+                    placeholder="+998 90 123 45 67"
+                    class="w-full rounded-xl border border-[#e0ddd7] bg-white px-3 py-2 text-sm font-semibold text-[#1a1814] outline-none transition focus:border-[#1a1814]"
+                    @input="onPhoneInput"
+                  />
+                  <input
+                    v-else-if="isEditing && field.editable"
                     v-model="form[field.key]"
                     type="text"
                     :placeholder="field.label"

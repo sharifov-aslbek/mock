@@ -20,9 +20,17 @@ const form = reactive({
   firstName: '',
   lastName: '',
   fatherName: '',
+  phoneNumber: '',
 })
 const isSaving = ref(false)
 const errorMessage = ref('')
+
+// The backend stores the phone as bare digits (e.g. "998770343363") but the
+// input is shown in the familiar "+998..." form. Format digits for display.
+function formatPhone(digits) {
+  const clean = String(digits || '').replace(/\D/g, '').slice(0, 12)
+  return clean ? `+${clean}` : ''
+}
 
 // Prefill from whatever the backend already has (e.g. a Telegram user arrives
 // with first/last name but no father name) so the user only types what's
@@ -37,18 +45,37 @@ watch(
     form.firstName = info.firstName || ''
     form.lastName = info.lastName || ''
     form.fatherName = info.fatherName || ''
+    // Default to the +998 country code so the user only types the operator +
+    // subscriber digits.
+    form.phoneNumber = formatPhone(info.phoneNumber) || '+998'
     errorMessage.value = ''
   },
   { immediate: true },
 )
 
+// Keep the phone field as "+" followed by at most 12 digits. Re-assigning the
+// DOM value (not just the model) keeps things in sync even when the formatted
+// result is unchanged, e.g. the user typed a rejected character.
+function onPhoneInput(event) {
+  const formatted = formatPhone(event.target.value)
+  form.phoneNumber = formatted
+  event.target.value = formatted
+}
+
 const submit = async () => {
   const firstName = form.firstName.trim()
   const lastName = form.lastName.trim()
   const fatherName = form.fatherName.trim()
+  const phoneDigits = form.phoneNumber.replace(/\D/g, '')
 
   if (!firstName || !lastName || !fatherName) {
     errorMessage.value = t('testPage.profileValidation')
+    return
+  }
+
+  // Uzbek numbers are 12 digits, country code 998 + 9 subscriber digits.
+  if (!/^998\d{9}$/.test(phoneDigits)) {
+    errorMessage.value = t('testPage.phoneValidation')
     return
   }
 
@@ -56,7 +83,12 @@ const submit = async () => {
   errorMessage.value = ''
 
   try {
-    await authStore.updateProfile({ firstName, lastName, fatherName })
+    await authStore.updateProfile({
+      firstName,
+      lastName,
+      fatherName,
+      phoneNumber: phoneDigits,
+    })
     emit('update:show', false)
     emit('completed')
   } catch (error) {
@@ -130,6 +162,21 @@ const cancel = () => {
                 type="text"
                 :placeholder="t('testPage.fatherNamePlaceholder')"
                 class="mt-2 w-full rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] px-4 py-3 text-sm font-medium text-[#1a1814] outline-none transition focus:border-[#1a1814] focus:bg-white"
+              />
+            </label>
+
+            <label class="block">
+              <span class="font-mono-custom text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a857c]">
+                {{ t('testPage.phoneNumber') }}
+              </span>
+              <input
+                :value="form.phoneNumber"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="tel"
+                :placeholder="t('testPage.phoneNumberPlaceholder')"
+                class="mt-2 w-full rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] px-4 py-3 text-sm font-medium text-[#1a1814] outline-none transition focus:border-[#1a1814] focus:bg-white"
+                @input="onPhoneInput"
               />
             </label>
           </div>

@@ -13,16 +13,17 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => Boolean(token.value))
 
   // The certificate is printed from the user's real name. A profile is only
-  // "complete" once firstName, lastName and fatherName are all filled — that's
-  // what the first-time test gate checks before an attempt is started.
-  // See src/composables/useProfileGate.js.
+  // "complete" once firstName, lastName, fatherName and phoneNumber are all
+  // filled — that's what the first-time test gate checks before an attempt is
+  // started. See src/composables/useProfileGate.js.
   const isProfileComplete = computed(() => {
     const info = userInfo.value
     return Boolean(
       info &&
         String(info.firstName || '').trim() &&
         String(info.lastName || '').trim() &&
-        String(info.fatherName || '').trim(),
+        String(info.fatherName || '').trim() &&
+        String(info.phoneNumber || '').trim(),
     )
   })
 
@@ -190,14 +191,26 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Persist the test-taker's name details (PUT /api/user). Used by the
+  // Persist the test-taker's name/contact details (PUT /api/user). Used by the
   // first-time test gate so the certificate can be issued with their real name.
   // On success we merge the values into userInfo immediately (and refresh from
   // the server) so the gate won't ask again.
-  async function updateProfile({ firstName, lastName, fatherName }) {
+  //
+  // phoneNumber is optional here so callers that only edit the name (e.g. the
+  // profile page) don't wipe the stored phone. When provided we send only the
+  // digits (e.g. "+998770343363" -> "998770343363"), which is what the backend
+  // stores and returns.
+  async function updateProfile({ firstName, lastName, fatherName, phoneNumber }) {
     const apiBaseUrl = getTestApiBaseUrl()
     if (!apiBaseUrl) {
       throw new Error('API base URL is missing.')
+    }
+
+    const body = { firstName, lastName, fatherName }
+    let phoneDigits
+    if (phoneNumber !== undefined && phoneNumber !== null) {
+      phoneDigits = String(phoneNumber).replace(/\D/g, '')
+      body.phoneNumber = phoneDigits
     }
 
     const response = await apiFetch(`${apiBaseUrl}/user`, {
@@ -207,7 +220,7 @@ export const useAuthStore = defineStore('auth', () => {
         accept: '*/*',
         Authorization: `Bearer ${token.value}`,
       },
-      body: JSON.stringify({ firstName, lastName, fatherName }),
+      body: JSON.stringify(body),
     })
 
     const payload = await response.json().catch(() => null)
@@ -218,7 +231,13 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Optimistically merge so isProfileComplete flips right away, then refresh
     // from the server to pick up anything it derived (e.g. fullName).
-    userInfo.value = { ...(userInfo.value || {}), firstName, lastName, fatherName }
+    userInfo.value = {
+      ...(userInfo.value || {}),
+      firstName,
+      lastName,
+      fatherName,
+      ...(phoneDigits !== undefined ? { phoneNumber: phoneDigits } : {}),
+    }
 
     try {
       await getUserInfo()
