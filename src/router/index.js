@@ -37,11 +37,11 @@ const routes = [
   },
   {
     path: '/mashq',
-    // Mashq page concealed until the practice backend is live — redirect home.
-    // Restore the two lines below (+ requiresAuth meta) when /api/practice/* is deployed.
-    redirect: '/'
-    // name: 'mashq',
-    // component: () => import('@/views/MashqPage.vue')
+    // Dev-only while the practice backend is built: visible on localhost,
+    // production keeps redirecting home until /api/practice/* is live.
+    ...(import.meta.env.DEV
+      ? { name: 'mashq', component: () => import('@/views/MashqPage.vue') }
+      : { redirect: '/' }),
   },
   {
     path: '/tarix',
