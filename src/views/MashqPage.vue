@@ -254,6 +254,7 @@ const question = computed(() => {
     grade: dto.grade ? `${dto.grade}-sinf` : 'Umumiy',
     difficulty: DIFFICULTY_META[dto.difficulty] || DIFFICULTY_META[2],
     topic: TOPIC_LABELS[dto.topic] || dto.topic,
+    timeLimitSeconds: dto.timeLimitSeconds || 60,
     text: dto.text,
     options: [
       { letter: 'A', text: dto.optionA },
@@ -368,7 +369,12 @@ const formatTime = (totalSeconds) => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-const qTimer = computed(() => formatTime(qSeconds.value))
+// Per-question timer counts down from the question's own limit. It's advisory
+// in practice mode — running out doesn't lock the question, just turns red.
+const questionTimeLimit = computed(() => question.value?.timeLimitSeconds || 60)
+const qRemaining = computed(() => Math.max(0, questionTimeLimit.value - qSeconds.value))
+const qTimeUp = computed(() => !answered.value && qSeconds.value >= questionTimeLimit.value)
+const qTimer = computed(() => formatTime(qRemaining.value))
 const sessionTimer = computed(() => formatTime(sessionSeconds.value))
 const summaryTime = computed(() => formatTime(sessionSeconds.value))
 const averageSeconds = computed(() => {
@@ -899,7 +905,7 @@ onBeforeUnmount(() => {
             <span class="lbl">Bugun</span>
             <span class="val">{{ quota.remaining }}</span>
           </div>
-          <div class="timer">
+          <div class="timer" :class="{ 'time-up': qTimeUp }">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
@@ -2522,6 +2528,16 @@ h1 {
 }
 
 .quota-chip.low .val {
+  color: var(--red);
+}
+
+.timer.time-up {
+  border-color: var(--red-ring);
+  background: var(--red-soft);
+}
+
+.timer.time-up .val,
+.timer.time-up .ic {
   color: var(--red);
 }
 

@@ -36,7 +36,7 @@ export class QuotaExhaustedError extends Error {
 const MOCK_BANK = [
   {
     id: 1,
-    subject: 'Matematika', grade: 9, difficulty: 'orta', topic: 'tenglamalar',
+    subject: 'Matematika', grade: 9, difficulty: 'orta', topic: 'tenglamalar', timeLimitSeconds: 90,
     text: "$x^2 - 5x + 6 = 0$ tenglamaning ildizlari yig'indisini toping.",
     optionA: '$5$', optionB: '$6$', optionC: '$-5$', optionD: '$1$',
     correctLetter: 'A',
@@ -93,7 +93,7 @@ const MOCK_BANK = [
   },
   {
     id: 7,
-    subject: 'Tarix', grade: 7, difficulty: 'oson', topic: 'temuriylar-davri',
+    subject: 'Tarix', grade: 7, difficulty: 'oson', topic: 'temuriylar-davri', timeLimitSeconds: 30,
     text: "Amir Temur qaysi yilda tug'ilgan?",
     optionA: '1336-yil', optionB: '1370-yil', optionC: '1405-yil', optionD: '1360-yil',
     correctLetter: 'A',
@@ -174,6 +174,7 @@ function mockQuestionDto(q) {
     optionB: q.optionB,
     optionC: q.optionC,
     optionD: q.optionD,
+    timeLimitSeconds: q.timeLimitSeconds || 60,
     isSaved: mockState.saved.has(q.id),
     lastResult: attempt ? (attempt.isCorrect ? 'correct' : 'incorrect') : null,
   }
