@@ -37,7 +37,8 @@ const routes = [
   },
   {
     path: '/mashq',
-    // Mashq page concealed until finished — redirect home. Restore the two lines below when complete.
+    // Mashq page concealed until the practice backend is live — redirect home.
+    // Restore the two lines below (+ requiresAuth meta) when /api/practice/* is deployed.
     redirect: '/'
     // name: 'mashq',
     // component: () => import('@/views/MashqPage.vue')
@@ -79,13 +80,6 @@ const routes = [
     name: 'test',
     component: () => import('@/views/TestPage.vue'),
     meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } }
-  },
-  {
-    path: '/mashq-junior',
-    // Mashq (junior) page concealed until finished — redirect home. Restore the two lines below when complete.
-    redirect: '/'
-    // name: 'mashq-junior',
-    // component: () => import('@/views/MashqJuniorLevelPage.vue')
   },
   {
     path: '/profile',

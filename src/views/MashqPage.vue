@@ -1,7 +1,9 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { usePracticeStore, QuotaExhaustedError } from '@/stores/practice'
 
 const escapeHtml = (value) =>
   String(value)
@@ -161,62 +163,90 @@ const onOutsideClick = () => {
   closeAllDropdowns()
 }
 
-const TOTAL_QUESTIONS = 12
+const practiceStore = usePracticeStore()
+const { questions, isLoading, loadError, quota } = storeToRefs(practiceStore)
+
 const currentQuestionIndex = ref(1)
+const totalQuestions = computed(() => questions.value.length)
 
-// Live session record, keyed by question number (1..TOTAL_QUESTIONS).
-// answers[n] = { letter, correct, explanationRead }
+// Per-question session state, keyed by question ID.
+// answers[id]  = { letter, correct, explanationRead, pending }
+// verdicts[id] = { correctLetter, explanationTitle, explanationParagraphs } — only
+// exists after the server has judged the answer; the client never knows the
+// correct letter beforehand.
 const answers = reactive({})
-const savedStates = reactive({})
+const verdicts = reactive({})
+const isSubmitting = ref(false)
+const submitError = ref(null)
+const showLimitModal = ref(false)
+const limitInfo = ref({ priceTanga: 2, grantsQuestions: 10 })
+const isPurchasing = ref(false)
+const purchaseError = ref(null)
 
-const question = reactive({
-  id: 1248,
-  subject: 'Matematika',
-  grade: '9-sinf',
-  difficulty: { value: 'orta', label: "O'rta" },
-  topic: 'Algebra — Foizli masalalar',
-  text:
-    "$f(x) = \\arctan(2^{x-1013})$ funksiya berilgan. Quyidagi yig'indining qiymatini toping:\n$$f(0) + f(1) + f(2) + \\cdots + f(2026)$$\nHisoblashda $\\arctan(a) + \\arctan(1/a) = \\frac{\\pi}{2}$ formulasidan foydalaning.",
-  options: [
-    { letter: 'A', text: '$\\frac{2027\\pi}{4}$', correct: false },
-    { letter: 'B', text: '$\\frac{2027\\pi}{4} - \\frac{\\pi}{8}$', correct: true },
-    { letter: 'C', text: '$\\frac{2026\\pi}{4}$', correct: false },
-    { letter: 'D', text: '$\\frac{\\pi(2027)}{2}$', correct: false },
-  ],
-  correctLetter: 'B',
-  explanationTitle: "Juftlik usuli orqali yig'indi",
-  explanationParagraphs: [
-    'Berilgan funksiya: $f(x) = \\arctan(2^{x-1013})$.',
-    '$x$ va $2026-x$ qiymatlarini juftlab tekshiramiz:',
-    '$$f(x) + f(2026-x) = \\arctan(2^{x-1013}) + \\arctan(2^{1013-x})$$',
-    '$\\arctan(a) + \\arctan(1/a) = \\frac{\\pi}{2}$ ekanligidan: $f(x) + f(2026-x) = \\frac{\\pi}{2}$.',
-    "Yig'indida $0,1,...,2026$ — jami $2027$ ta had. Markaziy had $f(1013) = \\arctan(1) = \\frac{\\pi}{4}$.",
-    "Qolgan $2026$ ta hadni $1013$ ta juftga ajratamiz: <strong>$1013 \\cdot \\frac{\\pi}{2} = \\frac{1013\\pi}{2}$</strong>.",
-    "Umumiy yig'indi: $\\frac{1013\\pi}{2} + \\frac{\\pi}{4} = \\frac{2026\\pi + \\pi}{4} = \\frac{2027\\pi}{4}$… ammo bizning juftlash $f(0)+f(2026)$ dan boshlanadi, $f(1013)$ markaziy bo'ladi, shuning uchun to'g'ri javob $\\frac{2027\\pi}{4} - \\frac{\\pi}{8}$ (variant <strong>B</strong>).",
-  ],
+const SUBJECT_LABELS = { 1: 'Matematika', 2: 'Biologiya', 3: 'Tarix', 4: 'Fizika' }
+const DIFFICULTY_META = {
+  1: { value: 'oson', label: 'Oson' },
+  2: { value: 'orta', label: "O'rta" },
+  3: { value: 'qiyin', label: 'Qiyin' },
+}
+
+const currentDto = computed(() => questions.value[currentQuestionIndex.value - 1] || null)
+
+// Template-facing shape assembled from the answer-free DTO.
+const question = computed(() => {
+  const dto = currentDto.value
+  if (!dto) return null
+  return {
+    id: dto.id,
+    subject: SUBJECT_LABELS[dto.subject] || '',
+    grade: dto.grade ? `${dto.grade}-sinf` : 'Umumiy',
+    difficulty: DIFFICULTY_META[dto.difficulty] || DIFFICULTY_META[2],
+    topic: resolveLabel(TOPIC_OPTIONS, dto.topic) || dto.topic,
+    text: dto.text,
+    options: [
+      { letter: 'A', text: dto.optionA },
+      { letter: 'B', text: dto.optionB },
+      { letter: 'C', text: dto.optionC },
+      { letter: 'D', text: dto.optionD },
+    ],
+  }
 })
 
-const questionHtml = computed(() => renderMath(question.text))
-const explanationHtml = computed(() => question.explanationParagraphs.map(renderMath))
+const currentVerdict = computed(() =>
+  question.value ? verdicts[question.value.id] || null : null,
+)
 
-const renderedOptions = computed(() =>
-  question.options.map((option) => ({
+const questionHtml = computed(() => (question.value ? renderMath(question.value.text) : ''))
+const explanationHtml = computed(() =>
+  (currentVerdict.value?.explanationParagraphs || []).map(renderMath),
+)
+
+const renderedOptions = computed(() => {
+  if (!question.value) return []
+  const verdict = currentVerdict.value
+  return question.value.options.map((option) => ({
     ...option,
     html: renderMath(option.text),
-  })),
-)
+    isRevealedCorrect: verdict ? option.letter === verdict.correctLetter : false,
+  }))
+})
 
 const explanationOpen = ref(false)
 const showNudge = ref(false)
 const showSummary = ref(false)
 const accuracyFillWidth = ref('0%')
 
-const currentAnswer = computed(() => answers[currentQuestionIndex.value] || null)
-const answered = computed(() => currentAnswer.value !== null)
+const currentAnswer = computed(() =>
+  question.value ? answers[question.value.id] || null : null,
+)
+// "answered" means the server verdict is in — a pending submit locks the
+// options (see lockOptions) but doesn't show feedback yet.
+const answered = computed(() => !!currentAnswer.value && !currentAnswer.value.pending)
+const lockOptions = computed(() => currentAnswer.value !== null)
 const selectedLetter = computed(() => currentAnswer.value?.letter ?? null)
 const wasCorrect = computed(() => currentAnswer.value?.correct ?? false)
 const explanationRead = computed(() => currentAnswer.value?.explanationRead ?? false)
-const saved = computed(() => savedStates[currentQuestionIndex.value] === true)
+const saved = computed(() => currentDto.value?.isSaved === true)
 
 const correctCount = computed(
   () => Object.values(answers).filter((entry) => entry.correct).length,
@@ -226,15 +256,21 @@ const incorrectCount = computed(
 )
 
 const optionStateClass = (option) => {
-  if (!answered.value) {
-    return selectedLetter.value === option.letter ? 'selected' : ''
+  const entry = currentAnswer.value
+  if (!entry) {
+    return ''
   }
 
-  if (option.correct) {
+  // Waiting for the server — show the pick as selected, no verdict colors yet.
+  if (entry.pending) {
+    return option.letter === entry.letter ? 'selected' : ''
+  }
+
+  if (option.isRevealedCorrect) {
     return 'correct'
   }
 
-  if (option.letter === selectedLetter.value) {
+  if (option.letter === entry.letter && !entry.correct) {
     return 'incorrect'
   }
 
@@ -251,31 +287,20 @@ const accuracyPercent = computed(() => {
 })
 
 const progressPercent = computed(() =>
-  Math.round((currentQuestionIndex.value / TOTAL_QUESTIONS) * 100),
+  totalQuestions.value
+    ? Math.round((currentQuestionIndex.value / totalQuestions.value) * 100)
+    : 0,
 )
 
-const questionStates = computed(() => {
-  const states = {}
-  for (const [number, entry] of Object.entries(answers)) {
-    states[number] = entry.correct ? 'correct' : 'incorrect'
-  }
-  return states
-})
-
 const qstripPills = computed(() =>
-  Array.from({ length: TOTAL_QUESTIONS }, (_, index) => {
+  questions.value.map((dto, index) => {
     const number = index + 1
     const isCurrent = number === currentQuestionIndex.value
-    const state = questionStates.value[number] || (isCurrent ? 'current' : '')
+    const entry = answers[dto.id]
+    const state = entry && !entry.pending ? (entry.correct ? 'correct' : 'incorrect') : ''
     return {
       number,
-      classes: [
-        state === 'correct' ? 'correct' : '',
-        state === 'incorrect' ? 'incorrect' : '',
-        isCurrent ? 'current' : '',
-      ]
-        .filter(Boolean)
-        .join(' '),
+      classes: [state, isCurrent ? 'current' : ''].filter(Boolean).join(' '),
     }
   }),
 )
@@ -327,20 +352,46 @@ const stopTimers = () => {
   }
 }
 
-const selectOption = (option) => {
-  if (answered.value) {
+const selectOption = async (option) => {
+  if (!question.value || lockOptions.value || isSubmitting.value) {
     return
   }
 
-  answers[currentQuestionIndex.value] = {
-    letter: option.letter,
-    correct: option.correct,
-    explanationRead: false,
+  const q = question.value
+  isSubmitting.value = true
+  submitError.value = null
+  answers[q.id] = { letter: option.letter, correct: false, explanationRead: false, pending: true }
+
+  try {
+    const verdict = await practiceStore.submitAnswer(q.id, option.letter)
+    verdicts[q.id] = {
+      correctLetter: verdict.correctLetter,
+      explanationTitle: verdict.explanationTitle || '',
+      explanationParagraphs: (verdict.explanation || '').split('\n\n').filter(Boolean),
+    }
+    answers[q.id] = {
+      letter: option.letter,
+      correct: verdict.isCorrect === true,
+      explanationRead: false,
+    }
+  } catch (error) {
+    // Roll back the pick — the answer was not consumed.
+    delete answers[q.id]
+
+    if (error instanceof QuotaExhaustedError) {
+      limitInfo.value = { priceTanga: error.priceTanga, grantsQuestions: error.grantsQuestions }
+      purchaseError.value = null
+      showLimitModal.value = true
+    } else {
+      submitError.value = error?.message || "Javobni yuborib bo'lmadi. Qayta urinib ko'ring."
+    }
+  } finally {
+    isSubmitting.value = false
   }
 }
 
 const selectOptionByIndex = (index) => {
-  const option = question.options[index]
+  const option = question.value?.options[index]
 
   if (option) {
     selectOption(option)
@@ -363,7 +414,13 @@ const toggleExplanation = () => {
 }
 
 const toggleSaved = () => {
-  savedStates[currentQuestionIndex.value] = !savedStates[currentQuestionIndex.value]
+  if (!question.value) {
+    return
+  }
+
+  practiceStore.toggleSave(question.value.id).catch(() => {
+    // Save toggle is non-critical; DTO state stays as the server last confirmed.
+  })
 }
 
 const goPrev = () => {
@@ -380,7 +437,8 @@ const goNext = () => {
     return
   }
 
-  if (currentQuestionIndex.value >= TOTAL_QUESTIONS) {
+  if (currentQuestionIndex.value >= totalQuestions.value) {
+    finishSession()
     return
   }
 
@@ -414,24 +472,82 @@ const closeSummary = () => {
   accuracyFillWidth.value = '0%'
 }
 
-const startNewSession = () => {
+const resetSessionState = () => {
   for (const key of Object.keys(answers)) {
     delete answers[key]
   }
-  for (const key of Object.keys(savedStates)) {
-    delete savedStates[key]
+  for (const key of Object.keys(verdicts)) {
+    delete verdicts[key]
   }
   currentQuestionIndex.value = 1
   qSeconds.value = 0
   sessionSeconds.value = 0
   explanationOpen.value = false
   showNudge.value = false
+  submitError.value = null
+}
+
+const activeFilters = () => ({
+  subject: filters.subject.value,
+  grade: filters.grade.value,
+  difficulty: filters.difficulty.value,
+  topic: filters.topic.value,
+  status: filters.status.value,
+})
+
+const loadSession = async () => {
+  resetSessionState()
+  try {
+    await practiceStore.loadQuestions(activeFilters())
+  } catch {
+    // loadError is surfaced by the store; the template shows the error state.
+  }
+}
+
+// Any filter change starts a fresh batch.
+watch(
+  () => [
+    filters.subject.value,
+    filters.grade.value,
+    filters.difficulty.value,
+    filters.topic.value,
+    filters.status.value,
+  ],
+  () => {
+    loadSession()
+  },
+)
+
+const startNewSession = () => {
   closeSummary()
+  loadSession()
+}
+
+const purchaseMore = async () => {
+  isPurchasing.value = true
+  purchaseError.value = null
+  try {
+    await practiceStore.purchaseQuota()
+    showLimitModal.value = false
+  } catch (error) {
+    purchaseError.value =
+      error?.message || "To'lov amalga oshmadi. Balansingizni tekshirib ko'ring."
+  } finally {
+    isPurchasing.value = false
+  }
+}
+
+const closeLimitModal = () => {
+  showLimitModal.value = false
 }
 
 const onKeyDown = (event) => {
   const target = event.target
   if (target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+    return
+  }
+
+  if (showSummary.value || showLimitModal.value || !question.value) {
     return
   }
 
@@ -478,6 +594,7 @@ watch(currentQuestionIndex, () => {
   // so revisiting a question restores its state automatically.
   explanationOpen.value = false
   showNudge.value = false
+  submitError.value = null
   qSeconds.value = 0
 })
 
@@ -485,6 +602,10 @@ onMounted(() => {
   startTimers()
   document.addEventListener('keydown', onKeyDown)
   document.addEventListener('click', onOutsideClick)
+  practiceStore.refreshQuota().catch(() => {
+    // Non-fatal: the chip just keeps its defaults until the next answer syncs it.
+  })
+  loadSession()
 })
 
 onBeforeUnmount(() => {
@@ -686,6 +807,25 @@ onBeforeUnmount(() => {
         <button type="button" class="reset-btn" @click="resetFilters">Tozalash</button>
       </div>
 
+      <!-- Loading / error / empty states -->
+      <div v-if="isLoading" class="state-block">
+        <div class="state-spinner" />
+        <p>Savollar yuklanmoqda…</p>
+      </div>
+
+      <div v-else-if="loadError" class="state-block">
+        <p class="state-title">Xatolik yuz berdi</p>
+        <p>{{ loadError }}</p>
+        <button type="button" class="btn btn-primary" @click="loadSession">Qayta urinish</button>
+      </div>
+
+      <div v-else-if="!question" class="state-block">
+        <p class="state-title">Savol topilmadi</p>
+        <p>Tanlangan filtrlarga mos savollar yo'q. Filtrlarni o'zgartirib ko'ring.</p>
+        <button type="button" class="btn btn-outline" @click="resetFilters">Filtrlarni tozalash</button>
+      </div>
+
+      <template v-else>
       <!-- Progress + timers -->
       <div class="progress-row">
         <div class="progress-meta">
@@ -696,10 +836,17 @@ onBeforeUnmount(() => {
           <span style="color: var(--ink-mute)">•</span>
           <span>
             <strong style="color: var(--ink)">{{ currentQuestionIndex }}</strong>
-            / {{ TOTAL_QUESTIONS }}
+            / {{ totalQuestions }}
           </span>
         </div>
         <div class="timers">
+          <div class="timer quota-chip" :class="{ low: quota.remaining <= 2 }">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span class="lbl">Bugun</span>
+            <span class="val">{{ quota.remaining }}</span>
+          </div>
           <div class="timer">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
@@ -777,7 +924,7 @@ onBeforeUnmount(() => {
 
         <div class="q-text" v-html="questionHtml" />
 
-        <div class="options" :class="{ locked: answered }">
+        <div class="options" :class="{ locked: lockOptions }">
           <div
             v-for="(option, index) in renderedOptions"
             :key="option.letter"
@@ -797,13 +944,22 @@ onBeforeUnmount(() => {
               stroke="currentColor"
               stroke-width="2.5"
             >
-              <polyline v-if="option.correct" points="20 6 9 17 4 12" />
+              <polyline v-if="option.isRevealedCorrect" points="20 6 9 17 4 12" />
               <template v-else>
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </template>
             </svg>
           </div>
+        </div>
+
+        <div v-if="submitError" class="nudge show">
+          <svg class="nudge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <div>{{ submitError }}</div>
         </div>
 
         <div
@@ -873,12 +1029,12 @@ onBeforeUnmount(() => {
             <span class="exp-label">Yechim va izoh</span>
             <div class="exp-divider" />
           </div>
-          <div class="exp-title">{{ question.explanationTitle }}</div>
+          <div class="exp-title">{{ currentVerdict?.explanationTitle }}</div>
           <div class="exp-correct-answer">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            To'g'ri javob: {{ question.correctLetter }}
+            To'g'ri javob: {{ currentVerdict?.correctLetter }}
           </div>
           <div class="exp-body">
             <p v-for="(paragraph, index) in explanationHtml" :key="index" v-html="paragraph" />
@@ -931,6 +1087,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+      </template>
     </div>
 
     <!-- Session summary -->
@@ -1000,6 +1157,60 @@ onBeforeUnmount(() => {
               </svg>
             </button>
           </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Daily limit reached -->
+    <Teleport to="body">
+      <div
+        v-if="showLimitModal"
+        class="modal-backdrop show"
+        @click.self="closeLimitModal"
+      >
+        <div class="modal">
+          <div class="modal-header">
+            <div class="limit-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+            </div>
+            <h2 class="modal-title">Bugungi bepul savollar tugadi</h2>
+            <p class="modal-sub">
+              Har kuni {{ quota.freeLimit }} ta savol bepul. Davom etish uchun
+              {{ limitInfo.priceTanga }} tanga evaziga yana {{ limitInfo.grantsQuestions }} ta
+              savol oching — yoki ertaga bepul davom eting.
+            </p>
+          </div>
+
+          <div v-if="purchaseError" class="limit-error">{{ purchaseError }}</div>
+
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-outline"
+              style="flex: 1; justify-content: center"
+              @click="closeLimitModal"
+            >
+              Ertaga qaytaman
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              style="flex: 1; justify-content: center"
+              :disabled="isPurchasing"
+              @click="purchaseMore"
+            >
+              {{ isPurchasing
+                ? 'Ochilmoqda…'
+                : `${limitInfo.priceTanga} tanga — +${limitInfo.grantsQuestions} savol` }}
+            </button>
+          </div>
+
+          <p class="limit-topup">
+            Balans yetarli emasmi?
+            <RouterLink to="/pricing">Hisobni to'ldirish</RouterLink>
+          </p>
         </div>
       </div>
     </Teleport>
@@ -2215,6 +2426,91 @@ h1 {
 .modal-actions {
   display: flex;
   gap: 10px;
+}
+
+.state-block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.state-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.state-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--line);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: state-spin 0.8s linear infinite;
+}
+
+@keyframes state-spin {
+  to { transform: rotate(360deg); }
+}
+
+.quota-chip .ic {
+  color: var(--yellow);
+}
+
+.quota-chip.low {
+  border-color: var(--red-ring);
+  background: var(--red-soft);
+}
+
+.quota-chip.low .val {
+  color: var(--red);
+}
+
+.limit-icon {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 16px;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+}
+
+.limit-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.limit-error {
+  background: var(--red-soft);
+  border: 1px solid var(--red-ring);
+  color: #991b1b;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.limit-topup {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.limit-topup a {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
