@@ -36,7 +36,7 @@ export class QuotaExhaustedError extends Error {
 const MOCK_BANK = [
   {
     id: 1,
-    subject: 'Matematika', grade: 9, difficulty: 'orta', topic: 'algebra',
+    subject: 'Matematika', grade: 9, difficulty: 'orta', topic: 'tenglamalar',
     text: "$x^2 - 5x + 6 = 0$ tenglamaning ildizlari yig'indisini toping.",
     optionA: '$5$', optionB: '$6$', optionC: '$-5$', optionD: '$1$',
     correctLetter: 'A',
@@ -46,7 +46,7 @@ const MOCK_BANK = [
   },
   {
     id: 2,
-    subject: 'Matematika', grade: 9, difficulty: 'oson', topic: 'algebra',
+    subject: 'Matematika', grade: 9, difficulty: 'oson', topic: 'tenglamalar',
     text: '$3x - 7 = 8$ tenglamani yeching.',
     optionA: '$x = 3$', optionB: '$x = 5$', optionC: '$x = -5$', optionD: '$x = 7$',
     correctLetter: 'B',
@@ -55,7 +55,7 @@ const MOCK_BANK = [
   },
   {
     id: 3,
-    subject: 'Matematika', grade: 8, difficulty: 'orta', topic: 'geometriya',
+    subject: 'Matematika', grade: 8, difficulty: 'orta', topic: 'planimetriya',
     text: "To'g'ri burchakli uchburchakning katetlari $6$ va $8$ ga teng. Gipotenuzani toping.",
     optionA: '$12$', optionB: '$14$', optionC: '$10$', optionD: '$9$',
     correctLetter: 'C',
@@ -93,7 +93,7 @@ const MOCK_BANK = [
   },
   {
     id: 7,
-    subject: 'Tarix', grade: 7, difficulty: 'oson', topic: 'tarix-uzb',
+    subject: 'Tarix', grade: 7, difficulty: 'oson', topic: 'temuriylar-davri',
     text: "Amir Temur qaysi yilda tug'ilgan?",
     optionA: '1336-yil', optionB: '1370-yil', optionC: '1405-yil', optionD: '1360-yil',
     correctLetter: 'A',
@@ -103,7 +103,7 @@ const MOCK_BANK = [
   },
   {
     id: 8,
-    subject: 'Tarix', grade: 8, difficulty: 'orta', topic: 'tarix-uzb',
+    subject: 'Tarix', grade: 8, difficulty: 'orta', topic: 'ilk-orta-asrlar',
     text: "Buyuk ipak yo'lining asosiy tarmog'i qaysi shaharlar orqali o'tgan?",
     optionA: 'Buxoro va Samarqand', optionB: 'Toshkent va Namangan',
     optionC: 'Xiva va Nukus', optionD: "Qo'qon va Andijon",
@@ -132,7 +132,7 @@ const MOCK_BANK = [
   },
   {
     id: 11,
-    subject: 'Matematika', grade: 6, difficulty: 'oson', topic: 'algebra',
+    subject: 'Matematika', grade: 6, difficulty: 'oson', topic: 'sonlar',
     text: "Sonlarning eng katta umumiy bo'luvchisini toping: $\\text{EKUB}(24; 36)$.",
     optionA: '$6$', optionB: '$18$', optionC: '$72$', optionD: '$12$',
     correctLetter: 'D',
@@ -141,7 +141,7 @@ const MOCK_BANK = [
   },
   {
     id: 12,
-    subject: 'Matematika', grade: 7, difficulty: 'orta', topic: 'geometriya',
+    subject: 'Matematika', grade: 7, difficulty: 'orta', topic: 'planimetriya',
     text: "Uchburchak ichki burchaklarining yig'indisi necha gradus?",
     optionA: '$360°$', optionB: '$180°$', optionC: '$90°$', optionD: '$270°$',
     correctLetter: 'B',

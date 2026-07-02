@@ -77,25 +77,45 @@ const DIFFICULTY_OPTIONS = [
   { value: 'qiyin', label: 'Qiyin' },
 ]
 
-// Topics are subject-specific. Hardcoded until GET /api/practice/topics ships,
-// then this map is replaced by the endpoint response.
+// Topics are subject-specific. This map mirrors the canonical catalog in
+// milliy-platform src/MilliyMock.Api/seed/practice-topics.json — it is a
+// placeholder until GET /api/practice/topics ships, then it's replaced by
+// the endpoint response.
 const TOPICS_BY_SUBJECT = {
   Matematika: [
-    { value: 'algebra', label: 'Algebra' },
-    { value: 'geometriya', label: 'Geometriya' },
+    { value: 'sonlar', label: 'Sonlar va amallar' },
+    { value: 'algebra', label: 'Algebraik ifodalar' },
+    { value: 'tenglamalar', label: 'Tenglama va tengsizliklar' },
+    { value: 'funksiyalar', label: 'Funksiyalar va grafiklar' },
+    { value: 'progressiyalar', label: 'Progressiyalar' },
+    { value: 'logarifmlar', label: 'Daraja va logarifmlar' },
     { value: 'trigonometriya', label: 'Trigonometriya' },
-    { value: 'funksiyalar', label: 'Funksiyalar' },
-    { value: 'ehtimollik', label: 'Ehtimollik' },
+    { value: 'ehtimollik', label: 'Ehtimollik va statistika' },
+    { value: 'matnli-masalalar', label: 'Matnli masalalar' },
+    { value: 'planimetriya', label: 'Planimetriya' },
+    { value: 'stereometriya', label: 'Stereometriya' },
   ],
   Tarix: [
-    { value: 'tarix-uzb', label: "O'zbekiston tarixi" },
-    { value: 'jahon-tarixi', label: 'Jahon tarixi' },
+    { value: 'eng-qadimgi-davr', label: 'Eng qadimgi davr' },
+    { value: 'antik-davr', label: 'Antik davr davlatlari' },
+    { value: 'ilk-orta-asrlar', label: "Ilk o'rta asrlar" },
+    { value: 'temuriylar-davri', label: 'Amir Temur va temuriylar davri' },
+    { value: 'xonliklar-davri', label: 'Xonliklar davri' },
+    { value: 'chor-rossiyasi-davri', label: 'Chor Rossiyasi istilosi davri' },
+    { value: 'sovet-davri', label: 'Sovet davri' },
+    { value: 'mustaqillik-davri', label: 'Mustaqillik davri' },
+    { value: 'qadimgi-dunyo', label: 'Qadimgi dunyo tarixi' },
+    { value: 'orta-asrlar', label: "O'rta asrlar" },
+    { value: 'yangi-davr', label: 'Yangi davr' },
+    { value: 'eng-yangi-davr', label: 'Eng yangi davr' },
   ],
   Fizika: [
     { value: 'mexanika', label: 'Mexanika' },
-    { value: 'elektr', label: 'Elektr' },
+    { value: 'molekulyar-fizika', label: 'Molekulyar fizika va termodinamika' },
+    { value: 'elektr', label: 'Elektr va magnetizm' },
+    { value: 'tebranishlar-tolqinlar', label: "Tebranishlar va to'lqinlar" },
     { value: 'optika', label: 'Optika' },
-    { value: 'issiqlik', label: 'Issiqlik hodisalari' },
+    { value: 'atom-yadro', label: 'Atom va yadro fizikasi' },
   ],
 }
 
