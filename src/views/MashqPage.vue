@@ -77,14 +77,34 @@ const DIFFICULTY_OPTIONS = [
   { value: 'qiyin', label: 'Qiyin' },
 ]
 
-const TOPIC_OPTIONS = [
-  { value: 'all', label: 'Barcha mavzular' },
-  { value: 'algebra', label: 'Algebra' },
-  { value: 'geometriya', label: 'Geometriya' },
-  { value: 'trigonometriya', label: 'Trigonometriya' },
-  { value: 'funksiyalar', label: 'Funksiyalar' },
-  { value: 'ehtimollik', label: 'Ehtimollik' },
-]
+// Topics are subject-specific. Hardcoded until GET /api/practice/topics ships,
+// then this map is replaced by the endpoint response.
+const TOPICS_BY_SUBJECT = {
+  Matematika: [
+    { value: 'algebra', label: 'Algebra' },
+    { value: 'geometriya', label: 'Geometriya' },
+    { value: 'trigonometriya', label: 'Trigonometriya' },
+    { value: 'funksiyalar', label: 'Funksiyalar' },
+    { value: 'ehtimollik', label: 'Ehtimollik' },
+  ],
+  Tarix: [
+    { value: 'tarix-uzb', label: "O'zbekiston tarixi" },
+    { value: 'jahon-tarixi', label: 'Jahon tarixi' },
+  ],
+  Fizika: [
+    { value: 'mexanika', label: 'Mexanika' },
+    { value: 'elektr', label: 'Elektr' },
+    { value: 'optika', label: 'Optika' },
+    { value: 'issiqlik', label: 'Issiqlik hodisalari' },
+  ],
+}
+
+// Flat slug → label lookup for the question meta tag, regardless of subject.
+const TOPIC_LABELS = Object.fromEntries(
+  Object.values(TOPICS_BY_SUBJECT)
+    .flat()
+    .map((topic) => [topic.value, topic.label]),
+)
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Hamma savollar' },
@@ -112,8 +132,14 @@ const gradeBadge = computed(() =>
 const difficultyBadge = computed(() =>
   filters.difficulty.value === 'all' ? 'Hamma' : resolveLabel(DIFFICULTY_OPTIONS, filters.difficulty.value),
 )
+// Dropdown entries for the currently selected subject.
+const topicOptions = computed(() => [
+  { value: 'all', label: 'Barcha mavzular' },
+  ...(TOPICS_BY_SUBJECT[filters.subject.value] || []),
+])
+
 const topicBadge = computed(() =>
-  filters.topic.value === 'all' ? 'Hamma' : resolveLabel(TOPIC_OPTIONS, filters.topic.value),
+  filters.topic.value === 'all' ? 'Hamma' : resolveLabel(topicOptions.value, filters.topic.value),
 )
 const statusBadge = computed(() =>
   filters.status.value === 'all' ? 'Hamma' : resolveLabel(STATUS_OPTIONS, filters.status.value),
@@ -148,6 +174,12 @@ const isFilterActive = (key) =>
 const selectFilter = (key, value) => {
   filters[key].value = value
   filters[key].open = false
+
+  // Topics are subject-specific — a subject switch invalidates the old pick.
+  // Same-tick reset keeps the filter watcher to a single reload.
+  if (key === 'subject') {
+    filters.topic.value = 'all'
+  }
 }
 
 const resetFilters = () => {
@@ -201,7 +233,7 @@ const question = computed(() => {
     subject: SUBJECT_LABELS[dto.subject] || '',
     grade: dto.grade ? `${dto.grade}-sinf` : 'Umumiy',
     difficulty: DIFFICULTY_META[dto.difficulty] || DIFFICULTY_META[2],
-    topic: resolveLabel(TOPIC_OPTIONS, dto.topic) || dto.topic,
+    topic: TOPIC_LABELS[dto.topic] || dto.topic,
     text: dto.text,
     options: [
       { letter: 'A', text: dto.optionA },
@@ -755,7 +787,7 @@ onBeforeUnmount(() => {
           </button>
           <div class="dropdown" :class="{ open: filters.topic.open }">
             <div
-              v-for="option in TOPIC_OPTIONS"
+              v-for="option in topicOptions"
               :key="option.value"
               class="dropdown-item"
               :class="{ selected: filters.topic.value === option.value }"
