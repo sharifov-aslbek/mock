@@ -70,6 +70,27 @@ const routes = [
     }
   },
   {
+    path: '/ona-tili',
+    name: 'ona-tili',
+    component: () => import('@/views/SubjectPage.vue'),
+    meta: {
+      subjectKey: 'motherTongue',
+      seo: {
+        title: 'Ona tili testlari',
+        description:
+          'Ona tilidan milliy sertifikat testlarini real test formatida ishlang. O‘zingizga mos testni tanlang va darhol boshlang.',
+      },
+    }
+  },
+  {
+    path: '/ona-tili-demo',
+    // Design preview for the Ona tili exam page: visible on localhost only,
+    // production redirects to the subject page until the real flow ships.
+    ...(import.meta.env.DEV
+      ? { name: 'ona-tili-demo', component: () => import('@/views/OnaTiliDemoPage.vue') }
+      : { redirect: '/ona-tili' }),
+  },
+  {
     path: '/result-exam',
     name: 'result-exam',
     component: () => import('@/views/ResultExamPage.vue'),

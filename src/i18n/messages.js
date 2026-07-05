@@ -20,6 +20,7 @@ const messages = {
         math: 'Matematika',
         history: 'Tarix',
         physics: 'Fizika',
+        motherTongue: 'Ona tili',
         mashq: 'Mashq',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -116,10 +117,6 @@ const messages = {
           text: 'Doimiy mock test ishlash menga ishonch berdi va imtihon oldi hayajonini kamaytirdi.'
         }
       ]
-    },
-    finalCta: {
-      title: 'MilliyMock qanday ishlashini ko‘rishni xohlaysizmi?',
-      button: 'Shaxsiy demo buyurtma qiling'
     },
     footer: {
       brand: 'Milliy Mock',
@@ -227,6 +224,12 @@ const messages = {
         title: 'Fizika testlari',
         description: 'Fizika bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
         subjectValue: 'Fizika'
+      },
+      motherTongue: {
+        eyebrow: 'Ona tili markazi',
+        title: 'Ona tili testlari',
+        description: 'Ona tili bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
+        subjectValue: 'Ona tili'
       }
     },
     login: {
@@ -456,6 +459,7 @@ const messages = {
         math: 'Математика',
         history: 'Тарих',
         physics: 'Физика',
+        motherTongue: 'Родной язык',
         mashq: 'Практика',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -552,10 +556,6 @@ const messages = {
           text: 'Регулярные mock-тесты придали мне уверенности и уменьшили предэкзаменационное волнение.'
         }
       ]
-    },
-    finalCta: {
-      title: 'Хотите увидеть, как работает MilliyMock?',
-      button: 'Заказать персональное демо'
     },
     footer: {
       brand: 'Milliy Mock',
@@ -663,6 +663,12 @@ const messages = {
         title: 'Тесты по физике',
         description: 'Выберите тесты по физике и начните сразу.',
         subjectValue: 'Физика'
+      },
+      motherTongue: {
+        eyebrow: 'Центр родного языка',
+        title: 'Тесты по родному языку',
+        description: 'Выберите тесты по родному языку и начните сразу.',
+        subjectValue: 'Родной язык'
       }
     },
     login: {
