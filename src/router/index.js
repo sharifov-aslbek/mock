@@ -91,6 +91,14 @@ const routes = [
       : { redirect: '/ona-tili' }),
   },
   {
+    path: '/ona-tili-demo-natija',
+    // Results/analysis preview for the Ona tili demo (incl. the AI essay
+    // analysis design). DEV-only, mirroring /ona-tili-demo.
+    ...(import.meta.env.DEV
+      ? { name: 'ona-tili-demo-natija', component: () => import('@/views/OnaTiliDemoResultPage.vue') }
+      : { redirect: '/ona-tili' }),
+  },
+  {
     path: '/result-exam',
     name: 'result-exam',
     component: () => import('@/views/ResultExamPage.vue'),

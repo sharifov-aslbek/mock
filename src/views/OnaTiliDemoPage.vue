@@ -267,14 +267,33 @@ const remainingSeconds = ref(demoTest.durationMinutes * 60)
 let timerInterval = null
 
 // ——— Submit (demo) ————————————————————————————————————————————————
+// The submission moves to its own localStorage key so the results page
+// (/ona-tili-demo-natija) can grade and display it after the draft is wiped.
+const SUBMISSION_KEY = 'onatili-demo-submission-v1'
 const showSubmitModal = ref(false)
 
 const confirmSubmitTest = () => {
+  const submission = {
+    submittedAt: new Date().toISOString(),
+    answers: { ...answers },
+    essayMode: essayMode.value,
+    essayUploads: essayUploads.value,
+  }
+  try {
+    localStorage.setItem(SUBMISSION_KEY, JSON.stringify(submission))
+  } catch {
+    // Photo pages can blow the quota — retry keeping everything but the images.
+    try {
+      localStorage.setItem(SUBMISSION_KEY, JSON.stringify({ ...submission, essayUploads: [] }))
+    } catch {
+      // Still too big — the results page will show its empty state.
+    }
+  }
   localStorage.removeItem(STORAGE_KEY)
   localStorage.removeItem(ESSAY_UPLOADS_KEY)
   localStorage.removeItem(ESSAY_MODE_KEY)
   showSubmitModal.value = false
-  router.push('/ona-tili')
+  router.push('/ona-tili-demo-natija')
 }
 
 // Bookmark buttons — same local-only behaviour as the shared components.
