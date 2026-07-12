@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
+import OnaTiliDemoCard from '@/components/OnaTiliDemoCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
@@ -30,6 +31,14 @@ const SUBJECT_CONFIG = {
       'M12 11.3a0.7 0.7 0 1 0 0 1.4 0.7 0.7 0 1 0 0-1.4',
       'M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z',
       'M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z',
+    ],
+  },
+  motherTongue: {
+    // Open book — language & literature symbol.
+    aliases: ['mothertongue', 'mother tongue', 'ona tili', 'onatili', 'родной язык'],
+    paths: [
+      'M12 7v14',
+      'M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3H3Z',
     ],
   },
 }
@@ -160,13 +169,23 @@ const startedTests = computed(() =>
     })),
 )
 
+// Ona tili ships a frontend-only "ideal test design" preview (/ona-tili-demo).
+// Surface it as a showcase card on the Ona tili subject page so the section
+// isn't empty. DEV-only, mirroring the demo route (production redirects it to
+// /ona-tili). It's a "not started" card, so it doesn't belong on the Started tab.
+const IS_DEV = import.meta.env.DEV
+const hasDemoCard = computed(() => IS_DEV && subjectKey.value === 'motherTongue')
+const showDemoCard = computed(() => hasDemoCard.value && activeTab.value !== 'started')
+
 const tabs = computed(() => [
-  { id: 'all', name: t('math.tabs.all'), count: tests.value.length },
+  { id: 'all', name: t('math.tabs.all'), count: tests.value.length + (hasDemoCard.value ? 1 : 0) },
   { id: 'started', name: t('math.tabs.started'), count: startedTests.value.length },
   {
     id: 'notStarted',
     name: t('math.tabs.notStarted'),
-    count: tests.value.filter((test) => Number(test.attemptCount) === 0).length,
+    count:
+      tests.value.filter((test) => Number(test.attemptCount) === 0).length +
+      (hasDemoCard.value ? 1 : 0),
   },
 ])
 
@@ -196,6 +215,10 @@ const filteredTests = computed(() => {
 
 const shouldShowLoading = computed(() => activeTab.value !== 'started' && isLoading.value)
 const shouldShowError = computed(() => activeTab.value !== 'started' && Boolean(errorKey.value))
+// The demo card counts as a shown item, so include it in the header tally and
+// keep the grid (not the empty/error state) on screen even when the backend
+// returns nothing for Ona tili.
+const displayedCount = computed(() => filteredTests.value.length + (showDemoCard.value ? 1 : 0))
 const emptyMessageKey = computed(() =>
   activeTab.value === 'started' ? 'math.emptyStarted' : 'math.empty',
 )
@@ -302,7 +325,7 @@ const selectSort = (value) => {
 
       <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-[fadeInUp_1.1s_ease-out]">
         <p class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">
-          {{ activeTabName }} · {{ filteredTests.length }}
+          {{ activeTabName }} · {{ displayedCount }}
         </p>
 
         <div class="relative w-full sm:w-auto">
@@ -374,14 +397,21 @@ const selectSort = (value) => {
       </div>
 
       <div
-        v-else-if="filteredTests.length > 0"
+        v-else-if="filteredTests.length > 0 || showDemoCard"
         class="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
       >
+        <div
+          v-if="showDemoCard"
+          class="card-enter"
+          :style="{ animationDelay: '0ms' }"
+        >
+          <OnaTiliDemoCard />
+        </div>
         <div
           v-for="(test, index) in filteredTests"
           :key="test.id"
           class="card-enter"
-          :style="{ animationDelay: Math.min(index, 12) * 55 + 'ms' }"
+          :style="{ animationDelay: Math.min(index + (showDemoCard ? 1 : 0), 12) * 55 + 'ms' }"
         >
           <MathTestCard :test="test" />
         </div>
