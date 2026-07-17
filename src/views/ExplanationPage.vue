@@ -5,6 +5,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { NPopover } from 'naive-ui'
 import TestCertificate from '@/components/certificate/TestCertificate.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
+import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
@@ -308,7 +309,12 @@ const filteredQuestions = computed(() => {
     }
   }
 
-  const apiQuestions = [...questionsById.values()]
+  // Essay questions are graded by the AI, not marked correct/incorrect — they
+  // live in the essay-analysis section below, never in this row table (and so
+  // don't skew the correct/omitted tallies derived from it).
+  const apiQuestions = [...questionsById.values()].filter(
+    (question) => question?.type !== 'Essay',
+  )
 
   if (!apiQuestions.length) {
     return []
@@ -556,6 +562,84 @@ const filteredQuestions = computed(() => {
     }
   })
 })
+
+// ——— Essay (insho) AI review ————————————————————————————————————————
+// Ona tili tests carry a 45th Essay question graded by the AI. get-results
+// returns its grade under `essayReview` and the student's text under the
+// essay question's userAnswer. We feed both into the shared
+// EssayAnalysisSection (same component the demo results page uses).
+const essayQuestions = computed(() => {
+  const questions = Array.isArray(testStore.currentTest?.questions)
+    ? testStore.currentTest.questions
+    : []
+  return questions.filter((question) => question?.type === 'Essay')
+})
+
+const essayText = computed(() => {
+  for (const question of essayQuestions.value) {
+    const answer = userAnswersByQuestionId.value.get(Number(question.id))
+    const text = typeof answer?.textAnswer === 'string' ? answer.textAnswer.trim() : ''
+    if (text) {
+      return text
+    }
+  }
+  return ''
+})
+
+const essayReview = computed(() => testStore.lastSubmission?.essayReview || null)
+
+// The AI response the section renders. The backend passes Gemini's grading JSON
+// through as `evaluationJson` (a string) — parse it back to the object shape
+// EssayAnalysisSection expects. Fall back to the flattened columns so the
+// header still renders if the raw JSON is ever missing/!parseable.
+const essayAnalysis = computed(() => {
+  const review = essayReview.value
+  if (!review) {
+    return null
+  }
+
+  const raw = review.evaluationJson
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      // Malformed JSON — drop to the flattened fallback below.
+    }
+  } else if (raw && typeof raw === 'object') {
+    return raw
+  }
+
+  return {
+    on_topic: review.onTopic !== false,
+    copied_suspected: review.copiedSuspected === true,
+    global_notes: review.globalNotes || '',
+  }
+})
+
+const essayBandTotal = computed(() => {
+  const total = Number(essayReview.value?.totalScore)
+  return Number.isFinite(total) ? total : null
+})
+
+const hasEssayReview = computed(() => Boolean(essayReview.value) && Boolean(essayAnalysis.value))
+// Essay submitted but the async AI grade hasn't landed yet: keep the answer
+// visible with a "being analysed" note instead of dropping it silently (it's
+// excluded from the row table above).
+const essayPending = computed(() => !essayReview.value && Boolean(essayText.value))
+
+// The score ring + review table cover the auto-graded questions. An essay-only
+// result (no auto-graded questions, just the AI-graded essay) would otherwise
+// show a 0% ring over an empty table — skip both and let the essay section
+// stand alone. Still shown while loading / on error / when there's genuinely
+// nothing (so the empty + error states remain reachable).
+const showScoreAndTable = computed(
+  () =>
+    filteredQuestions.value.length > 0 ||
+    isLoadingTest.value ||
+    isFinalizingSubmission.value ||
+    Boolean(testLoadError.value) ||
+    (!hasEssayReview.value && !essayPending.value),
+)
 
 const totalQuestions = computed(() => filteredQuestions.value.length)
 // Derive correct / incorrect / omitted from ONE source — the per-question status
@@ -1403,7 +1487,7 @@ function answerFeedbackText(question) {
       </div>
 
 
-      <div class="mb-6 flex flex-col gap-4 sm:flex-row">
+      <div v-if="showScoreAndTable" class="mb-6 flex flex-col gap-4 sm:flex-row">
         <div class="flex min-w-0 flex-row items-center justify-center gap-4 rounded-2xl border border-[#e0ddd7] bg-white px-6 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:flex-col sm:gap-0">
           <svg width="110" height="110" viewBox="0 0 110 110">
             <circle cx="55" cy="55" :r="scoreRingRadius" fill="none" stroke="#ece8e0" stroke-width="7" />
@@ -1514,7 +1598,7 @@ function answerFeedbackText(question) {
         </div>
       </div>
 
-      <section class="overflow-hidden rounded-2xl border border-[#ebebeb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+      <section v-if="showScoreAndTable" class="overflow-hidden rounded-2xl border border-[#ebebeb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
         <div class="explanation-scrollbar hidden overflow-x-auto md:block">
           <table class="w-full">
             <thead>
@@ -1868,9 +1952,56 @@ function answerFeedbackText(question) {
           </button>
         </div>
 
-        <div v-else-if="filteredQuestions.length === 0" class="flex items-center justify-center py-16">
+        <div v-else-if="filteredQuestions.length === 0 && !hasEssayReview && !essayPending" class="flex items-center justify-center py-16">
           <p class="text-sm text-[#d8d3ca]">Ma'lumot topilmadi</p>
         </div>
+      </section>
+
+      <!-- ═══ Essay (insho) AI analysis — Ona tili ═══
+           The 45th Essay question is graded by the AI, not marked in the table
+           above. Same section the demo results page uses, fed by the backend's
+           essayReview (evaluationJson) + the student's essay text. -->
+      <EssayAnalysisSection
+        v-if="hasEssayReview && !isLoadingTest && !testLoadError"
+        :analysis="essayAnalysis"
+        :essay-text="essayText"
+        :band-total="essayBandTotal"
+      />
+
+      <!-- Essay submitted, AI grade still pending -->
+      <section
+        v-else-if="essayPending && !isLoadingTest && !testLoadError"
+        class="mt-12"
+      >
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="font-mono-custom text-[11px] font-semibold tracking-[0.18em] text-[#bcb6a9]">IV</span>
+          <h2 class="text-xl font-bold tracking-[-0.01em] text-[#1a1814]">Insho tahlili</h2>
+          <span class="font-mono-custom rounded-full border border-[#d8d3ca] bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8a857c]">
+            AI tekshiruvi
+          </span>
+        </div>
+
+        <div class="mt-5 flex items-start gap-3 rounded-[18px] border border-[#e5ded3] bg-[#fffdfa] px-5 py-4 shadow-[0_10px_30px_rgba(26,24,20,0.05)]">
+          <span class="mt-0.5 inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#4a463f]" />
+          <div class="min-w-0">
+            <p class="text-[14px] font-semibold text-[#1a1814]">Insho tahlili tayyorlanmoqda</p>
+            <p class="mt-0.5 text-[13px] leading-relaxed text-[#8a857c]">
+              AI inshongizni baholamoqda. Tahlil tayyor bo‘lgach, shu sahifada ko‘rinadi — birozdan so‘ng qayta yangilang.
+            </p>
+          </div>
+        </div>
+
+        <details class="group mt-5 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#eeeae2] shadow-[0_10px_30px_rgba(26,24,20,0.05)]">
+          <summary class="flex cursor-pointer items-center justify-between px-5 py-4 text-[14px] font-semibold text-[#1a1814] transition hover:bg-[#faf8f4]">
+            <span>Sizning insho javobingiz</span>
+            <svg class="h-4 w-4 text-[#8a857c] transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </summary>
+          <div class="border-t border-[#f3f0ea] px-5 py-4">
+            <p class="whitespace-pre-line text-[14px] leading-[1.8] text-[#3a362f]">{{ essayText }}</p>
+          </div>
+        </details>
       </section>
     </div>
 

@@ -289,6 +289,10 @@ export const useTestStore = defineStore('test', () => {
         maxScore: data.maxScore,
         correctCount: data.correctCount,
         incorrectCount: data.incorrectCount,
+        // AI grading for an Essay question (Ona tili). Null for tests without an
+        // essay, or while grading is still pending. ExplanationPage renders it
+        // via EssayAnalysisSection.
+        essayReview: data.essayReview ?? null,
         userAnswers,
       }
 
@@ -380,6 +384,45 @@ export const useTestStore = defineStore('test', () => {
     return payload?.data ?? null
   }
 
+  // OCR the handwritten essay pages of an attempt (Ona tili). Multipart body:
+  // testAttemptId + the page images. Returns the transcription text, which the
+  // test page then stores as the essay's regular /user-answer textAnswer before
+  // submit — so grading reads the handwritten essay, not the typed one.
+  async function transcribeEssay(testAttemptId, imageFiles) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    ensureAuth()
+
+    const formData = new FormData()
+    for (const file of imageFiles) {
+      formData.append('images', file)
+    }
+
+    const response = await apiFetch(
+      `${apiBaseUrl}/essay-review/transcribe?testAttemptId=${Number(testAttemptId)}`,
+      {
+        method: 'POST',
+        // No Content-Type here — the browser sets the multipart boundary itself.
+        headers: buildAuthHeaders(),
+        body: formData,
+      },
+    )
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || payload?.code !== 200 || !payload?.data) {
+      throw new Error(payload?.message || 'Could not transcribe the essay.')
+    }
+
+    const transcription = payload.data.transcription ?? payload.data.Transcription
+
+    return typeof transcription === 'string' ? transcription : ''
+  }
+
   async function requestUserAnswer(method, answerPayload) {
     const apiBaseUrl = getTestApiBaseUrl()
 
@@ -435,6 +478,7 @@ export const useTestStore = defineStore('test', () => {
     startTest,
     resumeAttempt,
     submitTestAttempt,
+    transcribeEssay,
     fetchQuestionExplanation,
     createUserAnswer,
     updateUserAnswer,

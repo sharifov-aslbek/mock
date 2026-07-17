@@ -10,6 +10,7 @@ import { isMathSubject } from '@/utils/subjects'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import TestBottomBar from '@/components/test/TestBottomBar.vue'
 import TestErrorState from '@/components/test/TestErrorState.vue'
+import TestEssayQuestion from '@/components/test/TestEssayQuestion.vue'
 import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
 import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
 import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
@@ -34,6 +35,9 @@ const pageErrorKey = ref('')
 const remainingSeconds = ref(0)
 const isReferenceOpen = ref(false)
 const showSubmitModal = ref(false)
+// Shown inside the submit modal when finishing fails (essay transcription /
+// answer save); the modal stays open so the user can retry.
+const submitErrorMessage = ref('')
 const showLeaveModal = ref(false)
 let pendingNavigationCallback = null
 const isSubmittingTest = ref(false)
@@ -44,12 +48,22 @@ let timerIntervalId = null
 // real elapsed time instead of freezing the countdown.
 let testDeadlineAt = null
 
-let isSyncingAnswers = false
-let pendingSyncRequested = false
+// Single-flight sync: `activeSyncPromise` is the run currently on the wire;
+// callers arriving mid-run share one queued follow-up run, so awaiting
+// syncDirtyAnswers() always means "edits made up to this call were attempted"
+// — the finish/submit path depends on that.
+let activeSyncPromise = null
+let queuedSyncPromise = null
 let isCompletingTest = ref(false)
 const dirtyQuestionIds = new Set()
 const ANSWER_ACTIONS_STORAGE_KEY = 'test_answer_actions'
 const answerActions = ref([])
+// Answers are pushed on a fixed cadence instead of per edit — free-answer and
+// essay inputs emit on every change and were pinging /user-answer continuously.
+// Between ticks, edits only update the local action, so several edits to one
+// question collapse into a single request.
+const ANSWER_SYNC_INTERVAL_MS = 5000
+let answerSyncIntervalId = null
 const confettiPieces = [
   { left: '-22px', top: '22px', color: '#ef4444', delay: '0s', rotate: '18deg' },
   { left: '-34px', top: '118px', color: '#f59e0b', delay: '0.18s', rotate: '-24deg' },
@@ -309,6 +323,26 @@ const totalDurationMinutes = computed(() => {
 })
 const totalDurationSeconds = computed(() => totalDurationMinutes.value * 60)
 
+// Essay (insho) questions answer with text like FreeAnswer — the typed essay
+// rides the same /user-answer textAnswer flow. Read the type tolerantly so a
+// backend field rename (type vs questionType) doesn't silently drop the UI.
+const isEssayQuestion = (question) =>
+  question?.type === 'Essay' || question?.questionType === 'Essay'
+
+const isTextualQuestion = (question) =>
+  question?.type === 'FreeAnswer' || isEssayQuestion(question)
+
+// questionId → handwritten essay pages attached in the essay component
+// ({ id, name, dataUrl }). Feeds the answered tally while the test runs and,
+// at finish, the /essay-review/transcribe call.
+const essayUploads = reactive({})
+
+const updateEssayUploads = (questionId, uploads) => {
+  essayUploads[questionId] = Array.isArray(uploads) ? [...uploads] : []
+}
+
+const getEssayUploads = (questionId) => essayUploads[questionId] || []
+
 const hasFreeAnswerContent = (value) => {
   if (typeof value !== 'string') {
     return false
@@ -335,6 +369,12 @@ const hasFreeAnswerContent = (value) => {
 }
 
 const isQuestionAnswered = (question) => {
+  if (isEssayQuestion(question)) {
+    return (
+      hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ||
+      getEssayUploads(question.id).length > 0
+    )
+  }
   if (question.type === 'FreeAnswer') {
     return hasFreeAnswerContent(getResolvedFreeAnswer(question.id))
   }
@@ -364,13 +404,12 @@ const answeredCount = computed(() => {
 const serializedAnswers = computed(() =>
   JSON.stringify(
     renderedQuestions.value.reduce((result, question) => {
-      const answer =
-        question.type === 'FreeAnswer'
-          ? getResolvedFreeAnswer(question.id)
-          : answers[question.id]
+      const answer = isTextualQuestion(question)
+        ? getResolvedFreeAnswer(question.id)
+        : answers[question.id]
 
       if (typeof answer === 'string') {
-        if (question.type === 'FreeAnswer' ? hasFreeAnswerContent(answer) : answer.trim()) {
+        if (isTextualQuestion(question) ? hasFreeAnswerContent(answer) : answer.trim()) {
           result[question.id] = answer
         }
       } else if (answer !== undefined && answer !== null && answer !== '') {
@@ -558,7 +597,7 @@ const buildAnswerActionDraft = (questionId) => {
     return null
   }
 
-  if (question.type === 'FreeAnswer') {
+  if (isTextualQuestion(question)) {
     return {
       testId: Number(currentTest.value.id),
       attemptId: activeAttemptId.value ? Number(activeAttemptId.value) : null,
@@ -666,14 +705,12 @@ const updateMatchingAnswer = (questionId, value) => {
   answers[questionId] = value ? Number(value) : ''
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
-  void syncDirtyAnswers()
 }
 
 const updateOptionAnswer = (questionId, value) => {
   answers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
-  void syncDirtyAnswers()
 }
 
 const clearAnswers = () => {
@@ -690,7 +727,6 @@ const updateFreeAnswer = (questionId, value) => {
   freeAnswers[questionId] = value
   dirtyQuestionIds.add(String(questionId))
   upsertAnswerAction(questionId)
-  void syncDirtyAnswers()
 }
 
 const toggleReferenceWindow = () => {
@@ -864,15 +900,18 @@ const markAnswerActionAsSynced = (syncedAction, syncedUpdatedAt) => {
   }
 }
 
-const syncDirtyAnswers = async () => {
-  if (!activeAttemptId.value || !currentTest.value?.id) {
-    return
-  }
+const hasPendingAnswerActions = () =>
+  Boolean(currentTest.value?.id) &&
+  answerActions.value.some(
+    (action) =>
+      Number(action.testId) === Number(currentTest.value.id) && action.isPending,
+  )
 
-  // A sync is already running; queue one more pass so the latest edit is sent.
-  if (isSyncingAnswers) {
-    pendingSyncRequested = true
-    return
+// One pass over the currently pending actions. Returns how many synced
+// successfully so the caller can tell progress from a dead network.
+const performAnswerSyncPass = async () => {
+  if (!activeAttemptId.value || !currentTest.value?.id) {
+    return 0
   }
 
   syncAnswerActionAttemptIds()
@@ -881,49 +920,70 @@ const syncDirtyAnswers = async () => {
     (action) => Number(action.testId) === Number(currentTest.value.id) && action.isPending,
   )
 
-  if (!pendingActions.length) {
-    return
-  }
+  let syncedCount = 0
 
-  isSyncingAnswers = true
+  for (const action of pendingActions) {
+    try {
+      const syncedUpdatedAt = action.updatedAt
+      const requestMethod =
+        action.hasCreatedRemoteRecord || action.requestMethod === 'PUT' ? 'PUT' : 'POST'
+      const payload =
+        requestMethod === 'PUT'
+          ? buildUpdateAnswerPayload(action)
+          : buildCreateAnswerPayload(action)
 
-  try {
-    for (const action of pendingActions) {
-      try {
-        const syncedUpdatedAt = action.updatedAt
-        const requestMethod =
-          action.hasCreatedRemoteRecord || action.requestMethod === 'PUT' ? 'PUT' : 'POST'
-        const payload =
-          requestMethod === 'PUT'
-            ? buildUpdateAnswerPayload(action)
-            : buildCreateAnswerPayload(action)
-
-        if (!payload) {
-          continue
-        }
-
-        if (requestMethod === 'PUT') {
-          await testStore.updateUserAnswer(payload)
-        } else {
-          await testStore.createUserAnswer(payload)
-        }
-
-        markAnswerActionAsSynced(action, syncedUpdatedAt)
-      } catch (error) {
-        dirtyQuestionIds.add(String(action.questionId))
-        console.error(error)
+      if (!payload) {
+        continue
       }
+
+      if (requestMethod === 'PUT') {
+        await testStore.updateUserAnswer(payload)
+      } else {
+        await testStore.createUserAnswer(payload)
+      }
+
+      markAnswerActionAsSynced(action, syncedUpdatedAt)
+      syncedCount += 1
+    } catch (error) {
+      dirtyQuestionIds.add(String(action.questionId))
+      console.error(error)
     }
-  } catch (error) {
-    console.error(error)
-  } finally {
-    isSyncingAnswers = false
   }
 
-  if (pendingSyncRequested) {
-    pendingSyncRequested = false
-    void syncDirtyAnswers()
+  return syncedCount
+}
+
+// Flush the pending answers. Repeats while passes make progress so an answer
+// edited mid-request (markAnswerActionAsSynced keeps it pending) is re-sent
+// before the promise resolves; a pass that syncs nothing (network down) ends
+// the run instead of spinning forever.
+const syncDirtyAnswers = () => {
+  if (activeSyncPromise) {
+    // Join the trailing run rather than the in-flight one — an edit made just
+    // before this call may not be in the in-flight pass's snapshot.
+    if (!queuedSyncPromise) {
+      queuedSyncPromise = activeSyncPromise.then(() => {
+        queuedSyncPromise = null
+        return syncDirtyAnswers()
+      })
+    }
+    return queuedSyncPromise
   }
+
+  activeSyncPromise = (async () => {
+    try {
+      let syncedCount
+      do {
+        syncedCount = await performAnswerSyncPass()
+      } while (syncedCount > 0 && hasPendingAnswerActions())
+    } catch (error) {
+      console.error(error)
+    } finally {
+      activeSyncPromise = null
+    }
+  })()
+
+  return activeSyncPromise
 }
 
 const loadTest = async (testId) => {
@@ -1030,8 +1090,90 @@ const loadTest = async (testId) => {
   await clearRestartQuery()
 }
 
-const finishTestAndGoToExplanation = async () => {
+// canvas.toDataURL output from the essay component → a File for the multipart
+// transcribe request. Pages are re-encoded JPEGs, so name them accordingly
+// rather than reusing the original (possibly .heic) file name.
+const dataUrlToFile = (dataUrl, fileName) => {
+  const [meta = '', base64 = ''] = String(dataUrl).split(',')
+  const mimeType = meta.match(/^data:([^;]+)/)?.[1] || 'image/jpeg'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return new File([bytes], fileName, { type: mimeType })
+}
+
+// Ona tili: when the essay was handed in as photos, the photos win over the
+// typed text. Transcribe them server-side and store the transcription as the
+// essay's regular /user-answer BEFORE submit, so grading reads the handwritten
+// essay. Essay questions only exist on Ona tili tests, so the uploads
+// themselves are the gate — currentTest.subject arrives via best-effort
+// background enrichment and isn't reliable enough to gate on.
+const applyEssayTranscriptions = async () => {
+  if (!activeAttemptId.value) {
+    return
+  }
+
+  const essayQuestionsWithUploads = renderedQuestions.value.filter(
+    (question) => isEssayQuestion(question) && getEssayUploads(question.id).length > 0,
+  )
+
+  if (!essayQuestionsWithUploads.length) {
+    return
+  }
+
+  for (const question of essayQuestionsWithUploads) {
+    const files = getEssayUploads(question.id).map((upload, index) =>
+      dataUrlToFile(upload.dataUrl, `page-${index + 1}.jpg`),
+    )
+
+    const transcription = await testStore.transcribeEssay(activeAttemptId.value, files)
+
+    if (!transcription.trim()) {
+      // An empty transcription would silently wipe the essay; treat it as a
+      // failed read so the user can retry or fall back to typing.
+      throw new Error('Essay transcription came back empty.')
+    }
+
+    freeAnswers[question.id] = transcription
+    upsertAnswerAction(question.id)
+  }
+
   await syncDirtyAnswers()
+
+  // The transcription must be stored server-side before submit — if its
+  // /user-answer push failed it is still pending; fail the finish so the user
+  // can retry instead of grading an attempt with no essay.
+  const stillPending = essayQuestionsWithUploads.some((question) =>
+    answerActions.value.some(
+      (action) =>
+        Number(action.testId) === Number(currentTest.value?.id) &&
+        Number(action.questionId) === Number(question.id) &&
+        action.isPending,
+    ),
+  )
+
+  if (stillPending) {
+    throw new Error('Could not save the transcribed essay answer.')
+  }
+}
+
+const finishTestAndGoToExplanation = async ({ tolerateTranscribeFailure = false } = {}) => {
+  await syncDirtyAnswers()
+
+  try {
+    await applyEssayTranscriptions()
+  } catch (error) {
+    // Manual finish: bubble up so the submit modal shows the error and offers a
+    // retry. On time-up there is no second chance — submit with whatever has
+    // already been synced rather than freezing at 00:00.
+    if (!tolerateTranscribeFailure) {
+      throw error
+    }
+    console.error(error)
+  }
+
   stopTimer()
   showSubmitModal.value = false
 
@@ -1169,6 +1311,7 @@ watch([serializedAnswers, remainingSeconds, activeAttemptId], () => {
 })
 
 const handleSubmitTest = () => {
+  submitErrorMessage.value = ''
   showSubmitModal.value = true
 }
 
@@ -1190,6 +1333,7 @@ const confirmSubmitTest = async () => {
     return
   }
 
+  submitErrorMessage.value = ''
   isSubmittingTest.value = true
   isCompletingTest.value = true
 
@@ -1198,6 +1342,7 @@ const confirmSubmitTest = async () => {
   } catch (error) {
     console.error(error)
     isCompletingTest.value = false
+    submitErrorMessage.value = t('testPage.essay.transcribeFailed')
   } finally {
     isSubmittingTest.value = false
   }
@@ -1226,7 +1371,7 @@ async function autoSubmitOnTimeUp() {
   showSubmitModal.value = false
 
   try {
-    await finishTestAndGoToExplanation()
+    await finishTestAndGoToExplanation({ tolerateTranscribeFailure: true })
   } catch (error) {
     console.error(error)
     isCompletingTest.value = false
@@ -1240,10 +1385,21 @@ onMounted(() => {
   hydrateAnswerActions()
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', handleBeforeUnload)
+    answerSyncIntervalId = window.setInterval(() => {
+      if (hasPendingAnswerActions()) {
+        void syncDirtyAnswers()
+      }
+    }, ANSWER_SYNC_INTERVAL_MS)
   }
 })
 
 onBeforeUnmount(() => {
+  if (answerSyncIntervalId) {
+    clearInterval(answerSyncIntervalId)
+    answerSyncIntervalId = null
+  }
+  // Final flush so up to ANSWER_SYNC_INTERVAL_MS of unsent edits aren't lost
+  // when the user navigates away mid-window.
   void syncDirtyAnswers()
   persistCurrentProgress()
   stopTimer()
@@ -1353,6 +1509,15 @@ onBeforeUnmount(() => {
                   @update-free-answer="updateFreeAnswer"
                 />
 
+                <TestEssayQuestion
+                  v-else-if="!question.questionGroupId && isEssayQuestion(question)"
+                  :question="question"
+                  :typed-value="getResolvedFreeAnswer(question.id)"
+                  :attempt-id="activeAttemptId"
+                  @update-typed="updateFreeAnswer"
+                  @update-uploads="updateEssayUploads"
+                />
+
                 <TestQuestionBlock
                   v-else-if="!question.questionGroupId"
                   :question="question"
@@ -1396,6 +1561,9 @@ onBeforeUnmount(() => {
               <h4 class="text-xl font-bold tracking-tight text-black">
                 {{ t('testPage.submitConfirmTitle') }}
               </h4>
+              <p v-if="submitErrorMessage" class="mt-2 text-[13.5px] font-medium text-red-600">
+                {{ submitErrorMessage }}
+              </p>
             </div>
 
             <div class="flex justify-center gap-3">

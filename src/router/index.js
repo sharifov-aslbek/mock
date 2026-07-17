@@ -83,12 +83,10 @@ const routes = [
     }
   },
   {
+    // The Ona tili exam preview graduated into the real /test flow (essay UI
+    // included); old links land on the subject page.
     path: '/ona-tili-demo',
-    // Design preview for the Ona tili exam page: visible on localhost only,
-    // production redirects to the subject page until the real flow ships.
-    ...(import.meta.env.DEV
-      ? { name: 'ona-tili-demo', component: () => import('@/views/OnaTiliDemoPage.vue') }
-      : { redirect: '/ona-tili' }),
+    redirect: '/ona-tili',
   },
   {
     path: '/ona-tili-demo-natija',

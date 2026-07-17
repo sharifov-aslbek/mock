@@ -3,14 +3,15 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
-import OnaTiliDemoCard from '@/components/OnaTiliDemoCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
 // Each subject maps to a set of accepted backend `subject` strings (matched
 // case-insensitively) and an icon. Aliases cover likely spellings so the page
-// works regardless of how the admin enum is stored.
+// works regardless of how the admin enum is stored. `subjectParam` is the
+// backend SubjectType enum name — when set, the list request is filtered
+// server-side (`GET /test?subject=…`); the alias filter stays as a safety net.
 const SUBJECT_CONFIG = {
   math: {
     aliases: ['math', 'matematika', 'математика'],
@@ -35,6 +36,7 @@ const SUBJECT_CONFIG = {
   },
   motherTongue: {
     // Open book — language & literature symbol.
+    subjectParam: 'MotherTongue',
     aliases: ['mothertongue', 'mother tongue', 'ona tili', 'onatili', 'родной язык'],
     paths: [
       'M12 7v14',
@@ -98,7 +100,10 @@ const fetchTests = async () => {
   }
 
   try {
-    const response = await apiFetch(`${apiBaseUrl}/test`, {
+    const subjectQuery = config.value.subjectParam
+      ? `?subject=${encodeURIComponent(config.value.subjectParam)}`
+      : ''
+    const response = await apiFetch(`${apiBaseUrl}/test${subjectQuery}`, {
       headers: { accept: '*/*' },
     })
 
@@ -123,6 +128,12 @@ onMounted(() => {
       console.error(error)
     })
   }
+  fetchTests()
+})
+
+// One component instance serves every subject route, so switching subjects
+// doesn't remount — and the list request is subject-scoped, so it must re-run.
+watch(subjectKey, () => {
   fetchTests()
 })
 
@@ -169,23 +180,13 @@ const startedTests = computed(() =>
     })),
 )
 
-// Ona tili ships a frontend-only "ideal test design" preview (/ona-tili-demo).
-// Surface it as a showcase card on the Ona tili subject page so the section
-// isn't empty. DEV-only, mirroring the demo route (production redirects it to
-// /ona-tili). It's a "not started" card, so it doesn't belong on the Started tab.
-const IS_DEV = import.meta.env.DEV
-const hasDemoCard = computed(() => IS_DEV && subjectKey.value === 'motherTongue')
-const showDemoCard = computed(() => hasDemoCard.value && activeTab.value !== 'started')
-
 const tabs = computed(() => [
-  { id: 'all', name: t('math.tabs.all'), count: tests.value.length + (hasDemoCard.value ? 1 : 0) },
+  { id: 'all', name: t('math.tabs.all'), count: tests.value.length },
   { id: 'started', name: t('math.tabs.started'), count: startedTests.value.length },
   {
     id: 'notStarted',
     name: t('math.tabs.notStarted'),
-    count:
-      tests.value.filter((test) => Number(test.attemptCount) === 0).length +
-      (hasDemoCard.value ? 1 : 0),
+    count: tests.value.filter((test) => Number(test.attemptCount) === 0).length,
   },
 ])
 
@@ -215,10 +216,7 @@ const filteredTests = computed(() => {
 
 const shouldShowLoading = computed(() => activeTab.value !== 'started' && isLoading.value)
 const shouldShowError = computed(() => activeTab.value !== 'started' && Boolean(errorKey.value))
-// The demo card counts as a shown item, so include it in the header tally and
-// keep the grid (not the empty/error state) on screen even when the backend
-// returns nothing for Ona tili.
-const displayedCount = computed(() => filteredTests.value.length + (showDemoCard.value ? 1 : 0))
+const displayedCount = computed(() => filteredTests.value.length)
 const emptyMessageKey = computed(() =>
   activeTab.value === 'started' ? 'math.emptyStarted' : 'math.empty',
 )
@@ -397,21 +395,14 @@ const selectSort = (value) => {
       </div>
 
       <div
-        v-else-if="filteredTests.length > 0 || showDemoCard"
+        v-else-if="filteredTests.length > 0"
         class="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
       >
-        <div
-          v-if="showDemoCard"
-          class="card-enter"
-          :style="{ animationDelay: '0ms' }"
-        >
-          <OnaTiliDemoCard />
-        </div>
         <div
           v-for="(test, index) in filteredTests"
           :key="test.id"
           class="card-enter"
-          :style="{ animationDelay: Math.min(index + (showDemoCard ? 1 : 0), 12) * 55 + 'ms' }"
+          :style="{ animationDelay: Math.min(index, 12) * 55 + 'ms' }"
         >
           <MathTestCard :test="test" />
         </div>
