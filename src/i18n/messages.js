@@ -252,13 +252,39 @@ const messages = {
       validation: 'Email va parolni kiriting.',
       socialDisabled: 'Hozircha faqat email va parol orqali kirish ishlaydi.',
       noAccount: 'Hisobingiz yo‘qmi?',
-      signUp: 'Telegram orqali ro‘yxatdan o‘ting',
+      signUp: 'Ro‘yxatdan o‘tish',
       brandTagline: 'Milliy sertifikatga ishonchli tayyorgarlik',
       points: [
         'Haqiqiy imtihon formatidagi mock testlar',
         'Har bir savol uchun batafsil yechim va tahlil',
         'Natijalaringizni bosqichma-bosqich kuzating'
       ]
+    },
+    register: {
+      title: 'Ro‘yxatdan o‘tish',
+      description: 'Telefon raqamingizga tasdiqlash kodi yuboriladi',
+      firstName: 'Ism',
+      firstNamePlaceholder: 'Aziz',
+      lastName: 'Familiya',
+      lastNamePlaceholder: 'Karimov',
+      phone: 'Telefon raqam',
+      phonePlaceholder: '90 123 45 67',
+      continue: 'Davom etish',
+      submitting: 'Yuborilmoqda...',
+      validation: 'Ism, familiya va telefon raqamni to‘liq kiriting.',
+      haveAccount: 'Hisobingiz bormi?',
+      signIn: 'Kirish',
+      otpTitle: 'Kodni kiriting',
+      otpSentPrefix: '',
+      otpSentSuffix: 'raqamiga 6 xonali tasdiqlash kodi yubordik',
+      otpSubmit: 'Tasdiqlash',
+      otpSubmitting: 'Tekshirilmoqda...',
+      otpValidation: '6 xonali kodni to‘liq kiriting.',
+      otpNotReceived: 'Kod kelmadimi?',
+      otpResend: 'Qayta yuborish',
+      otpResent: 'Kod qayta yuborildi.',
+      changeNumber: 'Raqamni o‘zgartirish',
+      registered: 'Ro‘yxatdan o‘tdingiz! Endi tizimga kiring.'
     },
     math: {
       eyebrow: 'Matematika markazi',
@@ -421,6 +447,22 @@ const messages = {
         FreeAnswer: 'Erkin javob',
         Matching: 'Moslashtirish'
       }
+    },
+    essayOverlay: {
+      step: 'Qadam {step} / 2',
+      transcribingTitle: 'Rasmlar tekshirilmoqda',
+      transcribingMeta: '{count} sahifa · odatda 10–20 soniya',
+      transcribingHint: 'Sahifani yopmang — bu bir necha soniya davom etadi',
+      checkingTitle: 'Insho tekshirilmoqda',
+      checkingMeta: 'AI baholamoqda · ~30 soniya',
+      checkingHint: 'Natijalar sahifasi avtomatik ochiladi',
+      checkGrammar: 'Grammatika tekshirilmoqda',
+      checkLogic: 'Mantiq va tuzilma tekshirilmoqda',
+      checkStyle: 'Uslub va boylik tekshirilmoqda',
+      errorTitle: 'Tekshirishda xatolik yuz berdi',
+      errorHint: 'Internet aloqasini tekshiring yoki qaytadan urinib ko‘ring.',
+      retry: 'Qayta urinish',
+      backToTest: 'Testga qaytish'
     },
     explanationPage: {
       title: 'Batafsil ko‘rib chiqish',
@@ -716,13 +758,39 @@ const messages = {
       validation: 'Введите email и пароль.',
       socialDisabled: 'Сейчас работает только вход по email и паролю.',
       noAccount: 'Нет аккаунта?',
-      signUp: 'Зарегистрируйтесь через Telegram',
+      signUp: 'Зарегистрироваться',
       brandTagline: 'Уверенная подготовка к Национальному сертификату',
       points: [
         'Mock-тесты в формате реального экзамена',
         'Подробные решения и разбор каждого вопроса',
         'Отслеживайте свой прогресс шаг за шагом'
       ]
+    },
+    register: {
+      title: 'Регистрация',
+      description: 'На ваш номер телефона будет отправлен код подтверждения',
+      firstName: 'Имя',
+      firstNamePlaceholder: 'Азиз',
+      lastName: 'Фамилия',
+      lastNamePlaceholder: 'Каримов',
+      phone: 'Номер телефона',
+      phonePlaceholder: '90 123 45 67',
+      continue: 'Продолжить',
+      submitting: 'Отправляем...',
+      validation: 'Заполните имя, фамилию и номер телефона полностью.',
+      haveAccount: 'Уже есть аккаунт?',
+      signIn: 'Войти',
+      otpTitle: 'Введите код',
+      otpSentPrefix: 'Мы отправили 6-значный код подтверждения на номер',
+      otpSentSuffix: '',
+      otpSubmit: 'Подтвердить',
+      otpSubmitting: 'Проверяем...',
+      otpValidation: 'Введите 6-значный код полностью.',
+      otpNotReceived: 'Не пришёл код?',
+      otpResend: 'Отправить ещё раз',
+      otpResent: 'Код отправлен повторно.',
+      changeNumber: 'Изменить номер',
+      registered: 'Регистрация завершена! Теперь войдите в систему.'
     },
     math: {
       eyebrow: 'Центр математики',
@@ -885,6 +953,22 @@ const messages = {
         FreeAnswer: 'Свободный ответ',
         Matching: 'Сопоставление'
       }
+    },
+    essayOverlay: {
+      step: 'Шаг {step} / 2',
+      transcribingTitle: 'Распознаём изображения',
+      transcribingMeta: '{count} стр. · обычно 10–20 секунд',
+      transcribingHint: 'Не закрывайте страницу — это займёт несколько секунд',
+      checkingTitle: 'Эссе проверяется',
+      checkingMeta: 'ИИ оценивает · ~30 секунд',
+      checkingHint: 'Страница результатов откроется автоматически',
+      checkGrammar: 'Проверяется грамматика',
+      checkLogic: 'Проверяются логика и структура',
+      checkStyle: 'Проверяются стиль и богатство речи',
+      errorTitle: 'Произошла ошибка при проверке',
+      errorHint: 'Проверьте подключение к интернету и попробуйте ещё раз.',
+      retry: 'Попробовать ещё раз',
+      backToTest: 'Вернуться к тесту'
     },
     explanationPage: {
       title: 'Подробный разбор',

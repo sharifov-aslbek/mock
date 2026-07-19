@@ -160,6 +160,129 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
 
+  // Phone registration, step 1: create the account and trigger the SMS OTP.
+  // The backend stores phone numbers as digits only (e.g. "998901234567").
+  async function register({ firstName, lastName, phoneNumber }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    isLoading.value = true
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          phoneNumber: String(phoneNumber).replace(/\D/g, ''),
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        throw new Error(payload?.message || 'Registration failed.')
+      }
+
+      return payload
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Registration failed.'
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // Phone registration, step 2: confirm the SMS code. When the backend returns
+  // a token the session starts right here (no separate login step).
+  async function verifyOtp({ phoneNumber, code }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    isLoading.value = true
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          phoneNumber: String(phoneNumber).replace(/\D/g, ''),
+          code: String(code),
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        throw new Error(payload?.message || 'Verification failed.')
+      }
+
+      if (payload?.data?.token) {
+        token.value = payload.data.token
+        localStorage.setItem(TOKEN_KEY, payload.data.token)
+      }
+
+      return payload?.data || null
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Verification failed.'
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function resendOtp({ phoneNumber }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          phoneNumber: String(phoneNumber).replace(/\D/g, ''),
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        throw new Error(payload?.message || 'Could not resend the code.')
+      }
+
+      return payload
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Could not resend the code.'
+      throw error
+    }
+  }
+
   async function getUserInfo() {
     const apiBaseUrl = getTestApiBaseUrl()
     if (!apiBaseUrl) {
@@ -263,6 +386,9 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isProfileComplete,
     login,
+    register,
+    verifyOtp,
+    resendOtp,
     telegramLogin,
     googleLogin,
     getUserInfo,

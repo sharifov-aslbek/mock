@@ -6,6 +6,7 @@ import { NPopover } from 'naive-ui'
 import TestCertificate from '@/components/certificate/TestCertificate.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
+import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
@@ -627,6 +628,20 @@ const hasEssayReview = computed(() => Boolean(essayReview.value) && Boolean(essa
 // excluded from the row table above).
 const essayPending = computed(() => !essayReview.value && Boolean(essayText.value))
 
+// While submit + get-results run, get-results is also grading the essay — cover
+// the page with the "Insho tekshirilmoqda" takeover, but only when the attempt
+// actually contains an Essay question. That's known when arriving straight from
+// the test (the store still holds the test content); a cold refresh falls back
+// to the plain spinner. `transcribed=1` marks the two-step photo flow, whose
+// takeover reads step 2 / 2.
+const cameFromTranscription = ref(route.query.transcribed === '1')
+const showEssayCheckingOverlay = computed(
+  () =>
+    essayQuestions.value.length > 0 &&
+    (isFinalizingSubmission.value || isLoadingTest.value) &&
+    !testLoadError.value,
+)
+
 // The score ring + review table cover the auto-graded questions. An essay-only
 // result (no auto-graded questions, just the AI-graded essay) would otherwise
 // show a 0% ring over an empty table — skip both and let the essay section
@@ -928,7 +943,7 @@ async function initializeExplanationPage() {
     // loadResults (get-results). Both paths end at the same get-results render.
     if (readyToSubmit) {
       await finalizeTestSubmission()
-      await stripRouteFlags(['readyToSubmit'])
+      await stripRouteFlags(['readyToSubmit', 'transcribed'])
     }
 
     await loadResults()
@@ -2512,6 +2527,12 @@ function answerFeedbackText(question) {
         </div>
       </div>
     </Teleport>
+
+    <EssayProcessingOverlay
+      v-if="showEssayCheckingOverlay"
+      mode="checking"
+      :step="cameFromTranscription ? '2' : ''"
+    />
 
   </main>
 </template>

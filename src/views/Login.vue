@@ -172,8 +172,18 @@ onMounted(() => {
 
 const highlightTelegram = ref(false)
 
-// Registration happens through the Telegram button — there is no separate
-// sign-up page. The "sign up" link scrolls to and highlights the button.
+// "No account?" now leads to the phone registration page, keeping the
+// post-auth redirect target intact.
+const registerLocation = {
+  path: '/register',
+  query:
+    typeof route.query.redirect === 'string' && route.query.redirect
+      ? { redirect: route.query.redirect }
+      : {},
+}
+
+// Legacy deep link (`?focus=telegram` from the pricing CTA): scroll to and
+// highlight the Telegram button, which also registers social accounts.
 const focusTelegram = () => {
   const element = telegramButton.value
   if (element) {
@@ -304,13 +314,12 @@ onMounted(() => {
 
           <p class="mt-6 text-center text-sm text-[#6b6760]">
             {{ t('login.noAccount') }}
-            <button
-              type="button"
-              @click="focusTelegram"
-              class="font-semibold text-[#1a1814] underline-offset-2 hover:underline"
+            <router-link
+              :to="registerLocation"
+              class="font-semibold text-[#1a1814] underline underline-offset-2"
             >
               {{ t('login.signUp') }}
-            </button>
+            </router-link>
           </p>
         </div>
       </div>

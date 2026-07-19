@@ -125,6 +125,12 @@ const routes = [
     name: 'login',
     component: () => import('@/views/Login.vue'),
     meta: { seo: { robots: 'noindex, nofollow' } }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/Register.vue'),
+    meta: { seo: { robots: 'noindex, nofollow' } }
   }
 ]
 

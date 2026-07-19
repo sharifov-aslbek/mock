@@ -9,6 +9,7 @@ import referenceImage3 from '@/assets/image3.png'
 import { isMathSubject } from '@/utils/subjects'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import TestBottomBar from '@/components/test/TestBottomBar.vue'
+import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
 import TestErrorState from '@/components/test/TestErrorState.vue'
 import TestEssayQuestion from '@/components/test/TestEssayQuestion.vue'
 import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
@@ -38,6 +39,10 @@ const showSubmitModal = ref(false)
 // Shown inside the submit modal when finishing fails (essay transcription /
 // answer save); the modal stays open so the user can retry.
 const submitErrorMessage = ref('')
+// Full-screen takeover while the handwritten essay pages are being transcribed
+// at finish ('' | 'transcribing' | 'error'). Only shown when photos were
+// actually uploaded — the typed-essay path finishes without it.
+const finishOverlayState = ref('')
 const showLeaveModal = ref(false)
 let pendingNavigationCallback = null
 const isSubmittingTest = ref(false)
@@ -342,6 +347,19 @@ const updateEssayUploads = (questionId, uploads) => {
 }
 
 const getEssayUploads = (questionId) => essayUploads[questionId] || []
+
+const essayQuestionsWithUploads = computed(() =>
+  renderedQuestions.value.filter(
+    (question) => isEssayQuestion(question) && getEssayUploads(question.id).length > 0,
+  ),
+)
+
+const transcribePageCount = computed(() =>
+  essayQuestionsWithUploads.value.reduce(
+    (total, question) => total + getEssayUploads(question.id).length,
+    0,
+  ),
+)
 
 const hasFreeAnswerContent = (value) => {
   if (typeof value !== 'string') {
@@ -1110,20 +1128,20 @@ const dataUrlToFile = (dataUrl, fileName) => {
 // essay. Essay questions only exist on Ona tili tests, so the uploads
 // themselves are the gate — currentTest.subject arrives via best-effort
 // background enrichment and isn't reliable enough to gate on.
+// Returns the number of questions whose essay was transcribed, so the caller
+// can tell the results page this was the two-step (photo) flow.
 const applyEssayTranscriptions = async () => {
   if (!activeAttemptId.value) {
-    return
+    return 0
   }
 
-  const essayQuestionsWithUploads = renderedQuestions.value.filter(
-    (question) => isEssayQuestion(question) && getEssayUploads(question.id).length > 0,
-  )
+  const questionsWithUploads = essayQuestionsWithUploads.value
 
-  if (!essayQuestionsWithUploads.length) {
-    return
+  if (!questionsWithUploads.length) {
+    return 0
   }
 
-  for (const question of essayQuestionsWithUploads) {
+  for (const question of questionsWithUploads) {
     const files = getEssayUploads(question.id).map((upload, index) =>
       dataUrlToFile(upload.dataUrl, `page-${index + 1}.jpg`),
     )
@@ -1145,7 +1163,7 @@ const applyEssayTranscriptions = async () => {
   // The transcription must be stored server-side before submit — if its
   // /user-answer push failed it is still pending; fail the finish so the user
   // can retry instead of grading an attempt with no essay.
-  const stillPending = essayQuestionsWithUploads.some((question) =>
+  const stillPending = questionsWithUploads.some((question) =>
     answerActions.value.some(
       (action) =>
         Number(action.testId) === Number(currentTest.value?.id) &&
@@ -1157,17 +1175,21 @@ const applyEssayTranscriptions = async () => {
   if (stillPending) {
     throw new Error('Could not save the transcribed essay answer.')
   }
+
+  return questionsWithUploads.length
 }
 
 const finishTestAndGoToExplanation = async ({ tolerateTranscribeFailure = false } = {}) => {
   await syncDirtyAnswers()
 
+  let transcribedCount = 0
+
   try {
-    await applyEssayTranscriptions()
+    transcribedCount = await applyEssayTranscriptions()
   } catch (error) {
-    // Manual finish: bubble up so the submit modal shows the error and offers a
-    // retry. On time-up there is no second chance — submit with whatever has
-    // already been synced rather than freezing at 00:00.
+    // Manual finish: bubble up so the finish overlay / submit modal shows the
+    // error and offers a retry. On time-up there is no second chance — submit
+    // with whatever has already been synced rather than freezing at 00:00.
     if (!tolerateTranscribeFailure) {
       throw error
     }
@@ -1183,6 +1205,9 @@ const finishTestAndGoToExplanation = async ({ tolerateTranscribeFailure = false 
       testId: currentTest.value.id,
       attemptId: activeAttemptId.value,
       readyToSubmit: '1',
+      // Tells the results page this was the two-step photo flow, so its
+      // "essay being checked" takeover reads step 2 / 2.
+      ...(transcribedCount > 0 ? { transcribed: '1' } : {}),
     },
   })
 }
@@ -1337,15 +1362,35 @@ const confirmSubmitTest = async () => {
   isSubmittingTest.value = true
   isCompletingTest.value = true
 
+  // Photos were uploaded: the transcribe call takes seconds, so swap the modal
+  // for the full-screen progress takeover. The typed path keeps the modal.
+  if (transcribePageCount.value > 0) {
+    showSubmitModal.value = false
+    finishOverlayState.value = 'transcribing'
+  }
+
   try {
     await finishTestAndGoToExplanation()
   } catch (error) {
     console.error(error)
     isCompletingTest.value = false
-    submitErrorMessage.value = t('testPage.essay.transcribeFailed')
+    if (finishOverlayState.value) {
+      finishOverlayState.value = 'error'
+    } else {
+      submitErrorMessage.value = t('testPage.essay.transcribeFailed')
+    }
   } finally {
     isSubmittingTest.value = false
   }
+}
+
+const retryFinishFromOverlay = () => {
+  finishOverlayState.value = ''
+  void confirmSubmitTest()
+}
+
+const closeFinishOverlay = () => {
+  finishOverlayState.value = ''
 }
 
 async function autoSubmitOnTimeUp() {
@@ -1370,11 +1415,16 @@ async function autoSubmitOnTimeUp() {
   isCompletingTest.value = true
   showSubmitModal.value = false
 
+  if (transcribePageCount.value > 0) {
+    finishOverlayState.value = 'transcribing'
+  }
+
   try {
     await finishTestAndGoToExplanation({ tolerateTranscribeFailure: true })
   } catch (error) {
     console.error(error)
     isCompletingTest.value = false
+    finishOverlayState.value = ''
   } finally {
     isSubmittingTest.value = false
   }
@@ -1416,6 +1466,15 @@ onBeforeUnmount(() => {
       v-model:show="showProfileGate"
       @completed="onProfileCompleted"
       @cancel="onProfileCancel"
+    />
+
+    <EssayProcessingOverlay
+      v-if="finishOverlayState"
+      :mode="finishOverlayState"
+      step="1"
+      :page-count="transcribePageCount"
+      @retry="retryFinishFromOverlay"
+      @back="closeFinishOverlay"
     />
 
     <TestFloatingTools
