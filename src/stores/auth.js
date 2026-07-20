@@ -27,7 +27,11 @@ export const useAuthStore = defineStore('auth', () => {
     )
   })
 
-  async function login(email, password) {
+  // Password login. The single identifier field accepts an email or a phone
+  // number — the endpoint takes Email or PhoneNumber, so we pick the field
+  // from the input's shape. A bare 9-digit local number gets the 998 country
+  // code the backend stores ("90 123 45 67" -> "998901234567").
+  async function login(identifier, password) {
     const apiBaseUrl = getTestApiBaseUrl()
 
     if (!apiBaseUrl) {
@@ -38,8 +42,20 @@ export const useAuthStore = defineStore('auth', () => {
     errorMessage.value = ''
 
     try {
+      const trimmed = String(identifier).trim()
+      const digits = trimmed.replace(/\D/g, '')
+      const looksLikePhone =
+        /^\+?[\d\s\-()]+$/.test(trimmed) && digits.length >= 9
+
       const formData = new FormData()
-      formData.append('Email', email)
+      if (looksLikePhone) {
+        formData.append(
+          'PhoneNumber',
+          digits.length === 9 ? `998${digits}` : digits,
+        )
+      } else {
+        formData.append('Email', trimmed)
+      }
       formData.append('Password', password)
 
       const response = await fetch(`${apiBaseUrl}/auth/login`, {
@@ -162,7 +178,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Phone registration, step 1: create the account and trigger the SMS OTP.
   // The backend stores phone numbers as digits only (e.g. "998901234567").
-  async function register({ firstName, lastName, phoneNumber }) {
+  async function register({ firstName, lastName, phoneNumber, password }) {
     const apiBaseUrl = getTestApiBaseUrl()
 
     if (!apiBaseUrl) {
@@ -183,6 +199,7 @@ export const useAuthStore = defineStore('auth', () => {
           firstName,
           lastName,
           phoneNumber: String(phoneNumber).replace(/\D/g, ''),
+          password,
         }),
       })
 

@@ -64,6 +64,27 @@ const googleContainer = ref<HTMLElement | null>(null)
 const telegramReady = ref(false)
 const telegramSubmitting = ref(false)
 
+// Email/phone + password login (design frame 1a). The store picks the
+// Email vs PhoneNumber field from the identifier's shape.
+const identifier = ref('')
+const password = ref('')
+const showPassword = ref(false)
+const validationError = ref('')
+
+const submitPasswordLogin = async () => {
+  validationError.value = ''
+  if (!identifier.value.trim() || !password.value) {
+    validationError.value = t('login.validation')
+    return
+  }
+  try {
+    await authStore.login(identifier.value, password.value)
+    await redirectAfterAuth()
+  } catch {
+    // Store state already holds the backend/network error message.
+  }
+}
+
 // After any successful login, honour a `?redirect=` target if present,
 // otherwise fall back to the math dashboard.
 const redirectAfterAuth = () => {
@@ -199,6 +220,8 @@ const focusTelegram = () => {
 // user landed back on login (typically: tried to open the test page while
 // logged out). Show a small toast so the prompt isn't silent.
 onMounted(() => {
+  // Don't resurface an error left over from a previous auth attempt.
+  authStore.errorMessage = ''
   if (route.query.reason === 'auth-required') {
     message.warning(t('testPage.authRequired'), { duration: 3500 })
   }
@@ -279,6 +302,76 @@ onMounted(() => {
           </div>
 
           <div class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]">
+            <!-- Email/phone + password login (POST /auth/login). -->
+            <form novalidate @submit.prevent="submitPasswordLogin">
+              <div>
+                <label
+                  for="login-identifier"
+                  class="mb-1.5 block text-[13px] font-semibold text-[#1a1814]"
+                >
+                  {{ t('login.email') }}
+                </label>
+                <input
+                  id="login-identifier"
+                  v-model="identifier"
+                  type="text"
+                  name="username"
+                  autocomplete="username"
+                  :placeholder="t('login.emailPlaceholder')"
+                  class="w-full rounded-xl border-[1.5px] border-[#dcd8d0] bg-white px-4 py-3 text-[15px] text-[#1a1814] outline-none transition placeholder:text-[#b5b0a6] focus:border-[#1a1814]"
+                />
+              </div>
+
+              <div class="mt-4">
+                <div class="mb-1.5 flex items-center justify-between">
+                  <label
+                    for="login-password"
+                    class="text-[13px] font-semibold text-[#1a1814]"
+                  >
+                    {{ t('login.password') }}
+                  </label>
+                  <button
+                    type="button"
+                    class="text-xs font-medium text-[#8a857c] transition hover:text-[#1a1814]"
+                    @click="showPassword = !showPassword"
+                  >
+                    {{ showPassword ? t('login.hide') : t('login.show') }}
+                  </button>
+                </div>
+                <input
+                  id="login-password"
+                  v-model="password"
+                  :type="showPassword ? 'text' : 'password'"
+                  name="password"
+                  autocomplete="current-password"
+                  :placeholder="t('login.passwordPlaceholder')"
+                  class="w-full rounded-xl border-[1.5px] border-[#dcd8d0] bg-white px-4 py-3 text-[15px] text-[#1a1814] outline-none transition placeholder:text-[#b5b0a6] focus:border-[#1a1814]"
+                />
+              </div>
+
+              <!-- Form validation + any auth error (password or social flows). -->
+              <p
+                v-if="validationError || authStore.errorMessage"
+                class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+              >
+                {{ validationError || authStore.errorMessage }}
+              </p>
+
+              <button
+                type="submit"
+                :disabled="authStore.isLoading"
+                class="mt-5 h-11 w-full rounded-full bg-[#1a1814] text-[15px] font-semibold text-white transition hover:bg-[#2b2b2b] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
+              </button>
+            </form>
+
+            <div class="my-5 flex items-center gap-3">
+              <div class="h-px flex-1 bg-[#e4e0d8]"></div>
+              <span class="text-xs text-[#8a857c]">{{ t('login.or') }}</span>
+              <div class="h-px flex-1 bg-[#e4e0d8]"></div>
+            </div>
+
             <!-- Custom Telegram login button (also the registration entry point).
                  Drives Telegram's OAuth popup via Telegram.Login.auth so we own
                  the styling — a clean plane icon, no cross-origin iframe. -->
@@ -302,14 +395,6 @@ onMounted(() => {
               class="mt-3 flex min-h-[44px] items-center justify-center"
             ></div>
 
-            <!-- Login is social-only (Telegram / Google). Any auth error from
-                 those flows surfaces here. -->
-            <p
-              v-if="authStore.errorMessage"
-              class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-            >
-              {{ authStore.errorMessage }}
-            </p>
           </div>
 
           <p class="mt-6 text-center text-sm text-[#6b6760]">

@@ -22,7 +22,12 @@ const lastName = ref('')
 // The national part only (9 digits, e.g. "901234567") — the +998 prefix is a
 // fixed box in the UI and re-attached when calling the API.
 const phoneDigits = ref('')
+const password = ref('')
+const passwordConfirm = ref('')
+const showPassword = ref(false)
 const validationError = ref('')
+
+const PASSWORD_MIN_LENGTH = 6
 
 const OTP_LENGTH = 6
 const otpDigits = ref(Array(OTP_LENGTH).fill(''))
@@ -120,11 +125,22 @@ const submitRegisterForm = async () => {
     return
   }
 
+  if (password.value.length < PASSWORD_MIN_LENGTH) {
+    validationError.value = t('register.passwordValidation')
+    return
+  }
+
+  if (password.value !== passwordConfirm.value) {
+    validationError.value = t('register.passwordMismatch')
+    return
+  }
+
   try {
     await authStore.register({
       firstName: firstName.value.trim(),
       lastName: lastName.value.trim(),
       phoneNumber: apiPhoneNumber.value,
+      password: password.value,
     })
     await enterOtpStep()
   } catch {
@@ -390,6 +406,42 @@ onBeforeUnmount(stopResendCountdown)
                     @input="onPhoneInput"
                   />
                 </div>
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 flex items-center justify-between text-[12px] font-semibold text-[#1a1814]">
+                  {{ t('register.password') }}
+                  <button
+                    type="button"
+                    class="font-medium text-[#8a857c] transition hover:text-[#1a1814]"
+                    @click="showPassword = !showPassword"
+                  >
+                    {{ showPassword ? t('login.hide') : t('login.show') }}
+                  </button>
+                </span>
+                <input
+                  v-model="password"
+                  :type="showPassword ? 'text' : 'password'"
+                  name="new-password"
+                  autocomplete="new-password"
+                  :placeholder="t('register.passwordPlaceholder')"
+                  class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+                />
+              </label>
+
+              <label class="block">
+                <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
+                  {{ t('register.passwordConfirm') }}
+                </span>
+                <input
+                  v-model="passwordConfirm"
+                  :type="showPassword ? 'text' : 'password'"
+                  name="confirm-password"
+                  autocomplete="new-password"
+                  :placeholder="t('register.passwordConfirmPlaceholder')"
+                  class="w-full rounded-xl border-[1.5px] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+                  :class="passwordConfirm && passwordConfirm !== password ? 'border-red-300' : 'border-[#e0ddd7]'"
+                />
               </label>
             </div>
 
