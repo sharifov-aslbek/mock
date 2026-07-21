@@ -366,6 +366,16 @@ onMounted(() => {
               </button>
             </form>
 
+            <p class="mt-5 text-center text-sm text-[#6b6760]">
+              {{ t('login.noAccount') }}
+              <router-link
+                :to="registerLocation"
+                class="font-semibold text-[#1a1814] underline underline-offset-2"
+              >
+                {{ t('login.signUp') }}
+              </router-link>
+            </p>
+
             <div class="my-5 flex items-center gap-3">
               <div class="h-px flex-1 bg-[#e4e0d8]"></div>
               <span class="text-xs text-[#8a857c]">{{ t('login.or') }}</span>
@@ -396,16 +406,6 @@ onMounted(() => {
             ></div>
 
           </div>
-
-          <p class="mt-6 text-center text-sm text-[#6b6760]">
-            {{ t('login.noAccount') }}
-            <router-link
-              :to="registerLocation"
-              class="font-semibold text-[#1a1814] underline underline-offset-2"
-            >
-              {{ t('login.signUp') }}
-            </router-link>
-          </p>
         </div>
       </div>
     </div>
