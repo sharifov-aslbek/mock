@@ -69,7 +69,19 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json()
 
       if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-        throw new Error(payload?.message || 'Login failed.')
+        const messageText = payload?.message || 'Login failed.'
+        const error = new Error(messageText)
+        // The backend refuses password logins until the phone number is
+        // OTP-confirmed. Flag that case so the login page can hand the user
+        // to /verify-phone instead of showing a dead-end error. Detected by
+        // status/message since swagger doesn't type the response.
+        error.phoneNotVerified =
+          payload?.code === 403 ||
+          /verif|tasdiq|подтвер|confirm/i.test(messageText) ||
+          payload?.data?.phoneNumberVerified === false ||
+          payload?.data?.isPhoneVerified === false ||
+          payload?.data?.phoneNumberConfirmed === false
+        throw error
       }
 
       token.value = payload.data.token
@@ -300,6 +312,102 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Forgot-password, step 1: send a reset code over the given channel.
+  // The backend only sends to a CONFIRMED email/phone (403 otherwise) and
+  // applies the OTP rate-limit policy (1-min cooldown, daily/IP caps).
+  async function forgotPassword({ email, phoneNumber }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          ...(email ? { email } : {}),
+          ...(phoneNumber
+            ? { phoneNumber: String(phoneNumber).replace(/\D/g, '') }
+            : {}),
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        const error = new Error(payload?.message || 'Could not send the reset code.')
+        // 403 = the account exists but this channel was never confirmed, so no
+        // reset code is sent there. The UI offers the verify-phone drill instead.
+        error.channelNotConfirmed =
+          payload?.code === 403 || response.status === 403
+        throw error
+      }
+
+      return payload
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Could not send the reset code.'
+      throw error
+    }
+  }
+
+  // Forgot-password, step 2: code + new password in one call. Returns the same
+  // LoginResultDto as login, so a valid reset lands the user signed in.
+  async function resetPassword({ email, phoneNumber, code, newPassword }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    isLoading.value = true
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          ...(email ? { email } : {}),
+          ...(phoneNumber
+            ? { phoneNumber: String(phoneNumber).replace(/\D/g, '') }
+            : {}),
+          code: String(code),
+          newPassword,
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        throw new Error(payload?.message || 'Could not reset the password.')
+      }
+
+      if (payload?.data?.token) {
+        token.value = payload.data.token
+        localStorage.setItem(TOKEN_KEY, payload.data.token)
+      }
+
+      return payload?.data || null
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Could not reset the password.'
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function getUserInfo() {
     const apiBaseUrl = getTestApiBaseUrl()
     if (!apiBaseUrl) {
@@ -406,6 +514,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     verifyOtp,
     resendOtp,
+    forgotPassword,
+    resetPassword,
     telegramLogin,
     googleLogin,
     getUserInfo,

@@ -8,7 +8,7 @@ import { RouterView , useRoute } from 'vue-router'
 
 
 const route = useRoute()
-const layoutlessRoutes = ['/login', '/test' , '/explanation', '/ona-tili-demo-natija']
+const layoutlessRoutes = ['/login', '/register', '/verify-phone', '/test' , '/explanation', '/ona-tili-demo-natija']
 const supportlessRoutes = ['/test', '/explanation', '/ona-tili-demo-natija']
 </script>
 

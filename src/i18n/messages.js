@@ -245,6 +245,7 @@ const messages = {
       passwordPlaceholder: 'Parolingizni kiriting',
       show: 'Ko‘rsatish',
       hide: 'Yashirish',
+      forgot: 'Unutdingizmi?',
       submit: 'Kirish',
       loading: 'Kirilmoqda...',
       validation: 'Email/telefon va parolni kiriting.',
@@ -288,6 +289,22 @@ const messages = {
       otpResent: 'Kod qayta yuborildi.',
       changeNumber: 'Raqamni o‘zgartirish',
       registered: 'Ro‘yxatdan o‘tdingiz! Endi tizimga kiring.'
+    },
+    verify: {
+      forgotTitle: 'Parolni unutdingizmi?',
+      forgotDescription: 'Telefon raqamingizni kiriting — SMS orqali kod yuboramiz va yangi parol o‘rnatasiz.',
+      resetTitle: 'Yangi parol o‘rnatish',
+      newPassword: 'Yangi parol',
+      resetSubmit: 'Parolni yangilash',
+      resetSuccess: 'Parol yangilandi! Endi tizimga kiring.',
+      unverifiedTitle: 'Telefon raqamni tasdiqlang',
+      unverifiedDescription: 'Hisobingizga kirish uchun avval telefon raqamingizni tasdiqlashingiz kerak. Tugmani bosing — SMS orqali tasdiqlash kodi keladi.',
+      phoneValidation: 'Telefon raqamni to‘liq kiriting.',
+      sendCode: 'Kodni yuborish',
+      sending: 'Yuborilmoqda...',
+      goVerify: 'Raqamni tasdiqlash',
+      verified: 'Telefon raqam tasdiqlandi! Endi tizimga kiring.',
+      backToLogin: 'Kirish sahifasiga qaytish'
     },
     math: {
       eyebrow: 'Matematika markazi',
@@ -754,6 +771,7 @@ const messages = {
       passwordPlaceholder: 'Введите пароль',
       show: 'Показать',
       hide: 'Скрыть',
+      forgot: 'Забыли пароль?',
       submit: 'Войти',
       loading: 'Выполняется вход...',
       validation: 'Введите email/телефон и пароль.',
@@ -797,6 +815,22 @@ const messages = {
       otpResent: 'Код отправлен повторно.',
       changeNumber: 'Изменить номер',
       registered: 'Регистрация завершена! Теперь войдите в систему.'
+    },
+    verify: {
+      forgotTitle: 'Забыли пароль?',
+      forgotDescription: 'Введите номер телефона — мы отправим код по SMS, и вы установите новый пароль.',
+      resetTitle: 'Новый пароль',
+      newPassword: 'Новый пароль',
+      resetSubmit: 'Обновить пароль',
+      resetSuccess: 'Пароль обновлён! Теперь войдите в систему.',
+      unverifiedTitle: 'Подтвердите номер телефона',
+      unverifiedDescription: 'Чтобы войти в аккаунт, сначала подтвердите номер телефона. Нажмите кнопку — мы отправим код подтверждения по SMS.',
+      phoneValidation: 'Введите номер телефона полностью.',
+      sendCode: 'Отправить код',
+      sending: 'Отправляем...',
+      goVerify: 'Подтвердить номер',
+      verified: 'Номер подтверждён! Теперь войдите в систему.',
+      backToLogin: 'Вернуться ко входу'
     },
     math: {
       eyebrow: 'Центр математики',

@@ -4,8 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 import { onMounted, ref } from 'vue'
-import logoBlack from '@/assets/logo-black.jpg'
-import logoMark from '@/assets/logo-removed.png'
+import AuthLayout from '@/components/auth/AuthLayout.vue'
 
 // Telegram Login. We drive the OAuth popup ourselves via `Telegram.Login.auth`
 // (defined by telegram-widget.js) instead of embedding Telegram's iframe widget.
@@ -53,7 +52,7 @@ declare global {
   }
 }
 
-const { t, tm } = useI18n()
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -63,6 +62,24 @@ const telegramButton = ref<HTMLElement | null>(null)
 const googleContainer = ref<HTMLElement | null>(null)
 const telegramReady = ref(false)
 const telegramSubmitting = ref(false)
+
+// After any successful login, honour a `?redirect=` target if present,
+// otherwise fall back to the math dashboard.
+const redirectAfterAuth = () => {
+  const redirectTarget =
+    typeof route.query.redirect === 'string' ? route.query.redirect : '/math'
+  return router.push(redirectTarget)
+}
+
+const redirectQuery =
+  typeof route.query.redirect === 'string' && route.query.redirect
+    ? { redirect: route.query.redirect }
+    : {}
+
+// "No account?" leads to the phone registration page; "Unutdingizmi?" to the
+// OTP verify flow. Both keep the post-auth redirect target intact.
+const registerLocation = { path: '/register', query: redirectQuery }
+const forgotLocation = { path: '/verify-phone', query: redirectQuery }
 
 // Email/phone + password login (design frame 1a). The store picks the
 // Email vs PhoneNumber field from the identifier's shape.
@@ -80,17 +97,25 @@ const submitPasswordLogin = async () => {
   try {
     await authStore.login(identifier.value, password.value)
     await redirectAfterAuth()
-  } catch {
+  } catch (error: any) {
+    // An account whose phone was never OTP-confirmed can't log in — hand the
+    // user to the verify flow with the number they just tried prefilled.
+    if (error?.phoneNotVerified) {
+      const digits = identifier.value.replace(/\D/g, '')
+      await router.push({
+        path: '/verify-phone',
+        query: {
+          reason: 'unverified',
+          ...(digits.length >= 9
+            ? { phone: digits.length === 9 ? `998${digits}` : digits }
+            : {}),
+          ...redirectQuery,
+        },
+      })
+      return
+    }
     // Store state already holds the backend/network error message.
   }
-}
-
-// After any successful login, honour a `?redirect=` target if present,
-// otherwise fall back to the math dashboard.
-const redirectAfterAuth = () => {
-  const redirectTarget =
-    typeof route.query.redirect === 'string' ? route.query.redirect : '/math'
-  return router.push(redirectTarget)
 }
 
 // Load telegram-widget.js once so `window.Telegram.Login.auth` exists. Loaded
@@ -193,16 +218,6 @@ onMounted(() => {
 
 const highlightTelegram = ref(false)
 
-// "No account?" now leads to the phone registration page, keeping the
-// post-auth redirect target intact.
-const registerLocation = {
-  path: '/register',
-  query:
-    typeof route.query.redirect === 'string' && route.query.redirect
-      ? { redirect: route.query.redirect }
-      : {},
-}
-
 // Legacy deep link (`?focus=telegram` from the pricing CTA): scroll to and
 // highlight the Telegram button, which also registers social accounts.
 const focusTelegram = () => {
@@ -236,222 +251,132 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="relative min-h-screen w-full bg-[#f5f3ef] font-sans-custom selection:bg-black selection:text-white lg:grid lg:grid-cols-2">
-    <!-- Brand panel (desktop only) -->
-    <aside class="login-aside relative hidden overflow-hidden bg-[#1a1814] p-12 text-white lg:flex lg:flex-col lg:justify-between">
-      <div class="login-dots pointer-events-none absolute inset-0"></div>
-      <div class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/[0.05] blur-3xl"></div>
-      <div class="pointer-events-none absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-white/[0.04] blur-3xl"></div>
-
-      <router-link to="/" class="relative flex items-center gap-2.5">
-        <img :src="logoMark" alt="MilliyMock" class="h-9 w-auto object-contain" />
-        <span class="text-[17px] font-bold tracking-[-0.025em] text-white">MilliyMock</span>
-      </router-link>
-
-      <div class="relative max-w-md">
-        <span class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-          MilliyMock
-        </span>
-        <h2 class="mt-4 text-3xl font-bold leading-[1.15] tracking-[-0.02em] xl:text-[2.5rem]">
-          {{ t('login.brandTagline') }}
-        </h2>
-        <ul class="mt-9 space-y-4">
-          <li
-            v-for="(point, index) in tm('login.points')"
-            :key="index"
-            class="flex items-start gap-3 text-[15px] leading-relaxed text-white/75"
-          >
-            <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[#1a1814]">
-              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </span>
-            <span>{{ point }}</span>
-          </li>
-        </ul>
-      </div>
-
-      <p class="relative font-mono-custom text-[11px] uppercase tracking-[0.18em] text-white/35">
-        © 2026 MilliyMock
+  <AuthLayout>
+    <div class="mb-8 text-center">
+      <h1 class="text-3xl font-bold tracking-[-0.02em] text-[#1a1814]">
+        {{ t('login.title') }}
+      </h1>
+      <p class="mt-3 text-sm leading-relaxed text-[#6b6760]">
+        {{ t('login.description') }}
       </p>
-    </aside>
+    </div>
 
-    <!-- Form panel -->
-    <div class="relative flex min-h-screen flex-col px-4 py-7 sm:px-8">
-      <router-link
-        to="/"
-        class="inline-flex items-center gap-2 text-sm font-medium text-[#8a857c] transition hover:text-[#1a1814]"
-      >
-        <span class="text-base">←</span>
-        <span>{{ t('login.home') }}</span>
-      </router-link>
+    <div class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]">
+      <!-- Email/phone + password login (POST /auth/login). -->
+      <form novalidate @submit.prevent="submitPasswordLogin">
+        <div>
+          <label
+            for="login-identifier"
+            class="mb-1.5 block text-[13px] font-semibold text-[#1a1814]"
+          >
+            {{ t('login.email') }}
+          </label>
+          <input
+            id="login-identifier"
+            v-model="identifier"
+            type="text"
+            name="username"
+            autocomplete="username"
+            :placeholder="t('login.emailPlaceholder')"
+            class="w-full rounded-xl border-[1.5px] border-[#dcd8d0] bg-white px-4 py-3 text-[15px] text-[#1a1814] outline-none transition placeholder:text-[#b5b0a6] focus:border-[#1a1814]"
+          />
+        </div>
 
-      <div class="flex flex-1 items-center justify-center py-8">
-        <div class="login-form w-full max-w-md">
-          <div class="mb-8 text-center">
-            <div class="mb-5 flex items-center justify-center gap-2 lg:hidden">
-              <img :src="logoBlack" alt="MilliyMock" class="h-9 w-auto object-contain" />
-              <span class="text-[18px] font-bold tracking-[-0.025em] text-[#1a1814]">MilliyMock</span>
-            </div>
-            <h1 class="text-3xl font-bold tracking-[-0.02em] text-[#1a1814]">
-              {{ t('login.title') }}
-            </h1>
-            <p class="mt-3 text-sm leading-relaxed text-[#6b6760]">
-              {{ t('login.description') }}
-            </p>
-          </div>
-
-          <div class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]">
-            <!-- Email/phone + password login (POST /auth/login). -->
-            <form novalidate @submit.prevent="submitPasswordLogin">
-              <div>
-                <label
-                  for="login-identifier"
-                  class="mb-1.5 block text-[13px] font-semibold text-[#1a1814]"
-                >
-                  {{ t('login.email') }}
-                </label>
-                <input
-                  id="login-identifier"
-                  v-model="identifier"
-                  type="text"
-                  name="username"
-                  autocomplete="username"
-                  :placeholder="t('login.emailPlaceholder')"
-                  class="w-full rounded-xl border-[1.5px] border-[#dcd8d0] bg-white px-4 py-3 text-[15px] text-[#1a1814] outline-none transition placeholder:text-[#b5b0a6] focus:border-[#1a1814]"
-                />
-              </div>
-
-              <div class="mt-4">
-                <div class="mb-1.5 flex items-center justify-between">
-                  <label
-                    for="login-password"
-                    class="text-[13px] font-semibold text-[#1a1814]"
-                  >
-                    {{ t('login.password') }}
-                  </label>
-                  <button
-                    type="button"
-                    class="text-xs font-medium text-[#8a857c] transition hover:text-[#1a1814]"
-                    @click="showPassword = !showPassword"
-                  >
-                    {{ showPassword ? t('login.hide') : t('login.show') }}
-                  </button>
-                </div>
-                <input
-                  id="login-password"
-                  v-model="password"
-                  :type="showPassword ? 'text' : 'password'"
-                  name="password"
-                  autocomplete="current-password"
-                  :placeholder="t('login.passwordPlaceholder')"
-                  class="w-full rounded-xl border-[1.5px] border-[#dcd8d0] bg-white px-4 py-3 text-[15px] text-[#1a1814] outline-none transition placeholder:text-[#b5b0a6] focus:border-[#1a1814]"
-                />
-              </div>
-
-              <!-- Form validation + any auth error (password or social flows). -->
-              <p
-                v-if="validationError || authStore.errorMessage"
-                class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-              >
-                {{ validationError || authStore.errorMessage }}
-              </p>
-
-              <button
-                type="submit"
-                :disabled="authStore.isLoading"
-                class="mt-5 h-11 w-full rounded-full bg-[#1a1814] text-[15px] font-semibold text-white transition hover:bg-[#2b2b2b] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
-              </button>
-            </form>
-
-            <p class="mt-5 text-center text-sm text-[#6b6760]">
-              {{ t('login.noAccount') }}
-              <router-link
-                :to="registerLocation"
-                class="font-semibold text-[#1a1814] underline underline-offset-2"
-              >
-                {{ t('login.signUp') }}
-              </router-link>
-            </p>
-
-            <div class="my-5 flex items-center gap-3">
-              <div class="h-px flex-1 bg-[#e4e0d8]"></div>
-              <span class="text-xs text-[#8a857c]">{{ t('login.or') }}</span>
-              <div class="h-px flex-1 bg-[#e4e0d8]"></div>
-            </div>
-
-            <!-- Custom Telegram login button (also the registration entry point).
-                 Drives Telegram's OAuth popup via Telegram.Login.auth so we own
-                 the styling — a clean plane icon, no cross-origin iframe. -->
-            <button
-              ref="telegramButton"
-              type="button"
-              :disabled="!telegramReady || telegramSubmitting"
-              @click="loginWithTelegram"
-              class="tg-button mx-auto flex h-11 w-[320px] max-w-full items-center justify-center gap-2.5 rounded-full bg-[#29a9eb] text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(41,169,235,0.28)] transition hover:bg-[#1e97d6] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-              :class="highlightTelegram ? 'tg-pulse ring-2 ring-[#1a1814] ring-offset-4 ring-offset-white' : ''"
+        <div class="mt-4">
+          <div class="mb-1.5 flex items-center justify-between">
+            <label
+              for="login-password"
+              class="text-[13px] font-semibold text-[#1a1814]"
             >
-              <svg class="h-[18px] w-[18px]" viewBox="0 0 448 512" fill="currentColor" aria-hidden="true">
-                <path d="M446.7 98.6l-67.6 318.8c-5.1 22.5-18.4 28.1-37.3 17.5l-103-75.9-49.7 47.8c-5.5 5.5-10.1 10.1-20.7 10.1l7.4-104.9 190.9-172.5c8.3-7.4-1.8-11.5-12.9-4.1L117.8 284 16.2 252.2c-22.1-6.9-22.5-22.1 4.6-32.7L418.2 66.4c18.4-6.9 34.5 4.1 28.5 32.2z" />
-              </svg>
-              <span>{{ telegramSubmitting ? t('login.loading') : t('login.telegram') }}</span>
+              {{ t('login.password') }}
+            </label>
+            <router-link
+              :to="forgotLocation"
+              class="text-xs font-medium text-[#8a857c] transition hover:text-[#1a1814]"
+            >
+              {{ t('login.forgot') }}
+            </router-link>
+          </div>
+          <div class="relative">
+            <input
+              id="login-password"
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              name="password"
+              autocomplete="current-password"
+              :placeholder="t('login.passwordPlaceholder')"
+              class="w-full rounded-xl border-[1.5px] border-[#dcd8d0] bg-white py-3 pl-4 pr-24 text-[15px] text-[#1a1814] outline-none transition placeholder:text-[#b5b0a6] focus:border-[#1a1814]"
+            />
+            <button
+              type="button"
+              class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-[#8a857c] transition hover:text-[#1a1814]"
+              @click="showPassword = !showPassword"
+            >
+              {{ showPassword ? t('login.hide') : t('login.show') }}
             </button>
-
-            <!-- Google Identity Services renders its sign-in button here. -->
-            <div
-              ref="googleContainer"
-              class="mt-3 flex min-h-[44px] items-center justify-center"
-            ></div>
-
           </div>
         </div>
+
+        <!-- Form validation + any auth error (password or social flows). -->
+        <p
+          v-if="validationError || authStore.errorMessage"
+          class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+        >
+          {{ validationError || authStore.errorMessage }}
+        </p>
+
+        <button
+          type="submit"
+          :disabled="authStore.isLoading"
+          class="mt-5 h-11 w-full rounded-full bg-[#1a1814] text-[15px] font-semibold text-white transition hover:bg-[#2b2b2b] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
+        </button>
+      </form>
+
+      <p class="mt-5 text-center text-sm text-[#6b6760]">
+        {{ t('login.noAccount') }}
+        <router-link
+          :to="registerLocation"
+          class="font-semibold text-[#1a1814] underline underline-offset-2"
+        >
+          {{ t('login.signUp') }}
+        </router-link>
+      </p>
+
+      <div class="my-5 flex items-center gap-3">
+        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
+        <span class="text-xs text-[#8a857c]">{{ t('login.or') }}</span>
+        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
       </div>
+
+      <!-- Custom Telegram login button (also the registration entry point).
+           Drives Telegram's OAuth popup via Telegram.Login.auth so we own
+           the styling — a clean plane icon, no cross-origin iframe. -->
+      <button
+        ref="telegramButton"
+        type="button"
+        :disabled="!telegramReady || telegramSubmitting"
+        @click="loginWithTelegram"
+        class="tg-button mx-auto flex h-11 w-[320px] max-w-full items-center justify-center gap-2.5 rounded-full bg-[#29a9eb] text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(41,169,235,0.28)] transition hover:bg-[#1e97d6] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+        :class="highlightTelegram ? 'tg-pulse ring-2 ring-[#1a1814] ring-offset-4 ring-offset-white' : ''"
+      >
+        <svg class="h-[18px] w-[18px]" viewBox="0 0 448 512" fill="currentColor" aria-hidden="true">
+          <path d="M446.7 98.6l-67.6 318.8c-5.1 22.5-18.4 28.1-37.3 17.5l-103-75.9-49.7 47.8c-5.5 5.5-10.1 10.1-20.7 10.1l7.4-104.9 190.9-172.5c8.3-7.4-1.8-11.5-12.9-4.1L117.8 284 16.2 252.2c-22.1-6.9-22.5-22.1 4.6-32.7L418.2 66.4c18.4-6.9 34.5 4.1 28.5 32.2z" />
+        </svg>
+        <span>{{ telegramSubmitting ? t('login.loading') : t('login.telegram') }}</span>
+      </button>
+
+      <!-- Google Identity Services renders its sign-in button here. -->
+      <div
+        ref="googleContainer"
+        class="mt-3 flex min-h-[44px] items-center justify-center"
+      ></div>
     </div>
-  </section>
+  </AuthLayout>
 </template>
 
 <style scoped>
-.login-dots {
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
-  background-size: 26px 26px;
-  opacity: 0.08;
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 30% 20%, #000 20%, transparent 75%);
-  mask-image: radial-gradient(ellipse 90% 70% at 30% 20%, #000 20%, transparent 75%);
-}
-
-/* Entrance transitions on mount */
-.login-aside {
-  animation: login-slide-left 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.login-form {
-  animation: login-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.07s both;
-}
-
-@keyframes login-slide-left {
-  from {
-    opacity: 0;
-    transform: translateX(-16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes login-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .tg-pulse {
   animation: tg-pulse 0.9s ease-in-out 2;
 }
@@ -466,8 +391,6 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .login-aside,
-  .login-form,
   .tg-pulse {
     animation: none;
   }

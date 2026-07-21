@@ -131,6 +131,14 @@ const routes = [
     name: 'register',
     component: () => import('@/views/Register.vue'),
     meta: { seo: { robots: 'noindex, nofollow' } }
+  },
+  {
+    // Forgot password + unconfirmed-phone verification (?reason=unverified),
+    // both via the resend-otp → verify-otp drill.
+    path: '/verify-phone',
+    name: 'verify-phone',
+    component: () => import('@/views/VerifyPhonePage.vue'),
+    meta: { seo: { robots: 'noindex, nofollow' } }
   }
 ]
 
