@@ -43,7 +43,7 @@ const messages = {
       secondary: 'Batafsil ma’lumot',
       scrollHint: 'Pastga aylantiring',
       stats: [
-        { value: '500+', label: 'ishlangan test' },
+        { value: '6500+', label: 'ishlangan test' },
         { value: '98%', label: 'mamnun foydalanuvchi' },
         { value: '24/7', label: 'ochiq platforma' }
       ]
@@ -552,7 +552,7 @@ const messages = {
       secondary: 'Подробнее',
       scrollHint: 'Листайте вниз',
       stats: [
-        { value: '500+', label: 'пройдено тестов' },
+        { value: '6500+', label: 'пройдено тестов' },
         { value: '98%', label: 'довольных пользователей' },
         { value: '24/7', label: 'доступ к платформе' }
       ]
