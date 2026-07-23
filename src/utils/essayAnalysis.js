@@ -26,6 +26,9 @@
 // overall band total is expected from the backend alongside the analysis.
 
 export const ESSAY_BAND_MAX = 24
+// The official certificate scale: the 24-band total is projected linearly
+// onto 75 points (score / 24 × 75) for display alongside the raw band.
+export const ESSAY_SCALED_MAX = 75
 export const JUDGMENT_BAND_MAX = 2
 
 // Judgment criteria (holistic bands) — labels for known keys; unknown keys

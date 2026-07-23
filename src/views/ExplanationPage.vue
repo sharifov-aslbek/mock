@@ -600,14 +600,23 @@ const essayAnalysis = computed(() => {
   }
 
   const raw = review.evaluationJson
+  let parsed = null
   if (typeof raw === 'string' && raw.trim()) {
     try {
-      return JSON.parse(raw)
+      parsed = JSON.parse(raw)
     } catch {
       // Malformed JSON — drop to the flattened fallback below.
     }
   } else if (raw && typeof raw === 'object') {
-    return raw
+    parsed = raw
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    // The flattened GlobalNotes column backs up the JSON field when absent.
+    if (!parsed.global_notes && review.globalNotes) {
+      return { ...parsed, global_notes: review.globalNotes }
+    }
+    return parsed
   }
 
   return {

@@ -18,7 +18,7 @@
 // Quotes that don't match (e.g. OCR drift) still appear in the inspector —
 // they just have no inline anchor, so nothing breaks.
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { ESSAY_BAND_MAX, catMeta, normalizeEssayAnalysis } from '@/utils/essayAnalysis'
+import { ESSAY_BAND_MAX, ESSAY_SCALED_MAX, catMeta, normalizeEssayAnalysis } from '@/utils/essayAnalysis'
 
 const props = defineProps({
   // Raw AI grading response (pass-through from the backend).
@@ -33,6 +33,14 @@ const props = defineProps({
 })
 
 const normalized = computed(() => normalizeEssayAnalysis(props.analysis))
+
+// The same band total projected onto the 75-point certificate scale.
+const scaledBandTotal = computed(() => {
+  if (props.bandTotal == null || !props.bandMax) {
+    return null
+  }
+  return Math.round((props.bandTotal / props.bandMax) * ESSAY_SCALED_MAX * 10) / 10
+})
 const flatErrors = computed(() => normalized.value.errors)
 const errorCatsWithHits = computed(() => normalized.value.catsWithHits)
 const cleanCats = computed(() => normalized.value.cleanCats)
@@ -260,6 +268,13 @@ const quoteMarkStyle = (error) => {
         </div>
         <span class="h-9 w-px bg-[#d8d3ca]"></span>
         <div>
+          <p class="text-[30px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">
+            {{ scaledBandTotal ?? '—' }}<span class="text-[16px] font-semibold text-[#a39e94]">/{{ ESSAY_SCALED_MAX }}</span>
+          </p>
+          <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">75 ballik shkala</p>
+        </div>
+        <span class="h-9 w-px bg-[#d8d3ca]"></span>
+        <div>
           <p class="text-[30px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">{{ essayWordCount }}</p>
           <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">So‘z</p>
         </div>
@@ -269,6 +284,16 @@ const quoteMarkStyle = (error) => {
           <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">Xato</p>
         </div>
       </div>
+    </div>
+
+    <!-- AI overall verdict (global_notes) — when the essay is off-topic or
+         ungradable this is the only place the AI explains why. -->
+    <div
+      v-if="normalized.globalNotes"
+      class="mb-8 rounded-[18px] bg-white px-5 py-4 ring-1 ring-[#eeeae2] shadow-[0_10px_30px_rgba(26,24,20,0.05)] sm:px-6"
+    >
+      <p class="font-mono-custom mb-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">Umumiy xulosa</p>
+      <p class="text-[13.5px] leading-relaxed text-[#3a362f]">{{ normalized.globalNotes }}</p>
     </div>
 
     <!-- Error analysis -->
