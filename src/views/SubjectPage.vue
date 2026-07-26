@@ -1,10 +1,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useTestProgressStore } from '@/stores/testProgress'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
 // Each subject maps to a set of accepted backend `subject` strings (matched
@@ -46,13 +45,10 @@ const SUBJECT_CONFIG = {
 }
 
 const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
-const testProgressStore = useTestProgressStore()
 const apiBaseUrl = getTestApiBaseUrl()
 
-const selectedSort = ref('newest')
 const isLoading = ref(true)
 const errorKey = ref('')
 const rawTests = ref([])
@@ -71,22 +67,6 @@ const matchesSubject = (value) => {
   const v = String(value || '').toLowerCase().trim()
   if (!v) return false
   return config.value.aliases.some((alias) => v === alias || v.includes(alias) || alias.includes(v))
-}
-
-const VALID_TAB_IDS = ['all', 'started', 'notStarted']
-const normalizeTab = (tab) => (VALID_TAB_IDS.includes(tab) ? tab : 'all')
-const activeTab = ref(normalizeTab(typeof route.query.tab === 'string' ? route.query.tab : 'all'))
-
-const formatRemainingTime = (seconds) => {
-  const safeSeconds = Math.max(Number(seconds || 0), 0)
-  const hours = Math.floor(safeSeconds / 3600)
-  const minutes = Math.floor((safeSeconds % 3600) / 60)
-  const secs = safeSeconds % 60
-
-  if (hours > 0) {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-  }
-  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
 const fetchTests = async () => {
@@ -122,7 +102,6 @@ const fetchTests = async () => {
 }
 
 onMounted(() => {
-  testProgressStore.hydrate()
   if (authStore.isAuthenticated) {
     void authStore.getUserInfo().catch((error) => {
       console.error(error)
@@ -137,113 +116,21 @@ watch(subjectKey, () => {
   fetchTests()
 })
 
-watch(
-  () => route.query.tab,
-  (tab) => {
-    activeTab.value = normalizeTab(typeof tab === 'string' ? tab : 'all')
-  },
-)
-
-watch(activeTab, (tab) => {
-  const normalizedTab = normalizeTab(tab)
-  const currentRouteTab = typeof route.query.tab === 'string' ? route.query.tab : 'all'
-  if (currentRouteTab === normalizedTab) {
-    return
-  }
-  router.replace({ query: { ...route.query, tab: normalizedTab } })
-})
-
-// Only tests belonging to this subject, with the real backend subject as label.
-const tests = computed(() =>
+// This subject's tests, newest first — the page is a plain grid (no
+// sub-filters / sort).
+const filteredTests = computed(() =>
   rawTests.value
     .filter((test) => matchesSubject(test.subject))
-    .map((test) => ({
-      ...test,
-      subject: test.subject || subjectValue.value,
-    })),
-)
-
-const startedTests = computed(() =>
-  testProgressStore.inProgressTests
-    .filter((progress) => !progress.subject || matchesSubject(progress.subject))
-    .map((progress) => ({
-      id: progress.testId,
-      title: progress.title,
-      subject: progress.subject || subjectValue.value,
-      questionCount: progress.questionCount,
-      answeredCount: progress.answeredCount,
-      remainingQuestions: Math.max(Number(progress.questionCount) - Number(progress.answeredCount), 0),
-      remainingSeconds: progress.remainingSeconds,
-      remainingTimeLabel: formatRemainingTime(progress.remainingSeconds),
-      updatedAt: progress.updatedAt,
-      isInProgressCard: true,
-    })),
-)
-
-const tabs = computed(() => [
-  { id: 'all', name: t('math.tabs.all'), count: tests.value.length },
-  { id: 'started', name: t('math.tabs.started'), count: startedTests.value.length },
-  {
-    id: 'notStarted',
-    name: t('math.tabs.notStarted'),
-    count: tests.value.filter((test) => Number(test.attemptCount) === 0).length,
-  },
-])
-
-const filteredTests = computed(() => {
-  if (activeTab.value === 'started') {
-    return [...startedTests.value].sort(
-      (firstTest, secondTest) => Number(secondTest.updatedAt) - Number(firstTest.updatedAt),
-    )
-  }
-
-  let result = [...tests.value]
-
-  if (activeTab.value === 'notStarted') {
-    result = result.filter((test) => Number(test.attemptCount) === 0)
-  }
-
-  if (selectedSort.value === 'popular') {
-    result.sort((a, b) => Number(b.attemptCount) - Number(a.attemptCount))
-  } else if (selectedSort.value === 'score') {
-    result.sort((a, b) => Number(b.questionCount) - Number(a.questionCount))
-  } else {
-    result.sort((a, b) => Number(b.id) - Number(a.id))
-  }
-
-  return result
-})
-
-const shouldShowLoading = computed(() => activeTab.value !== 'started' && isLoading.value)
-const shouldShowError = computed(() => activeTab.value !== 'started' && Boolean(errorKey.value))
-const displayedCount = computed(() => filteredTests.value.length)
-const emptyMessageKey = computed(() =>
-  activeTab.value === 'started' ? 'math.emptyStarted' : 'math.empty',
+    .map((test) => ({ ...test, subject: test.subject || subjectValue.value }))
+    .sort((a, b) => Number(b.id) - Number(a.id)),
 )
 
 const SKELETON_COUNT = 6
-
-const sortOpen = ref(false)
-const sortOptions = computed(() => [
-  { value: 'newest', label: t('math.sort.newest') },
-  { value: 'popular', label: t('math.sort.popular') },
-  { value: 'score', label: t('math.sort.score') },
-])
-const currentSortLabel = computed(
-  () => sortOptions.value.find((option) => option.value === selectedSort.value)?.label || '',
-)
-const activeTabName = computed(
-  () => tabs.value.find((tab) => tab.id === activeTab.value)?.name || '',
-)
-const selectSort = (value) => {
-  selectedSort.value = value
-  sortOpen.value = false
-}
 </script>
 
 <template>
   <section
-    class="relative min-h-screen overflow-hidden bg-[#f5f3ef] px-4 py-14 selection:bg-black selection:text-white sm:px-6 sm:py-16 lg:px-8"
+    class="relative min-h-screen overflow-hidden bg-[#f5f3ef] px-4 py-8 selection:bg-black selection:text-white sm:px-6 sm:py-16 lg:px-8"
   >
     <!-- Subtle warm dot grid -->
     <div class="math-dots absolute inset-0 -z-20"></div>
@@ -256,50 +143,23 @@ const selectSort = (value) => {
     <div class="math-grain pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
 
     <div class="relative z-10 mx-auto max-w-[1400px]">
-      <div class="mb-10 max-w-3xl animate-[fadeInUp_.7s_ease-out]">
-        <div class="mb-5 flex items-center gap-3">
-          <span class="font-mono-custom text-[11px] font-semibold tracking-[0.22em] text-[#bcb6a9]">01</span>
-          <span class="h-px w-8 bg-[#d8d3ca]"></span>
-          <span class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a857c]">
-            {{ sb('eyebrow') }}
-          </span>
-        </div>
-
-        <h1 class="text-4xl font-bold leading-[1.05] tracking-[-0.02em] text-[#1a1814] sm:text-5xl md:text-6xl">
-          {{ sb('title') }}
-        </h1>
-        <p class="mt-5 max-w-2xl text-base leading-relaxed text-[#6b6760] sm:text-lg">
-          {{ sb('description') }}
-        </p>
-      </div>
-
-      <div class="mb-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex flex-wrap gap-3 animate-[fadeInUp_1s_ease-out]">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            @click="activeTab = tab.id"
-            :class="[
-              'inline-flex items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-semibold transition duration-300 active:scale-[0.98]',
-              activeTab === tab.id
-                ? 'border-[#1a1814] bg-[#1a1814] text-white shadow-[0_8px_22px_rgba(26,24,20,0.18)]'
-                : 'border-[#d8d3ca] bg-white/70 text-[#6b6760] backdrop-blur-sm hover:-translate-y-0.5 hover:border-[#1a1814] hover:text-[#1a1814]'
-            ]"
-          >
-            <span>{{ tab.name }}</span>
-            <span
-              :class="[
-                'rounded-full px-2 py-0.5 font-mono-custom text-[11px] font-medium',
-                activeTab === tab.id ? 'bg-white/15 text-white' : 'bg-[#1a1814]/5 text-[#8a857c]'
-              ]"
-            >
-              {{ tab.count }}
+      <div class="mb-6 flex flex-col gap-4 sm:mb-10 sm:gap-8 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-3xl animate-[fadeInUp_.7s_ease-out]">
+          <div class="mb-4 flex items-center gap-3 sm:mb-5">
+            <span class="font-mono-custom text-[11px] font-semibold tracking-[0.22em] text-[#bcb6a9]">01</span>
+            <span class="h-px w-8 bg-[#d8d3ca]"></span>
+            <span class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a857c]">
+              {{ sb('eyebrow') }}
             </span>
-          </button>
+          </div>
+
+          <h1 class="text-4xl font-bold leading-[1.05] tracking-[-0.02em] text-[#1a1814] sm:text-5xl md:text-6xl">
+            {{ sb('title') }}
+          </h1>
         </div>
 
         <!-- Subject card -->
-        <div class="group relative shrink-0 animate-[fadeInUp_.9s_ease-out] overflow-hidden rounded-[26px] border border-[#e0ddd7] bg-gradient-to-br from-white/90 via-white/70 to-[#f1ede5]/60 px-7 py-6 shadow-[0_12px_36px_rgba(26,24,20,0.08)] backdrop-blur-md transition duration-500 hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(26,24,20,0.12)] lg:min-w-[240px]">
+        <div class="group relative shrink-0 animate-[fadeInUp_.9s_ease-out] overflow-hidden rounded-[22px] border border-[#e0ddd7] bg-gradient-to-br from-white/90 via-white/70 to-[#f1ede5]/60 px-5 py-4 shadow-[0_12px_36px_rgba(26,24,20,0.08)] backdrop-blur-md transition duration-500 hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(26,24,20,0.12)] sm:rounded-[26px] sm:px-7 sm:py-6 lg:min-w-[240px]">
           <div class="absolute inset-0 bg-[radial-gradient(circle,#d8d3ca_1px,transparent_1px)] bg-[size:18px_18px] opacity-40 [mask-image:radial-gradient(ellipse_70%_80%_at_85%_15%,#000,transparent_75%)]"></div>
           <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent"></div>
 
@@ -321,61 +181,9 @@ const selectSort = (value) => {
         </div>
       </div>
 
-      <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-[fadeInUp_1.1s_ease-out]">
-        <p class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">
-          {{ activeTabName }} · {{ displayedCount }}
-        </p>
-
-        <div class="relative w-full sm:w-auto">
-          <button
-            type="button"
-            @click="sortOpen = !sortOpen"
-            class="flex w-full items-center justify-between gap-3 rounded-full border border-[#d8d3ca] bg-white/70 px-5 py-3 text-sm font-semibold text-[#1a1814] shadow-[0_4px_14px_rgba(26,24,20,0.05)] backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-[#1a1814] sm:min-w-[240px]"
-            :class="sortOpen ? 'border-[#1a1814]' : ''"
-          >
-            <span>{{ currentSortLabel }}</span>
-            <svg
-              class="h-4 w-4 text-[#8a857c] transition-transform duration-300"
-              :class="sortOpen ? 'rotate-180' : ''"
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-            >
-              <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-
-          <Transition name="drop">
-            <div
-              v-if="sortOpen"
-              class="absolute right-0 z-30 mt-2 w-full overflow-hidden rounded-2xl border border-[#e0ddd7] bg-white/95 p-1.5 shadow-[0_20px_50px_rgba(26,24,20,0.14)] backdrop-blur-md sm:min-w-[240px]"
-            >
-              <button
-                v-for="option in sortOptions"
-                :key="option.value"
-                type="button"
-                @click="selectSort(option.value)"
-                class="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold transition"
-                :class="selectedSort === option.value
-                  ? 'bg-[#1a1814] text-white'
-                  : 'text-[#6b6760] hover:bg-[#1a1814]/[0.05] hover:text-[#1a1814]'"
-              >
-                <span>{{ option.label }}</span>
-                <svg
-                  v-if="selectedSort === option.value"
-                  class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                >
-                  <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-            </div>
-          </Transition>
-
-          <div v-if="sortOpen" class="fixed inset-0 z-20" @click="sortOpen = false"></div>
-        </div>
-      </div>
-
       <!-- Skeleton loaders -->
       <div
-        v-if="shouldShowLoading"
+        v-if="isLoading"
         class="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
       >
         <div
@@ -409,7 +217,7 @@ const selectSort = (value) => {
       </div>
 
       <div
-        v-else-if="shouldShowError"
+        v-else-if="errorKey"
         class="rounded-[28px] border border-dashed border-red-200 bg-red-50/80 px-6 py-16 text-center shadow-sm backdrop-blur-sm"
       >
         <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-500">
@@ -421,7 +229,7 @@ const selectSort = (value) => {
       </div>
 
       <div
-        v-else-if="filteredTests.length === 0"
+        v-else
         class="rounded-[28px] border border-dashed border-[#d8d3ca] bg-white/70 px-6 py-16 text-center shadow-[0_10px_30px_rgba(26,24,20,0.05)] backdrop-blur-sm"
       >
         <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] text-[#8a857c]">
@@ -429,7 +237,7 @@ const selectSort = (value) => {
             <path d="M9 12h6m-6 4h6M8 4h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <p class="font-medium text-[#8a857c]">{{ t(emptyMessageKey) }}</p>
+        <p class="font-medium text-[#8a857c]">{{ t('math.empty') }}</p>
       </div>
     </div>
   </section>

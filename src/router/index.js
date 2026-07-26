@@ -72,7 +72,7 @@ const routes = [
   {
     path: '/ona-tili',
     name: 'ona-tili',
-    component: () => import('@/views/SubjectPage.vue'),
+    component: () => import('@/views/OnaTiliPage.vue'),
     meta: {
       subjectKey: 'motherTongue',
       seo: {
