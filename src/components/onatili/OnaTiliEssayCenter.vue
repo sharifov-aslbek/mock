@@ -3,12 +3,12 @@
 //
 // Topics come from the backend (GET /essay-topic): the user's own topics plus
 // the shared public ones. Adding a topic POSTs /essay-topic, deleting one's
-// own topic DELETEs it. The essay itself is text-only (photo transcription
-// needs a live test attempt, which this standalone flow doesn't have) and is
-// graded via POST /essay-review/custom — the same AI pipeline the real /test
+// own topic DELETEs it. The essay is either typed (POST /essay-review/custom)
+// or photographed (POST /essay-review/custom/images, which OCRs the pages and
+// grades the transcription in one call) — the same AI pipeline the real /test
 // essays use — then rendered through EssayAnalysisSection. The first reviews
-// are free; once they're spent the endpoint replies 400 when the balance
-// can't cover a paid one, and the top-up modal points at /pricing.
+// are free; once they're spent the endpoints reply 400 "Not enough balance",
+// and the top-up modal points at /pricing.
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NModal, NCard } from 'naive-ui'
@@ -22,6 +22,10 @@ const TOPIC_META = "250–300 so'z"
 // (its remaining 400 is then the insufficient-balance refusal).
 const MAX_TOPIC_LENGTH = 500
 const MAX_ESSAY_LENGTH = 5000
+const MAX_IMAGE_COUNT = 5
+const MAX_IMAGE_SIZE_MB = 10
+const MAX_TOTAL_SIZE_MB = 15
+const IMAGE_EXTENSION_RE = /\.(jpe?g|png|webp)$/i
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -46,15 +50,19 @@ const isSavingTopic = ref(false)
 const deletingTopicId = ref(null)
 
 const activeTopic = ref(null) // { id, text }
+const mode = ref('upload') // 'upload' | 'write'
 const essayText = ref('')
+const uploads = ref([]) // { id, name, file, dataUrl }
 const submitError = ref('')
 const isReviewing = ref(false)
 const balanceModalOpen = ref(false)
 
 // The review that produced the result view, plus the essay it graded (the
-// analysis locates its quotes inside this text).
+// analysis locates its quotes inside this text) and, for the photo flow, the
+// uploaded pages so the OCR result can be compared against them.
 const review = ref(null)
 const submittedEssay = ref('')
+const submittedUploads = ref([])
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const loginLocation = { path: '/login', query: { redirect: '/ona-tili?tab=essay' } }
@@ -156,48 +164,144 @@ const removeCustom = async (topic) => {
 // ——— Writer ————————————————————————————————————————————————————————————
 const startTopic = (topic) => {
   activeTopic.value = { id: topic.id, text: topic.text }
+  mode.value = 'upload'
   essayText.value = ''
+  uploads.value = []
   submitError.value = ''
   view.value = 'writer'
 }
 const backToList = () => {
   view.value = 'list'
 }
+const setMode = (next) => {
+  mode.value = next
+  submitError.value = ''
+}
 
 const wordCount = computed(() =>
   essayText.value.trim() ? essayText.value.trim().split(/\s+/).filter(Boolean).length : 0,
 )
 const charCount = computed(() => essayText.value.length)
+const showTextarea = computed(() => mode.value !== 'upload')
 const textareaPlaceholder = 'Inshoingizni shu yerda yozing…'
 
-// ——— Submit (POST /essay-review/custom) ————————————————————————————————
+// ——— Photo upload ——————————————————————————————————————————————————————
+const fileInput = ref(null)
+const isDragging = ref(false)
+const openFilePicker = () => fileInput.value?.click()
+
+const readFiles = (fileList) => {
+  submitError.value = ''
+  const files = Array.from(fileList || [])
+  for (const file of files) {
+    if (uploads.value.length >= MAX_IMAGE_COUNT) {
+      submitError.value = `Ko‘pi bilan ${MAX_IMAGE_COUNT} ta rasm yuklash mumkin.`
+      break
+    }
+    if (!file.type.startsWith('image/') || !IMAGE_EXTENSION_RE.test(file.name)) {
+      submitError.value = 'Faqat JPG, PNG yoki WEBP rasmlar qabul qilinadi.'
+      continue
+    }
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      submitError.value = `Har bir rasm ${MAX_IMAGE_SIZE_MB}MB dan oshmasligi kerak.`
+      continue
+    }
+    const id = `${file.name}-${file.size}-${Date.now()}-${uploads.value.length}`
+    const reader = new FileReader()
+    reader.onload = () => {
+      uploads.value = [...uploads.value, { id, name: file.name, file, dataUrl: String(reader.result) }]
+    }
+    reader.readAsDataURL(file)
+  }
+}
+const onFileChange = (event) => {
+  readFiles(event.target.files)
+  event.target.value = '' // allow re-selecting the same file
+}
+const onDrop = (event) => {
+  isDragging.value = false
+  readFiles(event.dataTransfer?.files)
+}
+const removeUpload = (id) => {
+  uploads.value = uploads.value.filter((upload) => upload.id !== id)
+}
+
+// ——— Submit (POST /essay-review/custom | /essay-review/custom/images) ————
+// The image flow's response doesn't carry the OCR transcription — pull it from
+// the user's submission history so the highlights have text to anchor into.
+const fetchSubmissionText = async (submissionId) => {
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/essay-submission`, { headers: authHeaders() })
+    const payload = await response.json()
+    if (!response.ok || payload?.code !== 200 || !Array.isArray(payload.data)) {
+      return ''
+    }
+    const submission = payload.data.find((item) => Number(item?.id) === Number(submissionId))
+    return typeof submission?.essayText === 'string' ? submission.essayText : ''
+  } catch (error) {
+    console.error(error)
+    return ''
+  }
+}
+
 const submit = async () => {
   if (isReviewing.value) return
 
+  const isUpload = mode.value === 'upload'
   const text = essayText.value.trim()
-  if (!text) {
-    submitError.value = 'Tekshirish uchun avval inshoingizni kiriting.'
-    return
-  }
-  if (text.length > MAX_ESSAY_LENGTH) {
-    submitError.value = `Insho ${MAX_ESSAY_LENGTH} belgidan oshmasligi kerak.`
-    return
+
+  if (isUpload) {
+    if (!uploads.value.length) {
+      submitError.value = 'Tekshirish uchun kamida bitta rasm yuklang.'
+      return
+    }
+    const totalSize = uploads.value.reduce((sum, upload) => sum + upload.file.size, 0)
+    if (totalSize > MAX_TOTAL_SIZE_MB * 1024 * 1024) {
+      submitError.value = `Rasmlarning umumiy hajmi ${MAX_TOTAL_SIZE_MB}MB dan oshmasligi kerak.`
+      return
+    }
+  } else {
+    if (!text) {
+      submitError.value = 'Tekshirish uchun avval inshoingizni kiriting.'
+      return
+    }
+    if (text.length > MAX_ESSAY_LENGTH) {
+      submitError.value = `Insho ${MAX_ESSAY_LENGTH} belgidan oshmasligi kerak.`
+      return
+    }
   }
 
   submitError.value = ''
   isReviewing.value = true
   try {
-    const query = `topicId=${encodeURIComponent(activeTopic.value.id)}&essay=${encodeURIComponent(text)}`
-    const response = await apiFetch(`${apiBaseUrl}/essay-review/custom?${query}`, {
-      method: 'POST',
-      headers: authHeaders(),
-    })
+    let response
+    if (isUpload) {
+      const formData = new FormData()
+      uploads.value.forEach((upload) => formData.append('images', upload.file, upload.name))
+      // No Content-Type header — the browser sets the multipart boundary.
+      response = await apiFetch(
+        `${apiBaseUrl}/essay-review/custom/images?topicId=${encodeURIComponent(activeTopic.value.id)}`,
+        { method: 'POST', headers: authHeaders(), body: formData },
+      )
+    } else {
+      const query = `topicId=${encodeURIComponent(activeTopic.value.id)}&essay=${encodeURIComponent(text)}`
+      response = await apiFetch(`${apiBaseUrl}/essay-review/custom?${query}`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+    }
     const payload = await response.json().catch(() => null)
 
-    // Empty/too-long essays are caught above, so a 400 here is the endpoint's
-    // insufficient-balance refusal: the free reviews are spent.
     if (response.status === 400) {
-      balanceModalOpen.value = true
+      // Input problems are validated client-side, so a bare 400 is the
+      // insufficient-balance refusal — but the images endpoint also 400s on
+      // bad files; surface those messages instead of the top-up modal.
+      const message = String(payload?.message || '')
+      if (!message || /balance/i.test(message)) {
+        balanceModalOpen.value = true
+      } else {
+        submitError.value = message
+      }
       return
     }
     if (!response.ok || payload?.code !== 200 || !payload?.data) {
@@ -205,7 +309,10 @@ const submit = async () => {
     }
 
     review.value = payload.data
-    submittedEssay.value = text
+    submittedEssay.value = isUpload
+      ? await fetchSubmissionText(payload.data.essaySubmissionId)
+      : text
+    submittedUploads.value = isUpload ? [...uploads.value] : []
     view.value = 'result'
   } catch (error) {
     console.error(error)
@@ -223,6 +330,7 @@ const goToPricing = () => {
 const writeAnother = () => {
   review.value = null
   submittedEssay.value = ''
+  submittedUploads.value = []
   view.value = 'list'
 }
 
@@ -434,20 +542,97 @@ const SKELETON_COUNT = 6
           {{ activeTopic?.text }}
         </h2>
 
+        <!-- Mode segmented control -->
+        <div class="mt-7 inline-flex flex-wrap gap-1.5 rounded-full bg-[#ece8e0] p-1.5">
+          <button
+            v-for="m in [
+              { id: 'upload', label: 'Rasm joylash' },
+              { id: 'write', label: 'Yozish' },
+            ]"
+            :key="m.id"
+            type="button"
+            @click="setMode(m.id)"
+            class="rounded-full px-4 py-2 text-[13px] font-semibold transition active:scale-[0.98]"
+            :class="mode === m.id ? 'bg-[#1a1814] text-white shadow-[0_6px_16px_rgba(26,24,20,0.18)]' : 'text-[#6b6760] hover:text-[#1a1814]'"
+          >
+            {{ m.label }}
+          </button>
+        </div>
+
+        <!-- Textarea (write / paste) -->
         <textarea
+          v-if="showTextarea"
           v-model="essayText"
           :placeholder="textareaPlaceholder"
           class="mt-6 min-h-[340px] w-full resize-y rounded-[20px] border border-[#d8d3ca] bg-[#faf9f6] p-6 text-[15.5px] leading-[1.8] text-[#1a1814] outline-none transition focus:border-[#1a1814] focus:bg-white"
         ></textarea>
 
+        <!-- Upload dropzone -->
+        <div v-else class="mt-6">
+          <div
+            @click="openFilePicker"
+            @dragover.prevent="isDragging = true"
+            @dragleave.prevent="isDragging = false"
+            @drop.prevent="onDrop"
+            class="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-[20px] border border-dashed bg-[#faf9f6] px-6 py-10 text-center transition"
+            :class="isDragging ? 'border-[#1a1814] bg-white' : 'border-[#c9c4b8] hover:border-[#1a1814] hover:bg-white'"
+          >
+            <span class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1a1814] text-white">
+              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                <path d="M12 16V4m0 0-4 4m4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <p class="text-[15px] font-semibold text-[#1a1814]">Insho rasmini shu yerga tashlang</p>
+            <p class="mt-1 text-[13px] text-[#8a857c]">
+              yoki fayl tanlash uchun bosing · JPG, PNG, WEBP · ko‘pi bilan {{ MAX_IMAGE_COUNT }} ta
+            </p>
+          </div>
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            class="hidden"
+            @change="onFileChange"
+          />
+
+          <!-- Thumbnails -->
+          <div v-if="uploads.length" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div
+              v-for="(upload, index) in uploads"
+              :key="upload.id"
+              class="group/thumb relative overflow-hidden rounded-[14px] border border-[#e0ddd7] bg-white"
+            >
+              <img :src="upload.dataUrl" :alt="upload.name" class="h-36 w-full object-cover" />
+              <span class="font-mono-custom absolute left-2 top-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
+                {{ index + 1 }}-sahifa
+              </span>
+              <button
+                type="button"
+                @click.stop="removeUpload(upload.id)"
+                aria-label="O‘chirish"
+                class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white opacity-0 transition group-hover/thumb:opacity-100"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                  <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <p v-if="submitError" class="mt-4 text-sm font-medium text-red-600">{{ submitError }}</p>
 
         <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
-          <span class="text-[13.5px] text-[#8a857c]">
+          <span v-if="showTextarea" class="text-[13.5px] text-[#8a857c]">
             <span class="font-semibold text-[#1a1814]">{{ wordCount }}</span> so‘z
             <template v-if="charCount > MAX_ESSAY_LENGTH * 0.9">
               · <span :class="charCount > MAX_ESSAY_LENGTH ? 'font-semibold text-red-600' : ''">{{ charCount }}/{{ MAX_ESSAY_LENGTH }} belgi</span>
             </template>
+          </span>
+          <span v-else class="text-[13.5px] text-[#8a857c]">
+            <span class="font-semibold text-[#1a1814]">{{ uploads.length }}</span> sahifa yuklandi
           </span>
 
           <button
@@ -489,7 +674,27 @@ const SKELETON_COUNT = 6
         :analysis="reviewAnalysis"
         :essay-text="submittedEssay"
         :band-total="reviewBandTotal"
-      />
+      >
+        <!-- The uploaded pages, echoed so the OCR text can be compared. -->
+        <details v-if="submittedUploads.length" class="group mt-8 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#eeeae2] shadow-[0_10px_30px_rgba(26,24,20,0.05)]">
+          <summary class="flex cursor-pointer items-center justify-between px-5 py-4 text-[14px] font-semibold text-[#1a1814] transition hover:bg-[#faf8f4]">
+            <span>Siz yuklagan sahifalar</span>
+            <svg class="h-4 w-4 text-[#8a857c] transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </summary>
+          <div class="border-t border-[#f3f0ea] px-5 py-4">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div v-for="(upload, index) in submittedUploads" :key="upload.id" class="relative overflow-hidden rounded-[14px] border border-[#e0ddd7] bg-[#faf9f6]">
+                <img :src="upload.dataUrl" :alt="upload.name" class="h-36 w-full object-cover" />
+                <span class="font-mono-custom absolute left-2 top-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
+                  {{ index + 1 }}-sahifa
+                </span>
+              </div>
+            </div>
+          </div>
+        </details>
+      </EssayAnalysisSection>
     </template>
 
     <!-- ═══════════════ AI-checking takeover ═══════════════ -->
