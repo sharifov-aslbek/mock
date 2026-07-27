@@ -36,7 +36,7 @@ const MAX_ESSAY_FILE_BYTES = MAX_ESSAY_FILE_MB * 1024 * 1024
 const MAX_IMAGE_EDGE = 2000
 const JPEG_QUALITY = 0.82
 
-const essayMode = ref('type')
+const essayMode = ref('upload')
 const uploads = ref([]) // { id, name, dataUrl }
 const uploadError = ref('')
 const isDragging = ref(false)
@@ -47,8 +47,8 @@ let uploadSeq = 0
 const isQuestionChecked = ref(false)
 
 const essayModes = computed(() => [
-  { key: 'type', label: t('testPage.essay.modeType') },
   { key: 'upload', label: t('testPage.essay.modeUpload') },
+  { key: 'type', label: t('testPage.essay.modeType') },
 ])
 
 // ——— Typed essay ————————————————————————————————————————————————
@@ -136,7 +136,7 @@ const restorePersisted = () => {
     // Corrupt draft — start clean.
   }
 
-  essayMode.value = savedMode === 'upload' ? 'upload' : 'type'
+  essayMode.value = savedMode === 'type' ? 'type' : 'upload'
   uploads.value = savedUploads
   uploadError.value = ''
   emit('update-uploads', props.question.id, uploads.value)

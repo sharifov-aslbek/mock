@@ -1430,9 +1430,51 @@ async function autoSubmitOnTimeUp() {
   }
 }
 
+// ——— Mobile: lock pinch / double-tap zoom while the test is open ———————————
+// A test must read like a fixed sheet of paper: tapping an option or scrolling
+// the page should never zoom or pan the layout. We tighten the viewport meta
+// (Android honours user-scalable=no) and, because iOS Safari ignores that flag,
+// also cancel its native pinch gestures and any multi-finger move by hand. All
+// of this is reverted on unmount so the rest of the app can still zoom freely.
+let savedViewportContent = null
+const preventMultiTouchMove = (event) => {
+  // Single-finger scrolling stays untouched; two+ fingers = a pinch, so block it.
+  if (event.touches && event.touches.length > 1) event.preventDefault()
+}
+const preventGestureZoom = (event) => event.preventDefault()
+const lockZoom = () => {
+  if (typeof document === 'undefined') return
+  const meta = document.querySelector('meta[name="viewport"]')
+  if (meta) {
+    savedViewportContent = meta.getAttribute('content')
+    meta.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content',
+    )
+  }
+  document.addEventListener('touchmove', preventMultiTouchMove, { passive: false })
+  // Safari-only pinch gesture events (iOS ignores user-scalable=no by design).
+  document.addEventListener('gesturestart', preventGestureZoom, { passive: false })
+  document.addEventListener('gesturechange', preventGestureZoom, { passive: false })
+  document.addEventListener('gestureend', preventGestureZoom, { passive: false })
+}
+const unlockZoom = () => {
+  if (typeof document === 'undefined') return
+  const meta = document.querySelector('meta[name="viewport"]')
+  if (meta && savedViewportContent != null) {
+    meta.setAttribute('content', savedViewportContent)
+    savedViewportContent = null
+  }
+  document.removeEventListener('touchmove', preventMultiTouchMove)
+  document.removeEventListener('gesturestart', preventGestureZoom)
+  document.removeEventListener('gesturechange', preventGestureZoom)
+  document.removeEventListener('gestureend', preventGestureZoom)
+}
+
 onMounted(() => {
   testProgressStore.hydrate()
   hydrateAnswerActions()
+  lockZoom()
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', handleBeforeUnload)
     answerSyncIntervalId = window.setInterval(() => {
@@ -1453,6 +1495,7 @@ onBeforeUnmount(() => {
   void syncDirtyAnswers()
   persistCurrentProgress()
   stopTimer()
+  unlockZoom()
   if (typeof window !== 'undefined') {
     window.removeEventListener('beforeunload', handleBeforeUnload)
   }
@@ -1460,7 +1503,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="font-sans-custom min-h-screen bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
+  <main class="font-sans-custom min-h-screen touch-manipulation bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
 
     <ProfileGateModal
       v-model:show="showProfileGate"

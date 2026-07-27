@@ -7,7 +7,6 @@ import { SUBJECT_FILTER_OPTIONS, subjectMatches } from '@/utils/subjects'
 
 const { t } = useI18n()
 const testStore = useTestStore()
-const selectedSort = ref('newest')
 const isLoading = ref(true)
 const errorKey = ref('')
 const rawAttempts = ref([])
@@ -99,25 +98,11 @@ const attemptedTests = computed(() => {
     entries = entries.filter((entry) => subjectMatches(entry.test.subject, option?.aliases))
   }
 
-  if (selectedSort.value === 'popular') {
-    return entries.sort((a, b) => Number(b.test.attemptCount) - Number(a.test.attemptCount))
-  }
-
-  if (selectedSort.value === 'score') {
-    return entries.sort((a, b) => Number(b.test.questionCount) - Number(a.test.questionCount))
-  }
-
-  // newest → most recently attempted first
+  // Most recently attempted first.
   return entries.sort((a, b) => b.attemptTime - a.attemptTime || b.attemptId - a.attemptId)
 })
 
 const SKELETON_COUNT = 6
-
-const sortOptions = computed(() => [
-  { value: 'newest', label: t('math.sort.newest') },
-  { value: 'popular', label: t('math.sort.popular') },
-  { value: 'score', label: t('math.sort.score') },
-])
 
 const shouldShowLoading = computed(() => isLoading.value)
 const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.value))
@@ -125,7 +110,7 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
 
 <template>
   <section
-    class="relative min-h-screen overflow-hidden bg-[#f5f3ef] px-4 py-14 font-sans-custom selection:bg-black selection:text-white sm:px-6 sm:py-16 lg:px-8"
+    class="relative min-h-screen overflow-hidden bg-[#f5f3ef] px-4 py-8 font-sans-custom selection:bg-black selection:text-white sm:px-6 sm:py-16 lg:px-8"
   >
     <!-- Subtle warm dot grid -->
     <div class="math-dots absolute inset-0 -z-20"></div>
@@ -138,9 +123,9 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
     <div class="math-grain pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
 
     <div class="relative z-10 mx-auto max-w-[1400px]">
-      <div class="mb-10 flex flex-col gap-6 animate-[fadeInUp_.7s_ease-out] lg:flex-row lg:items-end lg:justify-between">
+      <div class="mb-6 flex flex-col gap-5 animate-[fadeInUp_.7s_ease-out] sm:mb-10 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div class="max-w-3xl">
-          <div class="mb-5 flex items-center gap-3">
+          <div class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="font-mono-custom text-[11px] font-semibold tracking-[0.22em] text-[#bcb6a9]">01</span>
             <span class="h-px w-8 bg-[#d8d3ca]"></span>
             <span class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a857c]">
@@ -151,9 +136,6 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
           <h1 class="text-4xl font-bold leading-[1.05] tracking-[-0.02em] text-[#1a1814] sm:text-5xl md:text-6xl">
             {{ t('resultExam.title') }}
           </h1>
-          <p class="mt-5 max-w-2xl text-base leading-relaxed text-[#6b6760] sm:text-lg">
-            {{ t('resultExam.description') }}
-          </p>
         </div>
 
         <!-- Total attempted -->
@@ -168,25 +150,7 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
         </div>
       </div>
 
-      <div class="mb-8 flex flex-col gap-4 animate-[fadeInUp_1.1s_ease-out] sm:flex-row sm:items-center sm:justify-between">
-        <!-- Sort pills -->
-        <div class="flex flex-wrap gap-2.5">
-          <button
-            v-for="option in sortOptions"
-            :key="option.value"
-            type="button"
-            @click="selectedSort = option.value"
-            :class="[
-              'inline-flex items-center rounded-full border px-5 py-2.5 text-sm font-semibold transition duration-300 active:scale-[0.98]',
-              selectedSort === option.value
-                ? 'border-[#1a1814] bg-[#1a1814] text-white shadow-[0_8px_22px_rgba(26,24,20,0.18)]'
-                : 'border-[#d8d3ca] bg-white/70 text-[#6b6760] backdrop-blur-sm hover:-translate-y-0.5 hover:border-[#1a1814] hover:text-[#1a1814]'
-            ]"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-
+      <div class="mb-8 flex animate-[fadeInUp_1.1s_ease-out] justify-end">
         <!-- Subject filter -->
         <div class="relative w-full sm:w-auto">
           <button
