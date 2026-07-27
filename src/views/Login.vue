@@ -88,12 +88,6 @@ const password = ref('')
 const showPassword = ref(false)
 const validationError = ref('')
 
-// TEMP (2026-07-27): the SMS provider (Eskiz) is down, so /verify-phone can't
-// deliver codes — don't funnel failed logins into that dead end. Set back to
-// true once SMS works again. (The backend's verification gate in
-// AuthService.Login is also temporarily disabled.)
-const PHONE_VERIFY_REDIRECT_ENABLED = false
-
 const submitPasswordLogin = async () => {
   validationError.value = ''
   if (!identifier.value.trim() || !password.value) {
@@ -106,7 +100,7 @@ const submitPasswordLogin = async () => {
   } catch (error: any) {
     // An account whose phone was never OTP-confirmed can't log in — hand the
     // user to the verify flow with the number they just tried prefilled.
-    if (PHONE_VERIFY_REDIRECT_ENABLED && error?.phoneNotVerified) {
+    if (error?.phoneNotVerified) {
       const digits = identifier.value.replace(/\D/g, '')
       await router.push({
         path: '/verify-phone',
