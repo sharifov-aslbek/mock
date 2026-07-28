@@ -173,7 +173,7 @@ const mainTabs = [
           type="button"
           @click="selectMainTab(tab.id)"
           class="rounded-full px-6 py-2.5 text-sm font-semibold transition active:scale-[0.98]"
-          :class="mainTab === tab.id ? 'bg-[#1a1814] text-white shadow-[0_8px_22px_rgba(26,24,20,0.18)]' : 'text-[#6b6760] hover:text-[#1a1814]'"
+          :class="mainTab === tab.id ? 'bg-[#1a1814] text-white shadow-[0_8px_22px_rgba(26,24,20,0.18)]' : 'bg-white text-[#3a362f] shadow-[0_2px_8px_rgba(26,24,20,0.08)] hover:text-[#1a1814]'"
         >
           {{ tab.label }}
         </button>
