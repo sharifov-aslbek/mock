@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
           <span class="text-[13px] text-[#888]">tanga</span>
         </router-link>
 
-        <router-link v-if="!authStore.userInfo" to="/login" class="hidden sm:block">
+        <router-link v-if="!authStore.userInfo" to="/register" class="hidden sm:block">
           <button class="rounded-full border border-[#333] bg-[#1e1e1e] px-5 py-2 text-[14px] font-medium text-white transition hover:opacity-90">
             {{ t('navbar.bookDemo') }}
           </button>
@@ -300,7 +300,7 @@ onBeforeUnmount(() => {
             </router-link>
           </div>
 
-          <router-link v-else to="/login" class="block" @click="closeMobileMenu">
+          <router-link v-else to="/register" class="block" @click="closeMobileMenu">
             <button class="w-full rounded-full border border-[#333] bg-[#1e1e1e] px-4 py-2.5 text-[14px] font-medium text-white">
               {{ t('navbar.bookDemo') }}
             </button>

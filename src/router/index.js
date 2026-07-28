@@ -171,7 +171,7 @@ router.beforeEach((to) => {
   }
 
   return {
-    name: 'login',
+    name: 'register',
     query: { redirect: to.fullPath },
   }
 })
