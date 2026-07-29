@@ -16,6 +16,8 @@ import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { ESSAY_BAND_MAX } from '@/utils/essayAnalysis'
+import { saveEssayChecking } from '@/utils/essayCheckingStorage'
 
 const TOPIC_META = "250–300 so'z"
 // Mirror the backend limits so obvious input problems never reach the API
@@ -313,6 +315,27 @@ const submit = async () => {
       ? await fetchSubmissionText(payload.data.essaySubmissionId)
       : text
     submittedUploads.value = isUpload ? [...uploads.value] : []
+
+    // Persist the checking so it lists on the Natijalar page (Insholar tab),
+    // the same way finished mock tests do. Store only serializable fields —
+    // the uploads' File objects are dropped, their data URLs kept. This is the
+    // real AI review now (sample: false).
+    saveEssayChecking({
+      topic: activeTopic.value?.text || '',
+      mode: mode.value,
+      essayText: submittedEssay.value,
+      uploads: submittedUploads.value.map((upload) => ({
+        id: upload.id,
+        name: upload.name,
+        dataUrl: upload.dataUrl,
+      })),
+      analysis: reviewAnalysis.value,
+      analyzedText: submittedEssay.value,
+      bandTotal: reviewBandTotal.value,
+      bandMax: ESSAY_BAND_MAX,
+      sample: false,
+    })
+
     view.value = 'result'
   } catch (error) {
     console.error(error)

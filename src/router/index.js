@@ -103,6 +103,15 @@ const routes = [
     meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } }
   },
   {
+    // A single saved essay checking's analysis (opened from the Insholar tab
+    // of the Natijalar page). Persisted client-side — see
+    // utils/essayCheckingStorage.js.
+    path: '/result-exam/essay/:id',
+    name: 'essay-result',
+    component: () => import('@/views/EssayResultPage.vue'),
+    meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } }
+  },
+  {
     path: '/test',
     name: 'test',
     component: () => import('@/views/TestPage.vue'),

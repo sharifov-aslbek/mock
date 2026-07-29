@@ -1,15 +1,51 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
+import EssayResultCard from '@/components/onatili/EssayResultCard.vue'
 import { useTestStore } from '@/stores/test'
 import { SUBJECT_FILTER_OPTIONS, subjectMatches } from '@/utils/subjects'
+import { loadEssayCheckings, removeEssayChecking } from '@/utils/essayCheckingStorage'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const testStore = useTestStore()
 const isLoading = ref(true)
 const errorKey = ref('')
 const rawAttempts = ref([])
+
+// ——— Top-level view (mock tests / essay checkings), synced to ?view= ————————
+const VALID_VIEWS = ['tests', 'essays']
+const normalizeView = (value) => (VALID_VIEWS.includes(value) ? value : 'tests')
+const activeView = ref(normalizeView(typeof route.query.view === 'string' ? route.query.view : 'tests'))
+
+watch(
+  () => route.query.view,
+  (value) => {
+    activeView.value = normalizeView(typeof value === 'string' ? value : 'tests')
+  },
+)
+const selectView = (value) => {
+  activeView.value = value
+  const current = typeof route.query.view === 'string' ? route.query.view : 'tests'
+  if (current !== value) {
+    router.replace({ query: { ...route.query, view: value } })
+  }
+}
+
+// ——— Saved essay checkings (client-side; see utils/essayCheckingStorage.js) ——
+const essayCheckings = ref([])
+const loadEssays = () => {
+  essayCheckings.value = loadEssayCheckings()
+}
+const openEssay = (id) => {
+  router.push({ name: 'essay-result', params: { id } })
+}
+const removeEssay = (id) => {
+  essayCheckings.value = removeEssayChecking(id)
+}
 
 const fetchAttempts = async () => {
   isLoading.value = true
@@ -30,6 +66,7 @@ const fetchAttempts = async () => {
 
 onMounted(() => {
   fetchAttempts()
+  loadEssays()
 })
 
 const selectedSubject = ref('all')
@@ -106,6 +143,17 @@ const SKELETON_COUNT = 6
 
 const shouldShowLoading = computed(() => isLoading.value)
 const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.value))
+
+const essayCount = computed(() => essayCheckings.value.length)
+// The big number in the header follows the active tab.
+const headerCount = computed(() =>
+  activeView.value === 'essays' ? essayCount.value : attemptedTests.value.length,
+)
+
+const VIEW_TABS = [
+  { id: 'tests', label: 'Testlar' },
+  { id: 'essays', label: 'Insholar' },
+]
 </script>
 
 <template>
@@ -138,10 +186,10 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
           </h1>
         </div>
 
-        <!-- Total attempted -->
+        <!-- Total (follows the active tab) -->
         <div class="flex shrink-0 items-center gap-3.5">
           <span class="text-[34px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">
-            {{ attemptedTests.length }}
+            {{ headerCount }}
           </span>
           <span class="h-8 w-px bg-[#d8d3ca]"></span>
           <span class="font-mono-custom max-w-[5.5rem] text-[10px] font-medium uppercase leading-[1.55] tracking-[0.18em] text-[#8a857c]">
@@ -150,7 +198,25 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
         </div>
       </div>
 
-      <div class="mb-8 flex animate-[fadeInUp_1.1s_ease-out] justify-end">
+      <!-- View tabs: mock tests / essay checkings -->
+      <div class="mb-6 inline-flex flex-wrap gap-1.5 rounded-full bg-[#ece8e0] p-1.5 animate-[fadeInUp_.85s_ease-out]">
+        <button
+          v-for="tab in VIEW_TABS"
+          :key="tab.id"
+          type="button"
+          @click="selectView(tab.id)"
+          class="rounded-full px-6 py-2.5 text-sm font-semibold transition active:scale-[0.98]"
+          :class="activeView === tab.id ? 'bg-[#1a1814] text-white shadow-[0_8px_22px_rgba(26,24,20,0.18)]' : 'bg-white text-[#3a362f] shadow-[0_2px_8px_rgba(26,24,20,0.08)] hover:text-[#1a1814]'"
+        >
+          {{ tab.label }}
+          <span
+            class="ml-1.5 tabular-nums"
+            :class="activeView === tab.id ? 'text-white/60' : 'text-[#a39e94]'"
+          >{{ tab.id === 'essays' ? essayCount : attemptedTests.length }}</span>
+        </button>
+      </div>
+
+      <div v-show="activeView === 'tests'" class="mb-8 flex animate-[fadeInUp_1.1s_ease-out] justify-end">
         <!-- Subject filter -->
         <div class="relative w-full sm:w-auto">
           <button
@@ -206,6 +272,8 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
         </div>
       </div>
 
+      <!-- ═══════════ Mock testlar ═══════════ -->
+      <template v-if="activeView === 'tests'">
       <!-- Skeleton loaders -->
       <div
         v-if="shouldShowLoading"
@@ -264,6 +332,43 @@ const shouldShowError = computed(() => !isLoading.value && Boolean(errorKey.valu
         </div>
         <p class="font-medium text-[#8a857c]">{{ t('resultExam.empty') }}</p>
       </div>
+      </template>
+
+      <!-- ═══════════ Insholar (saved essay checkings) ═══════════ -->
+      <template v-else>
+        <div
+          v-if="essayCheckings.length > 0"
+          class="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+        >
+          <div
+            v-for="(entry, index) in essayCheckings"
+            :key="entry.id"
+            class="card-enter"
+            :style="{ animationDelay: Math.min(index, 12) * 55 + 'ms' }"
+          >
+            <EssayResultCard :entry="entry" @open="openEssay" @remove="removeEssay" />
+          </div>
+        </div>
+
+        <div
+          v-else
+          class="rounded-[28px] border border-dashed border-[#d8d3ca] bg-white/70 px-6 py-16 text-center shadow-[0_10px_30px_rgba(26,24,20,0.05)] backdrop-blur-sm"
+        >
+          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e0ddd7] bg-[#faf9f6] text-[#8a857c]">
+            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 20h9" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <p class="font-medium text-[#8a857c]">Hali insho tekshirmagansiz.</p>
+          <RouterLink
+            to="/ona-tili?tab=essay"
+            class="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#1a1814] px-7 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98]"
+          >
+            Insho tekshirish
+          </RouterLink>
+        </div>
+      </template>
     </div>
   </section>
 </template>

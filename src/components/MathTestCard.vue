@@ -342,7 +342,6 @@ const handleAttemptedCardClick = () => {
             </svg>
           </div>
           <h3 class="line-clamp-2 min-h-[3.5rem] text-2xl font-bold leading-tight tracking-[-0.02em] text-[#1a1814]">{{ test.title }}</h3>
-          <p class="mt-2 text-sm text-[#8a857c]">{{ test.subject }}</p>
         </div>
 
         <div class="flex shrink-0 flex-col items-end gap-2">
