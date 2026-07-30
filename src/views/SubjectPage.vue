@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { isPremiumTest } from '@/utils/premium'
 
 // Each subject maps to a set of accepted backend `subject` strings (matched
 // case-insensitively) and an icon. Aliases cover likely spellings so the page
@@ -116,13 +117,17 @@ watch(subjectKey, () => {
   fetchTests()
 })
 
-// This subject's tests, newest first — the page is a plain grid (no
-// sub-filters / sort).
+// This subject's tests: free tests first, then premium — so newcomers start on
+// the free ones before hitting a paywall. Within each group, newest first.
 const filteredTests = computed(() =>
   rawTests.value
     .filter((test) => matchesSubject(test.subject))
     .map((test) => ({ ...test, subject: test.subject || subjectValue.value }))
-    .sort((a, b) => Number(b.id) - Number(a.id)),
+    .sort(
+      (a, b) =>
+        Number(isPremiumTest(a)) - Number(isPremiumTest(b)) ||
+        Number(b.id) - Number(a.id),
+    ),
 )
 
 const SKELETON_COUNT = 6
