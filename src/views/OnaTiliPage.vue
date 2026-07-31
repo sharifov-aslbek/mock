@@ -16,7 +16,7 @@ import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import OnaTiliEssayCenter from '@/components/onatili/OnaTiliEssayCenter.vue'
 import { useAuthStore } from '@/stores/auth'
-import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl, isNetworkError } from '@/utils/api'
 
 // Book icon (matches src/utils/subjects.js motherTongue).
 const BOOK_ICON_PATHS = [
@@ -85,7 +85,7 @@ const fetchTests = async () => {
     rawTests.value = Array.isArray(payload.data) ? payload.data : []
   } catch (error) {
     console.error(error)
-    errorKey.value = 'math.errorFetch'
+    errorKey.value = isNetworkError(error) ? 'math.errorNetwork' : 'math.errorFetch'
   } finally {
     isLoading.value = false
   }

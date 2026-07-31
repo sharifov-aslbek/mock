@@ -327,6 +327,7 @@ const messages = {
       loading: 'Testlar yuklanmoqda...',
       errorConfig: 'API manzili topilmadi.',
       errorFetch: 'API dan testlarni yuklab bo‘lmadi.',
+      errorNetwork: 'Internetda uzilish bor. Ulanishni tekshirib, qayta urinib ko‘ring.',
       emptyStarted: 'Boshlangan testlar hozircha yo‘q.',
       empty: 'Bu bo‘limda hozircha test topilmadi.',
       tests: [
@@ -346,6 +347,7 @@ const messages = {
       loading: 'Natijalar yuklanmoqda...',
       errorConfig: 'API manzili topilmadi.',
       errorFetch: 'Natijalarni API dan yuklab bo‘lmadi.',
+      errorNetwork: 'Internetda uzilish bor. Ulanishni tekshirib, qayta urinib ko‘ring.',
       empty: 'Hozircha urinish qilingan testlar yo‘q.'
     },
     mathCard: {
@@ -853,6 +855,7 @@ const messages = {
       loading: 'Тесты загружаются...',
       errorConfig: 'Не найден базовый URL API.',
       errorFetch: 'Не удалось загрузить тесты из API.',
+      errorNetwork: 'Проблемы с интернет-соединением. Проверьте подключение и попробуйте снова.',
       emptyStarted: 'Пока нет начатых тестов.',
       empty: 'В этом разделе пока нет тестов.',
       tests: [
@@ -872,6 +875,7 @@ const messages = {
       loading: 'Результаты загружаются...',
       errorConfig: 'Не найден базовый URL API.',
       errorFetch: 'Не удалось загрузить результаты из API.',
+      errorNetwork: 'Проблемы с интернет-соединением. Проверьте подключение и попробуйте снова.',
       empty: 'Пока нет тестов с попытками.'
     },
     mathCard: {

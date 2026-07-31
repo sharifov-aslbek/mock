@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import EssayResultCard from '@/components/onatili/EssayResultCard.vue'
 import { useTestStore } from '@/stores/test'
+import { isNetworkError } from '@/utils/api'
 import { SUBJECT_FILTER_OPTIONS, subjectMatches } from '@/utils/subjects'
 import { loadEssayCheckings, removeEssayChecking } from '@/utils/essayCheckingStorage'
 
@@ -58,7 +59,7 @@ const fetchAttempts = async () => {
     rawAttempts.value = await testStore.fetchUserAttempts()
   } catch (error) {
     console.error(error)
-    errorKey.value = 'resultExam.errorFetch'
+    errorKey.value = isNetworkError(error) ? 'resultExam.errorNetwork' : 'resultExam.errorFetch'
   } finally {
     isLoading.value = false
   }

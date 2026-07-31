@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import MathTestCard from '@/components/MathTestCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestProgressStore } from '@/stores/testProgress'
-import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl, isNetworkError } from '@/utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -65,7 +65,7 @@ const fetchTests = async () => {
     rawTests.value = Array.isArray(payload.data) ? payload.data : []
   } catch (error) {
     console.error(error)
-    errorKey.value = 'math.errorFetch'
+    errorKey.value = isNetworkError(error) ? 'math.errorNetwork' : 'math.errorFetch'
   } finally {
     isLoading.value = false
   }

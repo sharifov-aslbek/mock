@@ -52,6 +52,17 @@ async function handleUnauthorized() {
   }
 }
 
+// Distinguishes a lost/flaky connection from a genuine API failure. A `fetch`
+// that can't reach the server rejects with a TypeError ("Failed to fetch"),
+// and `navigator.onLine === false` means the browser knows it's offline —
+// either way we want the "internetda uzilish bor" message, not "API error".
+export function isNetworkError(error) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return true
+  }
+  return error instanceof TypeError
+}
+
 // Drop-in wrapper around `fetch` that funnels 401s through the auth-redirect
 // handler. All test/auth API calls should go through this so a dead token
 // can't leave the user staring at a half-loaded page.
