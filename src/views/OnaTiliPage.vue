@@ -111,7 +111,7 @@ const SKELETON_COUNT = 6
 
 const mainTabs = [
   { id: 'tests', label: 'Mock testlar' },
-  { id: 'essay', label: 'Insho tekshirish' },
+  { id: 'essay', label: 'Essay tekshirish' },
 ]
 </script>
 
