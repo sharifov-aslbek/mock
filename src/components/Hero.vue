@@ -1,14 +1,91 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useMobileMenu } from '@/composables/useMobileMenu'
+import { getTestApiBaseUrl } from '@/utils/api'
 
 const { t, tm } = useI18n()
 const router = useRouter()
 const { open: openMobileMenu } = useMobileMenu()
 
-const stats = computed(() => tm('hero.stats') as Array<{ value: string; label: string }>)
+const rawStats = computed(() => tm('hero.stats') as Array<{ value: string; label: string }>)
+
+// The first stat ("ishlangan test") is a live figure: the real total number of
+// test attempts across every published test, summed from `GET /api/test`
+// (`attemptCount` per test). Until it loads — or if the request fails — we fall
+// back to the static i18n value so the hero never shows a blank or a zero.
+const liveTestCount = ref<number | null>(null)
+const displayTestCount = ref<number | null>(null)
+// True once the first real value has landed — drives the "live" indicator.
+const isLive = ref(false)
+let countUpFrame = 0
+let pollTimer: ReturnType<typeof setInterval> | undefined
+
+// Merge the live count into the first stat; the other two stay static.
+const stats = computed(() =>
+  rawStats.value.map((stat, index) => {
+    if (index === 0 && displayTestCount.value !== null) {
+      return { ...stat, value: `${displayTestCount.value.toLocaleString('en-US')}+` }
+    }
+    return stat
+  }),
+)
+
+// Ease from the current shown value up to the new total so it reads as a live
+// counter — 0 → total on first load, then old → new on each poll tick.
+const animateCountUp = (target: number) => {
+  const from = displayTestCount.value ?? 0
+  if (from === target) return
+  cancelAnimationFrame(countUpFrame)
+  const duration = 1400
+  let start: number | null = null
+
+  const step = (timestamp: number) => {
+    if (start === null) start = timestamp
+    const progress = Math.min((timestamp - start) / duration, 1)
+    // easeOutCubic — fast then settling.
+    const eased = 1 - Math.pow(1 - progress, 3)
+    displayTestCount.value = Math.round(from + (target - from) * eased)
+    if (progress < 1) {
+      countUpFrame = requestAnimationFrame(step)
+    }
+  }
+
+  countUpFrame = requestAnimationFrame(step)
+}
+
+const loadLiveTestCount = async () => {
+  try {
+    // Anonymous, public read — plain fetch so a stray 401 can't bounce a
+    // logged-out visitor off the landing page.
+    const response = await fetch(`${getTestApiBaseUrl()}/test`)
+    if (!response.ok) return
+    const payload = await response.json()
+    const tests = Array.isArray(payload?.data) ? payload.data : []
+    const total = tests.reduce(
+      (sum: number, test: { attemptCount?: number }) => sum + (test.attemptCount ?? 0),
+      0,
+    )
+    if (total > 0) {
+      liveTestCount.value = total
+      isLive.value = true
+      animateCountUp(total)
+    }
+  } catch {
+    // Offline or API down — keep the static i18n fallback.
+  }
+}
+
+onMounted(() => {
+  loadLiveTestCount()
+  // Re-poll so the counter keeps up with real attempts while the page is open.
+  pollTimer = setInterval(loadLiveTestCount, 30000)
+})
+onBeforeUnmount(() => {
+  cancelAnimationFrame(countUpFrame)
+  if (pollTimer) clearInterval(pollTimer)
+})
 
 // Desktop (lg+, where the navbar shows inline links) goes straight to the math
 // tests; below lg — where only the hamburger is visible — the CTA opens the
@@ -102,10 +179,29 @@ const onPrimaryClick = () => {
         class="mx-auto mt-16 flex max-w-2xl animate-[fadeInUp_1.4s_ease-out] items-stretch justify-center divide-x divide-[#e0ddd7]"
       >
         <div
-          v-for="stat in stats"
+          v-for="(stat, index) in stats"
           :key="stat.label"
-          class="flex flex-1 flex-col items-center px-2.5 text-center sm:px-8"
+          class="relative flex flex-1 flex-col items-center px-2.5 text-center sm:px-8"
         >
+          <!-- Live indicator — only on the first stat, once the real count lands.
+               Absolutely placed so it doesn't shift the numbers' baseline. -->
+          <div
+            v-if="index === 0 && isLive"
+            class="absolute -top-4 inline-flex items-center gap-1.5"
+            title="Jonli hisob — real vaqtda yangilanadi"
+          >
+            <span class="relative flex h-1.5 w-1.5">
+              <span
+                class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"
+              ></span>
+              <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            </span>
+            <span
+              class="font-mono-custom text-[8px] font-semibold uppercase tracking-[0.18em] text-emerald-600 sm:text-[9px]"
+            >
+              Jonli
+            </span>
+          </div>
           <div class="whitespace-nowrap text-xl font-bold tracking-[-0.02em] text-[#1a1814] sm:text-[2rem]">
             {{ stat.value }}
           </div>
