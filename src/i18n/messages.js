@@ -21,6 +21,7 @@ const messages = {
         history: 'Tarix',
         physics: 'Fizika',
         motherTongue: 'Ona tili',
+        biology: 'Biologiya',
         mashq: 'Mashq',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -230,6 +231,12 @@ const messages = {
         title: 'Ona tili testlari',
         description: 'Ona tili bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
         subjectValue: 'Ona tili'
+      },
+      biology: {
+        eyebrow: 'Biologiya markazi',
+        title: 'Biologiya testlari',
+        description: 'Biologiya bo‘yicha testlarni tanlang va darhol ishlashni boshlang.',
+        subjectValue: 'Biologiya'
       }
     },
     login: {
@@ -549,6 +556,7 @@ const messages = {
         history: 'Тарих',
         physics: 'Физика',
         motherTongue: 'Родной язык',
+        biology: 'Биология',
         mashq: 'Практика',
         psat: 'PSAT',
         shsat: 'SHSAT'
@@ -758,6 +766,12 @@ const messages = {
         title: 'Тесты по родному языку',
         description: 'Выберите тесты по родному языку и начните сразу.',
         subjectValue: 'Родной язык'
+      },
+      biology: {
+        eyebrow: 'Центр биологии',
+        title: 'Тесты по биологии',
+        description: 'Выберите тесты по биологии и начните сразу.',
+        subjectValue: 'Биология'
       }
     },
     login: {

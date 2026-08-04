@@ -70,6 +70,27 @@ const routes = [
     }
   },
   {
+    path: '/biologiya',
+    name: 'biologiya',
+    component: () => import('@/views/BiologySubjectPage.vue'),
+    meta: {
+      subjectKey: 'biology',
+      seo: {
+        title: 'Biologiya testlari',
+        description:
+          'Biologiyadan milliy sertifikat namunaviy testlarini real test formatida ishlang. O‘zingizga mos testni tanlang va darhol boshlang.',
+      },
+    }
+  },
+  {
+    path: '/biologiya/test',
+    name: 'biologiya-test',
+    component: () => import('@/views/BiologyDemoPage.vue'),
+    meta: {
+      seo: { title: 'Biologiya testi', robots: 'noindex, nofollow' },
+    }
+  },
+  {
     path: '/ona-tili',
     name: 'ona-tili',
     component: () => import('@/views/OnaTiliPage.vue'),
