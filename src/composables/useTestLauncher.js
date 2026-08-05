@@ -1,10 +1,13 @@
 // Opening a test from a platform screen.
 //
-// Four cases, from the row's state and the test's premium flags:
-//   done      → open the saved result (/explanation)
-//   progress  → resume that attempt (/test with its attemptId)
-//   new, free → confirm, then start
-//   new, paid → confirm the tanga cost, then start; short balance → top up
+// Three cases, from the row's state and the test's premium flags:
+//   progress → resume that attempt (/test with its attemptId), answers intact
+//   free     → confirm, then start
+//   paid     → confirm the tanga cost, then start; short balance → top up
+//
+// A finished test takes the free/paid path again — this screen is for taking
+// tests, not reading results. Whether a re-take costs tanga is the backend's
+// call: it re-reports `isPurchased` per user, and start-test is the authority.
 //
 // This mirrors what MathTestCard does on the public subject pages, but is a
 // separate implementation on purpose: that card drives the live purchase flow
@@ -44,11 +47,9 @@ export function useTestLauncher() {
   async function open(test) {
     errorMessage.value = ''
 
-    if (test.state === 'done' && test.attemptId) {
-      await router.push(`/explanation?testId=${test.id}&attemptId=${test.attemptId}`)
-      return
-    }
-
+    // A finished test is offered again rather than swapped for its result:
+    // Testlar is for taking tests, Natijalar is where results are read. Only a
+    // half-finished attempt is resumed, so its answers are not thrown away.
     if (test.state === 'progress' && test.attemptId) {
       await router.push(`/test?testId=${test.id}&attemptId=${test.attemptId}`)
       return

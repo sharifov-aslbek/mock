@@ -65,19 +65,16 @@ const takers = computed(() =>
       <StatusBadge v-if="test.state === 'done'" tone="neutral">Yakunlangan</StatusBadge>
       <StatusBadge v-else-if="test.state === 'progress'" tone="info">Yechilmoqda</StatusBadge>
 
+      <!-- Always the primary ink button: every row's action starts or resumes a
+           test, so none of them is the quiet secondary. -->
       <button
         type="button"
         :disabled="busy"
-        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink disabled:cursor-not-allowed disabled:opacity-60"
-        :class="
-          test.state === 'done'
-            ? 'border border-app-border bg-app-surface text-app-ink hover:bg-app-tile'
-            : 'bg-app-ink text-app-surface hover:opacity-90'
-        "
+        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-app-ink px-3.5 py-2 text-[13px] font-semibold text-app-surface transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink disabled:cursor-not-allowed disabled:opacity-60"
         @click="$emit('action', test)"
       >
         {{ busy ? 'Ochilmoqda…' : action }}
-        <AppIcon name="arrowRight" :size="14" />
+        <AppIcon name="play" :size="14" />
       </button>
     </div>
   </div>

@@ -97,6 +97,14 @@ subject list does not re-hit the network. Rules that fall out of the real data:
   subject string cannot make it vanish from the product.
 - **No score percentage on a row.** `get-user-attempts` returns `totalScore`
   with no maximum, so a percentage would be invented. Rows say "Yakunlangan".
+- **The token is sent on `/test`, not just on the attempts call.** `isPurchased`
+  is per-user: anonymously every premium test comes back unpurchased, so
+  without the header the screen would offer to sell a student a test they
+  already own.
+- **Drafts are filtered out client-side.** That same token means an admin
+  account gets every draft back from `/test` too — 30 tests instead of 15 — so
+  the store keeps only `status: Published`. The public subject pages do not
+  need this because they never send a token.
 
 The dashboard is still placeholder — every figure there is marked `TODO(api)`,
 and `?empty=1` previews its first-run state.

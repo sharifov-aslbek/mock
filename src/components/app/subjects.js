@@ -114,8 +114,12 @@ export function subjectKeyFromApi(value) {
   return null
 }
 
+// Testlar is where a student *takes* a test, so the action always starts one —
+// a finished test is offered again, not swapped for its result. Results live on
+// Natijalar. The one exception is a half-finished attempt, which resumes rather
+// than restarting so the student does not lose their answers.
 export const ACTION_BY_STATE = {
   new: 'Testni boshlash',
   progress: 'Davom etish',
-  done: 'Natijani ko‘rish',
+  done: 'Testni boshlash',
 }

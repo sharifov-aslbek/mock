@@ -37,7 +37,9 @@ const copy = computed(() => {
   }
   return {
     icon: 'tests',
-    title: 'Testni boshlaymizmi?',
+    // Re-taking is a different decision from taking it the first time — say so,
+    // so a student does not restart a finished test by accident.
+    title: props.test?.state === 'done' ? 'Qaytadan boshlaymizmi?' : 'Testni boshlaymizmi?',
     confirmLabel: props.busy ? 'Ochilmoqda…' : 'Boshlash',
   }
 })
@@ -69,7 +71,10 @@ const copy = computed(() => {
             «{{ test.title }}» — {{ test.questionCount }} savol<template
               v-if="test.durationMinutes"
             >, {{ test.durationMinutes }} daqiqa</template>.
-            Boshlangach vaqt hisoblanadi.
+            <template v-if="test.state === 'done'">
+              Bu testni avval yechgansiz; yangi urinish boshlanadi.
+            </template>
+            <template v-else>Boshlangach vaqt hisoblanadi.</template>
           </template>
           <template v-else-if="mode === 'purchase'">
             «{{ test.title }}» ni ochish uchun

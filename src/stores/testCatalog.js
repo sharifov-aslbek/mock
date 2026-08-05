@@ -37,7 +37,14 @@ export const useTestCatalogStore = defineStore('testCatalog', () => {
     const baseUrl = getTestApiBaseUrl()
     const authStore = useAuthStore()
 
-    const response = await apiFetch(`${baseUrl}/test`, { headers: { accept: '*/*' } })
+    // The token matters here, not just for the attempts call: /test returns
+    // `isPurchased` per user, and anonymously every premium test comes back
+    // unpurchased. Without this header the screen would offer to sell a student
+    // a test they already own.
+    const headers = { accept: '*/*' }
+    if (authStore.isAuthenticated) headers.Authorization = `Bearer ${authStore.token}`
+
+    const response = await apiFetch(`${baseUrl}/test`, { headers })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const payload = await response.json()
     tests.value = Array.isArray(payload?.data) ? payload.data : []
@@ -110,11 +117,24 @@ export const useTestCatalogStore = defineStore('testCatalog', () => {
     return map
   })
 
+  // Drafts must never reach a student. The anonymous /test only ever returns
+  // published tests, but this store sends the token (it needs per-user
+  // `isPurchased`), and for an admin account the same endpoint also returns
+  // every draft — 15 of them today, including one titled "01.01.0001".
+  //
+  // A test with no status at all is kept rather than hidden: the field is
+  // always present today, and silently emptying the whole catalogue if the
+  // backend stopped sending it would be worse than the case this guards.
+  const isPublished = (test) => {
+    const status = String(test?.status ?? '').toLowerCase()
+    return !status || status === 'published'
+  }
+
   // The catalogue in the shape the platform's rows expect. Subject is resolved
   // to a registry key; tests whose subject we cannot place keep their raw
   // string so they are still listed rather than dropped.
   const catalogue = computed(() =>
-    tests.value.map((test) => {
+    tests.value.filter(isPublished).map((test) => {
       const subjectKey = subjectKeyFromApi(test.subject)
       const attempt = attemptByTest.value.get(Number(test.id))
       return {
