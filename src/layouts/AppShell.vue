@@ -52,7 +52,10 @@ watch(() => route.fullPath, () => { isDrawerOpen.value = false })
     </aside>
 
     <div class="lg:pl-[240px]">
-      <div class="mx-auto max-w-[1360px] px-5 pb-16 sm:px-8 lg:px-10">
+      <!-- min-h-screen + flex column so a page can hand its main section
+           `flex-1` and genuinely fill the viewport instead of stopping short
+           with dead space underneath. -->
+      <div class="mx-auto flex min-h-screen max-w-[1360px] flex-col px-5 pb-6 sm:px-8 lg:px-10">
         <RouterView :user="user" @open-menu="isDrawerOpen = true" />
       </div>
     </div>

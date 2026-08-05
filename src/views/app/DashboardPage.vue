@@ -105,7 +105,7 @@ const activities = [
     @open-menu="$emit('openMenu')"
   />
 
-  <main class="space-y-4">
+  <main class="flex flex-1 flex-col gap-4">
     <!-- Stat row -->
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Umumiy ko‘rsatkichlar">
       <AppCard v-for="stat in stats" :key="stat.key">
@@ -149,8 +149,8 @@ const activities = [
     </section>
 
     <!-- Progress + activity -->
-    <section class="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
-      <AppCard>
+    <section class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
+      <AppCard class="flex flex-col">
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">O‘qish progressi</h2>
           <RouterLink
@@ -163,12 +163,16 @@ const activities = [
           </RouterLink>
         </div>
 
-        <div class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-[1.7fr_1fr] sm:items-stretch">
-          <div class="flex items-center">
-            <LineChart :points="weekProgress" />
-          </div>
+        <!-- The card fills the viewport, but its contents stay composed: the
+             chart holds a sane height and the pair is centred in the slack
+             rather than stretched to a square. -->
+        <div class="mt-5 flex min-h-0 flex-1 items-center">
+          <div class="grid w-full grid-cols-1 gap-5 sm:grid-cols-[1.7fr_1fr] sm:items-stretch">
+            <div class="h-[260px] sm:h-[min(420px,44vh)]">
+              <LineChart :points="weekProgress" />
+            </div>
 
-          <div class="flex flex-col rounded-xl bg-app-sunken p-4">
+            <div class="flex flex-col rounded-xl bg-app-sunken p-4">
             <p class="text-[13px] text-app-muted">Haftalik maqsad</p>
             <p class="mt-1.5 text-[32px] font-bold leading-none tracking-[-0.03em] text-app-ink">
               {{ goal.percent }}%
@@ -181,13 +185,14 @@ const activities = [
               type="button"
               class="mt-auto w-full rounded-lg border border-app-border bg-app-surface px-4 py-2 text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
             >
-              Maqsadni tahrirlash
-            </button>
+                Maqsadni tahrirlash
+              </button>
+            </div>
           </div>
         </div>
       </AppCard>
 
-      <AppCard>
+      <AppCard class="flex flex-col">
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">So‘nggi faoliyatlar</h2>
           <RouterLink
@@ -200,8 +205,8 @@ const activities = [
           </RouterLink>
         </div>
 
-        <ul class="mt-3 divide-y divide-app-border">
-          <li v-for="item in activities" :key="item.id" class="flex items-center gap-3 py-3">
+        <ul class="mt-3 flex min-h-0 flex-1 flex-col divide-y divide-app-border">
+          <li v-for="item in activities" :key="item.id" class="flex max-h-[110px] flex-1 items-center gap-3 py-3">
             <span
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-app-tile text-app-ink"
             >
