@@ -39,8 +39,17 @@ watch(
   { immediate: true },
 )
 
-// Close the drawer on navigation so a tap-through never leaves it open.
-watch(() => route.fullPath, () => { isDrawerOpen.value = false })
+// Close the drawer on navigation so a tap-through never leaves it open, and
+// re-read the balance: the tanga pill is on every screen, and it goes stale the
+// moment a test is bought or the account is topped up on /narxlar. GET /balance
+// returns a single number, so this is cheap.
+watch(
+  () => route.path,
+  () => {
+    isDrawerOpen.value = false
+    if (authStore.isAuthenticated) balanceStore.refresh().catch(() => {})
+  },
+)
 </script>
 
 <template>

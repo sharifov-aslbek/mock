@@ -1,11 +1,15 @@
 <script setup>
-// One subject's mock list, from the live catalogue. The row states — and so the
-// filters — come from the signed-in user's own attempt history.
-import { computed, onMounted } from 'vue'
+// One subject's mock tests, as a grid. Inside a subject the tests differ only
+// by date, so they read better as a scannable block than as a list — and the
+// toolbar above (search, state, type, order) is what makes a long block usable.
+//
+// Everything here is derived from the live catalogue in stores/testCatalog.js.
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppTopbar from '@/components/app/AppTopbar.vue'
 import AppCard from '@/components/app/AppCard.vue'
-import TestRow from '@/components/app/TestRow.vue'
+import AppIcon from '@/components/app/AppIcon.vue'
+import TestCard from '@/components/app/TestCard.vue'
 import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
 import EmptyState from '@/components/app/EmptyState.vue'
 import TestLaunchDialogs from '@/components/app/TestLaunchDialogs.vue'
@@ -40,70 +44,145 @@ const {
   onProfileCancel,
 } = useTestLauncher()
 
-onMounted(() => {
-  void catalog.load()
-})
+void catalog.load()
 
 const subjectKey = computed(() => String(route.params.subject || ''))
 const subject = computed(() => {
   if (SUBJECTS[subjectKey.value]) return SUBJECTS[subjectKey.value]
-  // A subject the registry does not know, carried through by the catalogue.
   if (subjectKey.value.startsWith('raw:')) return unknownSubject(subjectKey.value.slice(4))
   return null
 })
 
 const allTests = computed(() => catalog.testsForSubject(subjectKey.value))
 
-// A test in progress is neither "ishlanmagan" nor "yakunlangan", so it gets its
-// own filter rather than being folded into one of them.
-const FILTERS = [
+// Drives whether cards keep a badge line, so one premium test cannot make its
+// row taller than the cards beside it.
+const hasPremium = computed(() => allTests.value.some((test) => test.isPremium))
+
+// State filters. A test in progress is neither finished nor untouched, so the
+// three states map one-to-one onto the three labels.
+const STATE_FILTERS = [
   { key: 'all', label: 'Hammasi' },
-  { key: 'new', label: 'Ishlanmagan' },
-  { key: 'progress', label: 'Yechilmoqda' },
   { key: 'done', label: 'Yakunlangan' },
+  { key: 'progress', label: 'Yechilmagan' },
+  { key: 'new', label: 'Boshlanmagan' },
 ]
 
-const activeFilter = computed(() => {
-  const wanted = String(route.query.holat || 'all')
-  return FILTERS.some((f) => f.key === wanted) ? wanted : 'all'
+const TYPE_FILTERS = [
+  { key: 'all', label: 'Barcha testlar' },
+  { key: 'free', label: 'Bepul' },
+  { key: 'premium', label: 'Premium' },
+]
+
+const SORTS = [
+  { key: 'new', label: 'Sana: yangi → eski' },
+  { key: 'old', label: 'Sana: eski → yangi' },
+  { key: 'popular', label: 'Ishtirokchilar: ko‘p → kam' },
+]
+
+const search = ref('')
+const stateFilter = ref('all')
+const typeFilter = ref('all')
+const sort = ref('new')
+const page = ref(1)
+const PAGE_SIZE = 15
+
+// Any change to what is being shown invalidates the current page number.
+watch([search, stateFilter, typeFilter, sort, subjectKey], () => {
+  page.value = 1
 })
 
-const setFilter = (key) => {
-  const query = { ...route.query }
-  if (key === 'all') delete query.holat
-  else query.holat = key
-  router.replace({ query })
+// The catalogue has no date field — the exam date lives in the title, e.g.
+// "30.12.2025 (1-smena)". Parse it where it is there so "newest first" means
+// the exam date; fall back to the id, which is at least creation order.
+const examTime = (test) => {
+  const match = /(\d{2})[.\-/](\d{2})[.\-/](\d{4})/.exec(test.title)
+  if (!match) return null
+  const [, dd, mm, yyyy] = match
+  const time = Date.parse(`${yyyy}-${mm}-${dd}T00:00:00Z`)
+  return Number.isNaN(time) ? null : time
 }
 
-const tests = computed(() =>
-  activeFilter.value === 'all'
-    ? allTests.value
-    : allTests.value.filter((test) => test.state === activeFilter.value),
+const visibleTests = computed(() => {
+  const query = search.value.trim().toLowerCase()
+
+  const filtered = allTests.value.filter((test) => {
+    if (stateFilter.value !== 'all' && test.state !== stateFilter.value) return false
+    if (typeFilter.value === 'free' && test.isPremium) return false
+    if (typeFilter.value === 'premium' && !test.isPremium) return false
+    if (query && !test.title.toLowerCase().includes(query)) return false
+    return true
+  })
+
+  const sorted = [...filtered]
+  if (sort.value === 'popular') {
+    sorted.sort((a, b) => b.attemptCount - a.attemptCount || b.id - a.id)
+  } else {
+    // Tests with no parseable date sort after the dated ones rather than
+    // pretending to be the oldest or the newest.
+    const direction = sort.value === 'old' ? -1 : 1
+    sorted.sort((a, b) => {
+      const at = examTime(a)
+      const bt = examTime(b)
+      if (at === null && bt === null) return b.id - a.id
+      if (at === null) return 1
+      if (bt === null) return -1
+      return (bt - at) * direction || b.id - a.id
+    })
+  }
+  return sorted
+})
+
+const pageCount = computed(() => Math.max(1, Math.ceil(visibleTests.value.length / PAGE_SIZE)))
+const pagedTests = computed(() =>
+  visibleTests.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
 )
 
+// 1 … 4 5 6 … 9 — always the ends, always a window around the current page.
+const pageNumbers = computed(() => {
+  const total = pageCount.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const pages = new Set([1, total, page.value])
+  if (page.value - 1 > 1) pages.add(page.value - 1)
+  if (page.value + 1 < total) pages.add(page.value + 1)
+
+  const sorted = [...pages].sort((a, b) => a - b)
+  const out = []
+  let previous = 0
+  for (const value of sorted) {
+    if (previous && value - previous > 1) out.push('gap')
+    out.push(value)
+    previous = value
+  }
+  return out
+})
+
+const goToPage = (value) => {
+  page.value = Math.min(Math.max(1, value), pageCount.value)
+}
+
 const emptyCopy = computed(() => {
-  // Different facts, different sentences.
   if (!allTests.value.length) {
     return {
       title: 'Bu fandan test qo‘shilmagan',
       description: 'Testlar qo‘shilgach, ular shu yerda ochiladi.',
     }
   }
-  return {
-    all: { title: '', description: '' },
-    new: {
-      title: 'Ishlanmagan test qolmadi',
-      description: 'Bu fandagi barcha testlarni ochib bo‘lgansiz.',
-    },
-    progress: {
-      title: 'Yarim yechilgan test yo‘q',
-      description: 'Tugatilmagan testlar shu yerda kutib turadi.',
-    },
-    done: {
-      title: 'Hali test yakunlamagansiz',
-      description: 'Yechib bo‘lgan testlaringiz shu yerda to‘planadi.',
-    },
-  }[activeFilter.value]
+  // A search that found nothing is the user's own doing — say what to change.
+  if (search.value.trim()) {
+    return {
+      title: 'Hech narsa topilmadi',
+      description: `«${search.value.trim()}» bo‘yicha test yo‘q. Boshqa nom yoki sana bilan qidiring.`,
+    }
+  }
+  if (typeFilter.value !== 'all' || stateFilter.value !== 'all') {
+    return {
+      title: 'Bu shartga mos test yo‘q',
+      description: 'Filtrlarni o‘zgartirib ko‘ring.',
+    }
+  }
+  return { title: 'Test yo‘q', description: '' }
 })
 
 const errorCopy = computed(() =>
@@ -111,90 +190,213 @@ const errorCopy = computed(() =>
     ? { title: 'Internetda uzilish bor', description: 'Ulanishni tekshiring va qayta urinib ko‘ring.' }
     : { title: 'Testlarni yuklab bo‘lmadi', description: 'Biroz kuting va qayta urinib ko‘ring.' },
 )
+
+const selectClass =
+  'cursor-pointer appearance-none rounded-full border border-app-border bg-app-surface py-2 pl-9 pr-8 text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink'
 </script>
 
 <template>
   <AppTopbar
-    :title="subject ? subject.fullLabel || subject.label : 'Fan topilmadi'"
-    :subtitle="subject ? subject.description : ''"
+    :title="subject ? `${subject.label} testlari` : 'Fan topilmadi'"
+    :subtitle="
+      subject
+        ? `${subject.label} fanidan testlarni yeching va bilimlaringizni sinang.`
+        : ''
+    "
     back-to="/testlar"
-    back-label="Fanlar"
+    back-label="Testlar"
     :user="user"
     @open-menu="$emit('openMenu')"
   />
 
   <main>
-    <AppCard>
-      <!-- Loading: rows in the shape of TestRow so nothing shifts on arrival -->
-      <template v-if="catalog.isLoading && !catalog.hasLoaded">
-        <div class="divide-y divide-app-border" aria-hidden="true">
-          <div v-for="n in 4" :key="n" class="flex items-center gap-4 py-4">
-            <SkeletonBlock class="h-11 w-11 shrink-0 !rounded-xl" />
+    <!-- Loading: the grid's own shape, so nothing shifts when the data lands -->
+    <template v-if="catalog.isLoading && !catalog.hasLoaded">
+      <div
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+        aria-hidden="true"
+      >
+        <div v-for="n in 10" :key="n" class="rounded-2xl border border-app-border bg-app-surface p-4">
+          <div class="flex items-start gap-3">
+            <SkeletonBlock class="h-9 w-9 shrink-0 !rounded-lg" />
             <div class="flex-1">
-              <SkeletonBlock class="h-4 w-[min(260px,70%)]" />
-              <SkeletonBlock class="mt-2 h-3 w-[min(160px,50%)]" />
+              <SkeletonBlock class="h-4 w-4/5" />
+              <SkeletonBlock class="mt-2 h-4 w-1/2" />
             </div>
-            <SkeletonBlock class="h-9 w-32 shrink-0 !rounded-lg" />
           </div>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <div>
+              <SkeletonBlock class="h-3 w-full" />
+              <SkeletonBlock class="mt-2 h-4 w-8" />
+            </div>
+            <div>
+              <SkeletonBlock class="h-3 w-full" />
+              <SkeletonBlock class="mt-2 h-4 w-12" />
+            </div>
+          </div>
+          <SkeletonBlock class="mt-5 h-10 w-full !rounded-lg" />
         </div>
-        <p class="sr-only" role="status">Testlar yuklanmoqda</p>
-      </template>
+      </div>
+      <p class="sr-only" role="status">Testlar yuklanmoqda</p>
+    </template>
 
-      <EmptyState
-        v-else-if="catalog.errorKind"
-        icon="close"
-        :title="errorCopy.title"
-        :description="errorCopy.description"
-      />
+    <AppCard v-else-if="catalog.errorKind">
+      <EmptyState icon="close" :title="errorCopy.title" :description="errorCopy.description" />
+    </AppCard>
 
+    <AppCard v-else-if="!subject">
       <EmptyState
-        v-else-if="!subject"
         icon="tests"
         title="Bunday fan yo‘q"
         description="Havola eskirgan bo‘lishi mumkin. Fanlar ro‘yxatidan tanlang."
         action-label="Fanlarga qaytish"
         action-to="/testlar"
       />
-
-      <template v-else>
-        <!-- The filters only mean something once there is something to filter -->
-        <div v-if="allTests.length" class="flex flex-wrap gap-2">
-          <button
-            v-for="filter in FILTERS"
-            :key="filter.key"
-            type="button"
-            class="rounded-full border px-4 py-2 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
-            :class="
-              activeFilter === filter.key
-                ? 'border-app-ink bg-app-ink text-app-surface'
-                : 'border-app-border bg-app-surface text-app-ink hover:bg-app-tile'
-            "
-            :aria-pressed="activeFilter === filter.key"
-            @click="setFilter(filter.key)"
-          >
-            {{ filter.label }}
-          </button>
-        </div>
-
-        <div v-if="tests.length" class="mt-1 divide-y divide-app-border">
-          <TestRow
-            v-for="test in tests"
-            :key="test.id"
-            :test="test"
-            :show-subject="false"
-            :busy="busyTestId === test.id"
-            @action="openTest"
-          />
-        </div>
-
-        <EmptyState
-          v-else
-          icon="tests"
-          :title="emptyCopy.title"
-          :description="emptyCopy.description"
-        />
-      </template>
     </AppCard>
+
+    <template v-else>
+      <!-- The toolbar only earns its space once there is something to sift -->
+      <div v-if="allTests.length" class="mb-5 space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="relative min-w-[220px] flex-1 sm:max-w-[340px]">
+            <span class="sr-only">Testni qidirish</span>
+            <AppIcon
+              name="search"
+              :size="16"
+              class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted"
+            />
+            <input
+              v-model="search"
+              type="search"
+              placeholder="Test nomi yoki sana"
+              class="w-full rounded-full border border-app-border bg-app-surface py-2.5 pl-10 pr-4 text-[14px] text-app-ink placeholder:text-app-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+            />
+          </label>
+
+          <div class="relative">
+            <AppIcon
+              name="filter"
+              :size="15"
+              class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted"
+            />
+            <select v-model="typeFilter" :class="selectClass" aria-label="Test turi">
+              <option v-for="option in TYPE_FILTERS" :key="option.key" :value="option.key">
+                {{ option.label }}
+              </option>
+            </select>
+            <AppIcon
+              name="chevronDown"
+              :size="15"
+              class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-app-muted"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="filter in STATE_FILTERS"
+              :key="filter.key"
+              type="button"
+              class="rounded-full border px-4 py-2 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+              :class="
+                stateFilter === filter.key
+                  ? 'border-app-ink bg-app-ink text-app-surface'
+                  : 'border-app-border bg-app-surface text-app-ink hover:bg-app-tile'
+              "
+              :aria-pressed="stateFilter === filter.key"
+              @click="stateFilter = filter.key"
+            >
+              {{ filter.label }}
+            </button>
+          </div>
+
+          <div class="relative">
+            <AppIcon
+              name="sort"
+              :size="15"
+              class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted"
+            />
+            <select v-model="sort" :class="selectClass" aria-label="Tartiblash">
+              <option v-for="option in SORTS" :key="option.key" :value="option.key">
+                {{ option.label }}
+              </option>
+            </select>
+            <AppIcon
+              name="chevronDown"
+              :size="15"
+              class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-app-muted"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="pagedTests.length"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+      >
+        <TestCard
+          v-for="test in pagedTests"
+          :key="test.id"
+          :test="test"
+          :reserve-badge="hasPremium"
+          :busy="busyTestId === test.id"
+          @action="openTest"
+        />
+      </div>
+
+      <AppCard v-else>
+        <EmptyState icon="tests" :title="emptyCopy.title" :description="emptyCopy.description" />
+      </AppCard>
+
+      <!-- The total is worth stating even on one page; the pager is not -->
+      <div
+        v-if="visibleTests.length"
+        class="mt-6 flex flex-wrap items-center justify-between gap-4"
+      >
+        <p class="text-[13px] text-app-muted">Jami {{ visibleTests.length }} ta test</p>
+
+        <nav v-if="pageCount > 1" class="flex items-center gap-1.5" aria-label="Sahifalar">
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-ink transition-colors hover:bg-app-tile disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="page === 1"
+            aria-label="Oldingi sahifa"
+            @click="goToPage(page - 1)"
+          >
+            <AppIcon name="arrowLeft" :size="16" />
+          </button>
+
+          <template v-for="(value, index) in pageNumbers" :key="`${value}-${index}`">
+            <span v-if="value === 'gap'" class="px-1 text-[13px] text-app-muted">…</span>
+            <button
+              v-else
+              type="button"
+              class="h-9 min-w-9 rounded-lg border px-2.5 text-[13px] font-semibold transition-colors"
+              :class="
+                value === page
+                  ? 'border-app-ink bg-app-ink text-app-surface'
+                  : 'border-app-border bg-app-surface text-app-ink hover:bg-app-tile'
+              "
+              :aria-current="value === page ? 'page' : undefined"
+              @click="goToPage(value)"
+            >
+              {{ value }}
+            </button>
+          </template>
+
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-ink transition-colors hover:bg-app-tile disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="page === pageCount"
+            aria-label="Keyingi sahifa"
+            @click="goToPage(page + 1)"
+          >
+            <AppIcon name="arrowRight" :size="16" />
+          </button>
+        </nav>
+      </div>
+    </template>
 
     <TestLaunchDialogs
       :mode="launchDialog"
