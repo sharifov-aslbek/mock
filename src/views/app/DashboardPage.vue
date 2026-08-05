@@ -13,7 +13,6 @@ import CoinIcon from '@/components/app/CoinIcon.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import LineChart from '@/components/app/LineChart.vue'
 import { toneForScore } from '@/components/app/score.js'
-import staircase from '@/assets/landing/staircase.png'
 
 const props = defineProps({
   user: { type: Object, required: true },
@@ -216,27 +215,6 @@ const activities = [
           </li>
         </ul>
       </AppCard>
-    </section>
-
-    <!-- Motivation band -->
-    <section
-      class="relative flex min-h-[150px] items-center overflow-hidden rounded-2xl bg-app-warm"
-    >
-      <img
-        :src="staircase"
-        alt=""
-        aria-hidden="true"
-        class="pointer-events-none absolute inset-y-0 right-0 h-full w-[46%] object-cover object-right mix-blend-multiply [-webkit-mask-image:linear-gradient(to_right,transparent,black_45%)] [mask-image:linear-gradient(to_right,transparent,black_45%)]"
-      />
-      <div class="relative max-w-[560px] p-6 sm:p-7">
-        <p class="text-[22px] leading-none text-app-muted" aria-hidden="true">“</p>
-        <p class="mt-1 text-[15px] leading-[1.5] text-app-muted">
-          Har kuni o‘zingga yaxshilanish –
-        </p>
-        <p class="text-[17px] font-bold leading-[1.5] tracking-[-0.015em] text-app-ink">
-          katta yutuqlarga olib keladi.
-        </p>
-      </div>
     </section>
   </main>
 </template>
