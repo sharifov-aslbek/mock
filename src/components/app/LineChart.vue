@@ -11,7 +11,7 @@ const uid = useId()
 const props = defineProps({
   // [{ label: 'Dush', value: 0..100 }]
   points: { type: Array, required: true },
-  height: { type: Number, default: 340 },
+  height: { type: Number, default: 300 },
 })
 
 // The viewBox is kept close to the real render width (~420px in the dashboard's
@@ -62,7 +62,7 @@ const tickY = (t) => PAD_T + (props.height - PAD_T - PAD_B) * (1 - t / 100)
       />
     </g>
 
-    <g class="fill-app-muted text-[13px]">
+    <g class="fill-app-muted text-[12px]">
       <text v-for="t in ticks" :key="`t${t}`" :x="PAD_L - 10" :y="tickY(t) + 4" text-anchor="end">
         {{ t }}%
       </text>
@@ -70,7 +70,7 @@ const tickY = (t) => PAD_T + (props.height - PAD_T - PAD_B) * (1 - t / 100)
 
     <defs>
       <linearGradient :id="`wash-${uid}`" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="currentColor" stop-opacity="0.10" />
+        <stop offset="0%" stop-color="currentColor" stop-opacity="0.16" />
         <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
       </linearGradient>
     </defs>
@@ -92,14 +92,14 @@ const tickY = (t) => PAD_T + (props.height - PAD_T - PAD_B) * (1 - t / 100)
         :key="`p${i}`"
         :cx="c.x"
         :cy="c.y"
-        :r="i === geom.coords.length - 1 ? 5.5 : 3.5"
+        :r="i === geom.coords.length - 1 ? 5 : 4"
         class="fill-app-ink"
         :class="i === geom.coords.length - 1 ? 'stroke-app-surface' : ''"
         :stroke-width="i === geom.coords.length - 1 ? 3 : 0"
       />
     </g>
 
-    <g class="fill-app-muted text-[13px]">
+    <g class="fill-app-muted text-[12px]">
       <text
         v-for="(c, i) in geom.coords"
         :key="`l${i}`"

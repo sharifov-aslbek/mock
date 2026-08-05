@@ -1,14 +1,17 @@
 <script setup>
-// The platform's one card: white surface, 20px radius, one shadow depth.
-// Everything that needs a raised surface uses this so a second depth cannot
-// appear — see docs/DESIGN.md.
+// The platform's one card: white surface, 16px radius, a hairline border and a
+// single soft shadow. Everything that needs a raised surface uses this, so a
+// second depth cannot appear — see docs/DESIGN.md.
 defineProps({
   padded: { type: Boolean, default: true },
 })
 </script>
 
 <template>
-  <div class="rounded-[20px] bg-app-surface shadow-app-card" :class="padded ? 'p-7' : ''">
+  <div
+    class="rounded-2xl border border-app-border bg-app-surface shadow-app-card"
+    :class="padded ? 'p-5' : ''"
+  >
     <slot />
   </div>
 </template>

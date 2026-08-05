@@ -16,11 +16,11 @@ const isUserMenuOpen = ref(false)
 </script>
 
 <template>
-  <header class="flex flex-wrap items-center justify-between gap-4 pb-7 pt-7">
+  <header class="flex flex-wrap items-center justify-between gap-4 pb-5 pt-6">
     <div class="flex min-w-0 items-center gap-3">
       <button
         type="button"
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-app-border bg-app-surface text-app-ink lg:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-ink lg:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
         aria-label="Menyuni ochish"
         @click="emit('openMenu')"
       >
@@ -29,36 +29,36 @@ const isUserMenuOpen = ref(false)
       <div class="min-w-0">
         <!-- Wraps rather than truncates: a greeting cut to "Xush kelibsiz, super ad…"
              is worse than two lines. -->
-        <h1 class="text-[22px] font-bold leading-tight tracking-[-0.02em] text-app-ink sm:text-[26px] lg:text-[30px]">
+        <h1 class="text-[20px] font-bold leading-tight tracking-[-0.025em] text-app-ink sm:text-[23px] lg:text-[26px]">
           {{ title }}
         </h1>
-        <p v-if="subtitle" class="mt-1 text-[15px] text-app-muted">{{ subtitle }}</p>
+        <p v-if="subtitle" class="mt-0.5 text-[14px] text-app-muted">{{ subtitle }}</p>
       </div>
     </div>
 
     <div class="flex shrink-0 items-center gap-3">
       <button
         type="button"
-        class="flex h-11 w-11 items-center justify-center rounded-full border border-app-border bg-app-surface text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+        class="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-app-surface text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
         aria-label="Bildirishnomalar"
       >
-        <AppIcon name="bell" :size="20" />
+        <AppIcon name="bell" :size="18" />
       </button>
 
       <!-- On phones the balance doubles as the way to top up, so tanga never
            disappears from the shell at small widths. -->
       <RouterLink
         to="/narxlar"
-        class="inline-flex items-center gap-2 rounded-full border border-app-border bg-app-surface px-4 py-2.5 text-[15px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+        class="inline-flex items-center gap-2 rounded-full border border-app-border bg-app-surface px-3.5 py-2 text-[14px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
         :aria-label="`${user.tanga} tanga — tanga sotib olish`"
       >
-        <CoinIcon :size="18" class="text-app-coin" />
+        <CoinIcon :size="16" class="text-app-coin" />
         {{ user.tanga }} tanga
       </RouterLink>
 
       <RouterLink
         to="/narxlar"
-        class="hidden items-center rounded-full bg-app-ink px-5 py-2.5 text-[15px] font-semibold text-app-surface transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink sm:inline-flex"
+        class="hidden items-center rounded-full bg-app-ink px-4 py-2 text-[14px] font-semibold text-app-surface transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink sm:inline-flex"
       >
         Tanga sotib olish
       </RouterLink>
@@ -72,11 +72,11 @@ const isUserMenuOpen = ref(false)
           @click="isUserMenuOpen = !isUserMenuOpen"
         >
           <span
-            class="flex h-10 w-10 items-center justify-center rounded-full bg-app-ink text-[15px] font-semibold text-app-surface"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-app-ink text-[14px] font-semibold text-app-surface"
           >
             S
           </span>
-          <span class="hidden text-[15px] font-medium text-app-ink sm:block">{{ user.name }}</span>
+          <span class="hidden text-[14px] font-medium text-app-ink sm:block">{{ user.name }}</span>
           <AppIcon name="chevronDown" :size="16" class="text-app-muted" />
         </button>
 
