@@ -135,12 +135,30 @@ design-tool runtimes `support.js` and `image-slot.js` are not carried over.
 - The four nav links are the design's own in-page anchors, written as `/#id`
   so they work from any marketing route via the router's `scrollBehavior`.
 
+### How the landing images were prepared
+
+The design project's `assets/` cannot be pulled through the DesignSync tool in
+usable form — it returns base64, which is fine to read but not to reproduce
+byte-for-byte. Both images were therefore derived from the sources in
+`Desktop/Milliymock/newaspects/`, with the scripts kept out of the repo:
+
+- `logo-lockup.png` — cropped out of `Artboard 3 (3).png`. The artwork's
+  bounding box there is 820×195 at (130, 442); the design's asset is 836×211,
+  i.e. that box with 8px padding, so those exact bounds were used. White was
+  converted to alpha over a black fill, which preserves the antialiased edges.
+- `dashboard-figure.png` — the raw render carried 150px of dead backdrop on the
+  left and its backdrop (`#F9F8F5`) sat *behind* the design's
+  `drop-shadow(...)`, so the shadow traced a rectangle instead of the plate.
+  Cropped to content (1318×928) and the flat backdrop keyed to transparent.
+  The key marches in from each row's ends and stops at the first sustained run
+  of plate-bright pixels — a plain threshold combs the near-white sidebar, and
+  a flood fill leaks through the plate's dark border. Row boundaries are then
+  median-smoothed so the rotated rectangle's edges stay straight, and the
+  plate's own shadow fades in by depth rather than being cut, so no outline
+  appears where it ends.
+
 ### Known deviations from the design
 
-- **Logo.** The design's `assets/logo-lockup.png` (horizontal mark + "Milliy
-  Mock" wordmark) has not been added to the repo. `LandingNavbar.vue` and
-  `LandingFooter.vue` currently fall back to `src/assets/logo-black.jpg`, the
-  mark alone on a white background. Both carry a `TODO(design)` marker.
 - **Hero avatars.** The design's three avatars are design-tool placeholders
   pointing at randomuser.me. Rendered as empty circles by request, so real
   photos can drop in without any layout change.

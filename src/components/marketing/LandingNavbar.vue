@@ -6,10 +6,7 @@
 // (see src/router/index.js) navigates home and scrolls to the target.
 import { onMounted, ref } from 'vue'
 import { hasStoredSession } from '@/utils/authToken'
-// TODO(design): temporary stand-in. The design uses `assets/logo-lockup.png`,
-// a horizontal dark mark + "Milliy Mock" wordmark. This is the mark alone on a
-// white JPG background, which is visibly wrong on the cream page.
-import logoLockup from '@/assets/logo-black.jpg'
+import logoLockup from '@/assets/landing/logo-lockup.png'
 
 const navItems = [
   { label: 'Platforma', to: '/#platforma' },

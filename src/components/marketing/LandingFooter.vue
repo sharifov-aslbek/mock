@@ -1,7 +1,6 @@
 <script setup>
 // Footer, from `MilliyMock Landing.dc.html`.
-// TODO(design): same temporary logo stand-in as LandingNavbar.vue.
-import logoLockup from '@/assets/logo-black.jpg'
+import logoLockup from '@/assets/landing/logo-lockup.png'
 </script>
 
 <template>

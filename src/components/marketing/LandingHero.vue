@@ -69,8 +69,8 @@ import dashboardFigure from '@/assets/landing/dashboard-figure.png'
       <img
         :src="dashboardFigure"
         alt="Milliy Mock platformasining boshqaruv paneli"
-        width="1536"
-        height="1024"
+        width="1318"
+        height="928"
         loading="lazy"
         class="ml-auto block w-full max-w-[720px] drop-shadow-[0_34px_48px_rgba(17,17,17,0.10)]"
       />
