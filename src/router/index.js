@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { applySeo } from '@/utils/seo'
 // Import your page components
-import HomaPage from '@/views/HomaPage.vue'
+import LandingPage from '@/views/marketing/LandingPage.vue'
 import MarketingLayout from '@/layouts/MarketingLayout.vue'
 import PublicLayout from '@/layouts/PublicLayout.vue'
 import PlatformLayout from '@/layouts/PlatformLayout.vue'
@@ -30,7 +30,13 @@ const routes = [
       {
         path: '',
         name: 'home',
-        component: HomaPage,
+        component: LandingPage,
+        meta: {
+          seo: {
+            description:
+              "Milliy Mock — testlar, essay tekshirish va kurslar orqali o'qish jarayoningizni samarali va qiziqarli qiling.",
+          },
+        },
       },
       {
         path: 'natijalar',

@@ -40,7 +40,7 @@ into `MarketingLayout` would silently redesign them.
 ### marketing — `MarketingLayout`
 | Path | Component | Notes |
 |---|---|---|
-| `/` | `views/HomaPage.vue` | landing; replaced by the designed page in the next step |
+| `/` | `views/marketing/LandingPage.vue` | built from `MilliyMock Landing.dc.html` |
 | `/natijalar` | `views/marketing/NatijalarPage.vue` | **placeholder.** Public success stories — *not* `/result-exam` |
 | `/platforma` | `views/marketing/PlatformaPage.vue` | placeholder |
 | `/ai-tekshiruv` | `views/marketing/AiTekshiruvPage.vue` | placeholder |
@@ -109,10 +109,44 @@ Static defaults live in `index.html`. `public/sitemap.xml` lists the public URLs
 Known limitation: meta is client-rendered, so non-JS crawlers see only the
 static `index.html` tags.
 
-## Known pre-existing issues
+## The landing page
 
-- `components/Navbar.vue` binds `:href="item.href"` on `<router-link>` elements
-  where `item.href` is always `undefined`. The falsthrough attribute overwrites
-  the generated `href`, so platform nav links render as `<a>` with no `href`:
-  clicks still work, but middle-click / open-in-new-tab / crawling do not.
-  Predates the marketing split; not fixed here to keep this change scoped.
+Built from the Claude Design file `MilliyMock Landing.dc.html` (project
+`332e13cf-38f5-4341-9eb7-7282d0d51c3a`), read via the DesignSync tool. The
+design-tool runtimes `support.js` and `image-slot.js` are not carried over.
+
+- `views/marketing/LandingPage.vue` composes four section SFCs from
+  `components/marketing/`: `LandingHero`, `LandingStats`, `LandingFeatures`,
+  `LandingCta`. Chrome (`LandingNavbar`, `LandingFooter`) lives in
+  `MarketingLayout` so it also wraps the other marketing routes.
+- Design tokens (colors, the Inter/Playfair font stacks) are in the `@theme`
+  block of `src/assets/main.css`. Do not hardcode the design's hex values in
+  components.
+- Fonts load the way the rest of the repo loads them — a Google Fonts `@import`
+  in `main.css`. Inter and Playfair are applied per-element via `font-inter` /
+  `font-display`; the platform stays on DM Sans.
+- Images live in `src/assets/landing/` and are imported by the components, the
+  repo's existing convention.
+- **Containers use `box-content`.** The design was authored without a CSS reset,
+  so its `max-width: 1280px; padding: 0 48px` means 1280px of *content*.
+  Tailwind's preflight sets `border-box`, which would render 1184px instead.
+  `box-content` restores the design's real proportions. Same for the CTA
+  banner's inner `max-width: 520px; padding: 64px`.
+- The four nav links are the design's own in-page anchors, written as `/#id`
+  so they work from any marketing route via the router's `scrollBehavior`.
+
+### Known deviations from the design
+
+- **Logo.** The design's `assets/logo-lockup.png` (horizontal mark + "Milliy
+  Mock" wordmark) has not been added to the repo. `LandingNavbar.vue` and
+  `LandingFooter.vue` currently fall back to `src/assets/logo-black.jpg`, the
+  mark alone on a white background. Both carry a `TODO(design)` marker.
+- **Hero avatars.** The design's three avatars are design-tool placeholders
+  pointing at randomuser.me. Rendered as empty circles by request, so real
+  photos can drop in without any layout change.
+- **Responsive.** The design defines no breakpoints. Chosen behaviour: hero
+  collapses to one column below `lg`; stats and features go 4 → 2 → 1 columns;
+  nav links wrap to a second row below `lg`; the CTA staircase becomes a
+  bottom band below `sm` so it stops running under the text.
+- **No SupportButton** on marketing routes — it is not in the design.
+- **Footer year** reads 2026, not the design's 2025 (confirmed).

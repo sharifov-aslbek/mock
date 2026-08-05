@@ -1,19 +1,23 @@
 <script setup>
-// Public "shop window" shell — landing + the four marketing routes.
+// Public "shop window" shell — the landing page and the marketing routes.
 //
 // Hard rule: this layout imports NO auth store, NO session context and NO
 // platform data fetching, so a logged-out visitor's page load fires zero
 // session requests. The navbar peeks at localStorage only (see
-// utils/authToken.js) to swap its CTA.
+// utils/authToken.js) to point its CTA at the platform for a signed-in user.
+//
+// Chrome comes from the design (`MilliyMock Landing.dc.html`), not from the
+// platform's Navbar/Footer. The floating SupportButton is deliberately absent —
+// it is not part of the design.
 import { RouterView } from 'vue-router'
-import MarketingNavbar from '@/components/marketing/MarketingNavbar.vue'
-import Footer from '@/components/Footer.vue'
-import SupportButton from '@/components/SupportButton.vue'
+import LandingNavbar from '@/components/marketing/LandingNavbar.vue'
+import LandingFooter from '@/components/marketing/LandingFooter.vue'
 </script>
 
 <template>
-  <MarketingNavbar />
-  <RouterView />
-  <SupportButton />
-  <Footer />
+  <div class="min-h-screen bg-cream font-inter text-ink">
+    <LandingNavbar />
+    <RouterView />
+    <LandingFooter />
+  </div>
 </template>

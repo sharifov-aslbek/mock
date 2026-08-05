@@ -1,5 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+/* Landing page typefaces. The platform stays on DM Sans (set on html/body
+   below); Inter and Playfair Display are opted into per-element by the
+   marketing components via `font-inter` / `font-display`. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap');
 @import "tailwindcss";
+
+/* Design tokens from `MilliyMock Landing.dc.html`. Hex values are taken
+   verbatim from the design file — do not hardcode them in components. */
+@theme {
+  --font-inter: 'Inter', -apple-system, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+
+  --color-cream: #f8f6f2;        /* page background */
+  --color-ink: #111111;          /* body text, buttons */
+  --color-muted: #787878;        /* secondary text, link hover */
+  --color-accent: #a39b8f;       /* second half of two-tone headlines */
+  --color-navlink: #3d3a36;      /* nav link rest state */
+  --color-panel: #efece5;        /* stats band */
+  --color-panel-alt: #ebe6dd;    /* closing CTA banner */
+  --color-tile: #efebe3;         /* feature icon tile */
+  --color-hairline: #ece7df;     /* feature dividers, pill border */
+  --color-hairline-strong: #e2ddd3; /* stats band dividers */
+  --color-avatar: #e4dfd5;       /* social-proof avatar backing */
+  --color-footer-text: #9c968b;
+}
 
 html {
   scroll-behavior: smooth;
@@ -17,6 +41,28 @@ select {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* Landing hero entrance, from the design's `fadeUp` keyframes. */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.7s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
   }
 }
 
