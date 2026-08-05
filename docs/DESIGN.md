@@ -76,6 +76,8 @@ landing's Playfair — serif is the marketing voice.
 - **Trend** — arrow glyph + percentage in `app-good`/`app-bad`, followed by muted context text.
 - **Progress bar** — 6px, `app-border` track, `app-ink` fill.
 - **Line chart** — inline SVG, `app-ink` 2px stroke, round joins, dots at each point, muted axis labels, faint area wash. No gridline chrome beyond horizontal ticks.
+- **Subject mark** — 44px rounded-square (12px radius) on `app-tile` holding one glyph. Deliberately square, so it never reads as the circular icon tile: a circle is a *category* of thing, a square is a *specific subject*. Glyphs in `components/app/subjects.js` — a conventional symbol where one exists (π, Δ), otherwise the subject's initial, always a single glyph so a mixed list stays even.
+- **Test row** (`TestRow.vue`) — the long horizontal form of a mock: subject mark, `Subject — DD.MM.YYYY (N-smena)`, `N savol • N ishlagan`, an optional PREMIUM badge, a status badge, and the primary action. State drives both badge and action: `new` → "Testni boshlash" (ink button), `progress` → "Yechilmoqda" + "Davom etish" (ink button), `done` → the score badge + "Natijani ko'rish" (bordered button). Below `sm` the status/action group takes its own full-width line. Shared by the dashboard and Testlar so a test looks identical wherever it appears.
 
 ## Rules
 

@@ -12,6 +12,7 @@ import AppIcon from '@/components/app/AppIcon.vue'
 import CoinIcon from '@/components/app/CoinIcon.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import LineChart from '@/components/app/LineChart.vue'
+import TestRow from '@/components/app/TestRow.vue'
 import { toneForScore } from '@/components/app/score.js'
 
 const props = defineProps({
@@ -63,6 +64,14 @@ const weekProgress = [
 ]
 
 const goal = { percent: 75, done: 15, total: 20 }
+
+// TODO(api): GET /api/test?limit=4&sort=newest
+const latestTests = [
+  { id: 1, subject: 'math', date: '30.12.2025', shift: 1, questions: 45, takers: 1284, state: 'done', score: 85 },
+  { id: 2, subject: 'motherTongue', date: '28.12.2025', shift: 2, questions: 40, takers: 962, premium: true, state: 'new' },
+  { id: 3, subject: 'physics', date: '26.12.2025', shift: 1, questions: 35, takers: 741, state: 'progress' },
+  { id: 4, subject: 'history', date: '24.12.2025', shift: 2, questions: 50, takers: 1105, premium: true, state: 'done', score: 65 },
+]
 
 // TODO(api): GET /api/user/activity?limit=4
 const activities = [
@@ -214,6 +223,29 @@ const activities = [
             <StatusBadge :tone="item.badge.tone">{{ item.badge.text }}</StatusBadge>
           </li>
         </ul>
+      </AppCard>
+    </section>
+
+    <!-- Latest mocks, full width — the entry point into Testlar -->
+    <section aria-labelledby="latest-tests-heading">
+      <AppCard>
+        <div class="flex items-center justify-between gap-4">
+          <h2 id="latest-tests-heading" class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">
+            So‘nggi testlar
+          </h2>
+          <RouterLink
+            to="/testlar"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-md text-[13px] font-medium text-app-muted transition-colors hover:text-app-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+            aria-label="Barcha testlar"
+          >
+            <span class="hidden sm:inline">Barcha testlar</span>
+            <AppIcon name="arrowRight" :size="15" />
+          </RouterLink>
+        </div>
+
+        <div class="mt-1 divide-y divide-app-border">
+          <TestRow v-for="test in latestTests" :key="test.id" :test="test" />
+        </div>
       </AppCard>
     </section>
   </main>
