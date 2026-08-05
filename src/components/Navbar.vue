@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
           :key="item.label"
           :is="item.to ? 'router-link' : 'a'"
           :to="item.to"
-          :href="item.href"
+          v-bind="item.href ? { href: item.href } : {}"
           class="flex h-full items-center gap-1 border-b-2 px-4 text-[14px] transition-colors xl:px-5"
           :class="isActiveItem(item) ? 'border-white font-medium text-white' : 'border-transparent font-normal text-[#888] hover:text-white'"
         >
@@ -315,7 +315,7 @@ onBeforeUnmount(() => {
             :key="item.label"
             :is="item.to ? 'router-link' : 'a'"
             :to="item.to"
-            :href="item.href"
+            v-bind="item.href ? { href: item.href } : {}"
             class="flex items-center justify-between border-l-2 px-5 py-3.5 text-[15px] transition"
             :class="isActiveItem(item) ? 'border-white bg-[#1a1a1a] font-semibold text-white' : 'border-transparent font-normal text-[#888] hover:bg-white/5 hover:text-white'"
             @click="closeMobileMenu"
