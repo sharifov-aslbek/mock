@@ -11,7 +11,7 @@ import dashboardFigure from '@/assets/landing/dashboard-figure.png'
   <header
     class="mx-auto box-content grid max-w-[1280px] grid-cols-1 items-center gap-[40px] px-[20px] pb-[64px] pt-[48px] sm:px-[32px] lg:grid-cols-[0.82fr_1.18fr] lg:gap-[56px] lg:px-[48px] lg:pb-[96px] lg:pt-[72px]"
   >
-    <div class="flex animate-fade-up flex-col items-start [animation-delay:0.05s]">
+    <div class="flex animate-fade-up flex-col items-start">
       <h1
         class="mb-[32px] font-display text-[40px] font-semibold leading-[1.08] tracking-[-0.015em] sm:text-[56px] lg:text-[72px]"
       >
@@ -65,7 +65,7 @@ import dashboardFigure from '@/assets/landing/dashboard-figure.png'
       </div>
     </div>
 
-    <div class="animate-fade-up [animation-delay:0.2s]">
+    <div class="animate-fade-up-late">
       <img
         :src="dashboardFigure"
         alt="Milliy Mock platformasining boshqaruv paneli"

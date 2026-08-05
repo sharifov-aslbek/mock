@@ -15,7 +15,9 @@ import LandingFooter from '@/components/marketing/LandingFooter.vue'
 </script>
 
 <template>
-  <div class="min-h-screen bg-cream font-inter text-ink">
+  <!-- `antialiased` mirrors the design's `-webkit-font-smoothing: antialiased`
+       on body, scoped here so the platform's rendering is unchanged. -->
+  <div class="min-h-screen bg-cream font-inter text-ink antialiased">
     <LandingNavbar />
     <RouterView />
     <LandingFooter />

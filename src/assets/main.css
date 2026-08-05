@@ -56,13 +56,29 @@ select {
   }
 }
 
+/* Longhand, not the `animation` shorthand: the shorthand resets
+   animation-delay, which would silently drop the design's staggered entrance
+   (0.05s for the hero copy, 0.2s for the dashboard figure). */
+.animate-fade-up,
+.animate-fade-up-late {
+  animation-name: fadeUp;
+  animation-duration: 0.7s;
+  animation-timing-function: ease;
+  animation-fill-mode: both;
+}
+
 .animate-fade-up {
-  animation: fadeUp 0.7s ease both;
+  animation-delay: 0.05s;
+}
+
+.animate-fade-up-late {
+  animation-delay: 0.2s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-up {
-    animation: none;
+  .animate-fade-up,
+  .animate-fade-up-late {
+    animation-name: none;
   }
 }
 
