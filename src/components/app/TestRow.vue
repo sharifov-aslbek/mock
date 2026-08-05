@@ -14,18 +14,22 @@ const props = defineProps({
   test: { type: Object, required: true },
 })
 
-const subject = computed(() => SUBJECTS[props.test.subject] ?? { label: props.test.subject, mark: '?' })
+const subject = computed(
+  () => SUBJECTS[props.test.subject] ?? { label: props.test.subject, icon: 'tests' },
+)
 const action = computed(() => ACTION_BY_STATE[props.test.state] ?? ACTION_BY_STATE.new)
 const takers = computed(() => new Intl.NumberFormat('uz-UZ').format(props.test.takers))
 </script>
 
 <template>
   <div class="flex flex-wrap items-center gap-x-4 gap-y-3 py-4">
+    <!-- Square, so it never reads as the circular icon tile: a circle is a
+         category of thing, a square is a specific subject. -->
     <span
-      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-app-tile text-[18px] font-semibold text-app-ink"
+      class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-app-tile text-app-ink"
       aria-hidden="true"
     >
-      {{ subject.mark }}
+      <AppIcon :name="subject.icon" :size="20" />
     </span>
 
     <!-- min-w keeps the name from shredding into one word per line once the

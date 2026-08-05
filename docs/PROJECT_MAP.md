@@ -60,6 +60,26 @@ into `MarketingLayout` would silently redesign them.
 | `/ona-tili-demo-natija` | `views/OnaTiliDemoResultPage.vue` | **DEV only**; prod → `/ona-tili` |
 | `/mashq` | `views/MashqPage.vue` | **DEV only**; prod → `/` |
 
+### app — `AppShell` (guarded)
+
+The new platform chrome: fixed 240px sidebar, top bar, `docs/DESIGN.md`. Screens
+move here one at a time as each is approved; the rest still render
+`AppPlaceholderPage.vue` so every sidebar destination resolves.
+
+| Path | Component | Notes |
+|---|---|---|
+| `/dashboard` | `views/app/DashboardPage.vue` | approved — the reference screen |
+| `/testlar` | `views/app/TestlarPage.vue` | the Fanlar grid |
+| `/testlar/:subject` | `views/app/SubjectTestsPage.vue` | one subject's mock list |
+| `/essay` | `AppPlaceholderPage.vue` | not designed yet |
+| `/community` | `AppPlaceholderPage.vue` | not designed yet |
+| `/sozlamalar` | `AppPlaceholderPage.vue` | not designed yet |
+| `/yordam` | `AppPlaceholderPage.vue` | not designed yet |
+
+None of these read the API yet. Every placeholder figure is marked `TODO(api)`
+with the endpoint it should come from, and `?loading=1` / `?empty=1` preview the
+loading and empty states until real request state exists.
+
 ### platform — `PlatformLayout` (guarded)
 | Path | Component | Notes |
 |---|---|---|

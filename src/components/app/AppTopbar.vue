@@ -9,6 +9,10 @@ defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
   user: { type: Object, required: true },
+  // Optional breadcrumb for screens one level down (a subject inside Testlar).
+  // Sits above the title so it reads as "where this came from", not an action.
+  backTo: { type: String, default: '' },
+  backLabel: { type: String, default: '' },
 })
 
 const emit = defineEmits(['openMenu'])
@@ -27,6 +31,14 @@ const isUserMenuOpen = ref(false)
         <AppIcon name="menu" :size="20" />
       </button>
       <div class="min-w-0">
+        <RouterLink
+          v-if="backTo && backLabel"
+          :to="backTo"
+          class="mb-1.5 inline-flex items-center gap-1.5 rounded-md text-[13px] font-medium text-app-muted transition-colors hover:text-app-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+        >
+          <AppIcon name="arrowLeft" :size="15" />
+          {{ backLabel }}
+        </RouterLink>
         <!-- Wraps rather than truncates: a greeting cut to "Xush kelibsiz, super ad…"
              is worse than two lines. -->
         <h1 class="text-[20px] font-bold leading-tight tracking-[-0.025em] text-app-ink sm:text-[23px] lg:text-[26px]">

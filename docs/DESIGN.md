@@ -76,12 +76,17 @@ landing's Playfair — serif is the marketing voice.
 - **Trend** — arrow glyph + percentage in `app-good`/`app-bad`, followed by muted context text.
 - **Progress bar** — 6px, `app-border` track, `app-ink` fill.
 - **Line chart** — inline SVG, `app-ink` 2px stroke, round joins, dots at each point, muted axis labels, faint area wash. No gridline chrome beyond horizontal ticks.
-- **Subject mark** — 44px rounded-square (12px radius) on `app-tile` holding one glyph. Deliberately square, so it never reads as the circular icon tile: a circle is a *category* of thing, a square is a *specific subject*. Glyphs in `components/app/subjects.js` — a conventional symbol where one exists (π, Δ), otherwise the subject's initial, always a single glyph so a mixed list stays even.
+- **Subject mark** — 44px rounded-square (12px radius) on `app-tile` holding the subject's icon. Deliberately square, so it never reads as the circular icon tile: a circle is a *category* of thing, a square is a *specific subject*. *(Revised for Testlar — it previously held a single letter glyph, π/Δ/T. Once every subject had a real icon, a letter beside a calculator icon for the same subject read as two different systems.)*
+- **Subject card** (`SubjectCard.vue`) — the Fanlar grid tile: 56px circular icon tile, name, what the subject covers, and the mock count on the card's baseline. The whole card is the link, never a card with a button inside it. Hover moves the card to `app-sunken` and the tile to white — no lift, because one shadow depth exists.
+- **Skeleton** (`SkeletonBlock.vue`) — a pulsing `app-tile` block. Loading states are built by arranging these in the shape of the content that is coming, so nothing shifts when the data lands.
 - **Test row** (`TestRow.vue`) — the long horizontal form of a mock: subject mark, `Subject — DD.MM.YYYY (N-smena)`, `N savol • N ishlagan`, an optional PREMIUM badge, a status badge, and the primary action. State drives both badge and action: `new` → "Testni boshlash" (ink button), `progress` → "Yechilmoqda" + "Davom etish" (ink button), `done` → the score badge + "Natijani ko'rish" (bordered button). Below `sm` the status/action group takes its own full-width line. Shared by the dashboard and Testlar so a test looks identical wherever it appears.
 
 ## Rules
 
 - No new colours, card shapes, shadow depths, fonts, or a second icon style.
+  Subject icons live in `AppIcon.vue` with everything else, on the same 24 grid
+  at the same 1.7 stroke, and are referenced by name from `subjects.js` — never
+  inlined at a call site, or the set drifts.
 - Colour never decorates. A card is not green because it is nice.
 - Every list ships an empty state and a skeleton loading state in the shape of
   its content. Empty states use `EmptyState.vue` — name what is missing, say

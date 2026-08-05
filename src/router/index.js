@@ -230,7 +230,14 @@ const routes = [
       {
         path: 'testlar',
         name: 'testlar',
-        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        component: () => import('@/views/app/TestlarPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Testlar', appIcon: 'tests', seo: { title: 'Testlar', robots: 'noindex, nofollow' } },
+      },
+      {
+        // One subject's mock list — where a card in the Fanlar grid leads.
+        path: 'testlar/:subject',
+        name: 'testlar-subject',
+        component: () => import('@/views/app/SubjectTestsPage.vue'),
         meta: { requiresAuth: true, appTitle: 'Testlar', appIcon: 'tests', seo: { title: 'Testlar', robots: 'noindex, nofollow' } },
       },
       {
