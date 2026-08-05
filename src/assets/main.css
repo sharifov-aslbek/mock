@@ -23,6 +23,29 @@
   --color-hairline-strong: #e2ddd3; /* stats band dividers */
   --color-avatar: #e4dfd5;       /* social-proof avatar backing */
   --color-footer-text: #9c968b;
+
+  /* Platform (logged-in) design system — see docs/DESIGN.md. Measured from
+     design-ref/dashboard-approved.png. Deliberately a different world from the
+     landing tokens above; the two sets never mix on one screen. */
+  --color-app-bg: #fcfbfa;
+  --color-app-surface: #ffffff;
+  --color-app-sunken: #f8f6f3;
+  --color-app-tile: #f7f4f1;
+  --color-app-warm: #f4efeb;
+  --color-app-ink: #0a0a0a;
+  --color-app-muted: #8a857f;
+  --color-app-border: #efebe6;
+
+  /* Semantic only — colour never decorates in the platform. */
+  --color-app-good: #15803d;
+  --color-app-good-bg: #e9f7ec;
+  --color-app-bad: #dc2626;
+  --color-app-bad-bg: #fee3e2;
+  --color-app-info: #5b4bd6;
+  --color-app-info-bg: #efeafc;
+  --color-app-coin: #f5c23b;
+
+  --shadow-app-card: 0 1px 2px rgba(16, 15, 14, 0.04), 0 8px 24px -12px rgba(16, 15, 14, 0.1);
 }
 
 html {

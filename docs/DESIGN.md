@@ -1,0 +1,90 @@
+# MilliyMock — platform design system
+
+The platform is the logged-in product: a working tool, not a brochure. It is
+deliberately a different visual world from the public landing (see
+`PROJECT_MAP.md` → "The landing page"), which stays cream/black and expressive.
+
+**Authority.** The approved Bosh sahifa mockup, `design-ref/dashboard-approved.png`.
+It is a raster render, so values below are measured from it where geometry is
+readable, and normalised where the render is noisy (an AI render's antialiasing
+produces subpixel extremes like `#FF0001` that are not real values). Where this
+file and the mockup disagree, the mockup wins — report the conflict.
+
+Mode: **Operate**. Scanability, consistency and the real usage scene outrank
+expression. Brand lives in precise details, not decoration.
+
+## Measured from the mockup (1536×1024)
+
+| Thing | Measurement |
+|---|---|
+| Sidebar width | 245px → **240px** implemented |
+| Content padding | 40px left, 38px right → **40px** |
+| Stat card row | 4 cards, ~292px wide, **16px** gaps, **186px** tall |
+| Content column | 285 → 1498 = 1213px |
+| Sidebar nav rhythm | ~61px per item |
+| Active nav pill | 62px tall, fully rounded |
+
+## Colour
+
+The interface is neutral. Colour appears **only where it carries meaning**.
+Never for decoration.
+
+| Token | Value | Use |
+|---|---|---|
+| `app-bg` | `#FCFBFA` | page background, warm off-white |
+| `app-surface` | `#FFFFFF` | cards |
+| `app-sunken` | `#F8F6F3` | a card inside a card (weekly goal) |
+| `app-tile` | `#F7F4F1` | circular icon tiles, nav hover |
+| `app-warm` | `#F4EFEB` | the one warm accent surface (quote band) |
+| `app-ink` | `#0A0A0A` | primary text, active pill, primary button |
+| `app-muted` | `#8A857F` | secondary text, labels, axis ticks |
+| `app-border` | `#EFEBE6` | hairlines, card borders, sidebar divider |
+
+Semantic — measured backgrounds, normalised foregrounds:
+
+| Token | Value | Meaning |
+|---|---|---|
+| `app-good` / `app-good-bg` | `#15803D` / `#E9F7EC` | improvement, strong score |
+| `app-bad` / `app-bad-bg` | `#DC2626` / `#FEE3E2` | weak score |
+| `app-info` / `app-info-bg` | `#5B4BD6` / `#EFEAFC` | in progress, being checked |
+| `app-coin` | `#F5C23B` | **the coin icon only** |
+
+Score thresholds: ≥70% good, <70% bad. In-progress states are info, never green.
+
+## Type
+
+Same family as the rest of the app (DM Sans). The platform does **not** use the
+landing's Playfair — serif is the marketing voice.
+
+| Role | Size / weight |
+|---|---|
+| Page greeting | 30px / 700 |
+| Page subtitle | 15px / 400, muted |
+| Card metric | 34px / 700 |
+| Card label | 15px / 500 |
+| Section heading | 20px / 700 |
+| Body | 15px / 400 |
+| Secondary / meta | 13px / 400, muted |
+
+## Components
+
+- **Card** — `app-surface`, radius 20px, `0 1px 2px rgba(16,15,14,.04), 0 8px 24px -12px rgba(16,15,14,.10)`, 24px padding. One shadow depth exists. Do not add a second.
+- **Icon tile** — 48px circle, `app-tile`, thin (1.7) dark stroke icon inside. This is the only icon treatment.
+- **Nav item** — 12px radius, icon + label; active is a solid `app-ink` pill with white text; hover is `app-tile`.
+- **Pill button** — fully rounded; primary is `app-ink` on white text, secondary is `app-surface` with an `app-border` hairline.
+- **Status badge** — fully rounded, semantic background + foreground pair, 13px/600.
+- **Trend** — arrow glyph + percentage in `app-good`/`app-bad`, followed by muted context text.
+- **Progress bar** — 6px, `app-border` track, `app-ink` fill.
+- **Line chart** — inline SVG, `app-ink` 2px stroke, round joins, dots at each point, muted axis labels, faint area wash. No gridline chrome beyond horizontal ticks.
+
+## Rules
+
+- No new colours, card shapes, shadow depths, fonts, or a second icon style.
+- Colour never decorates. A card is not green because it is nice.
+- Every list ships an empty state and a skeleton loading state in the shape of
+  its content.
+- Uzbek (Latin) throughout: Bosh sahifa, Testlar, Essay tekshirish, Natijalar,
+  Narxlar, Yordam, Sozlamalar, Community, tanga, savol, smena, Testni boshlash,
+  Premium.
+- If a screen needs a component this system lacks, build it from existing parts
+  and record the addition here.

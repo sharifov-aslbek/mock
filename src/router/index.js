@@ -6,6 +6,7 @@ import LandingPage from '@/views/marketing/LandingPage.vue'
 import MarketingLayout from '@/layouts/MarketingLayout.vue'
 import PublicLayout from '@/layouts/PublicLayout.vue'
 import PlatformLayout from '@/layouts/PlatformLayout.vue'
+import AppShell from '@/layouts/AppShell.vue'
 import BareLayout from '@/layouts/BareLayout.vue'
 
 // The route table is split into four layout groups — the wall between the
@@ -207,7 +208,59 @@ const routes = [
     ],
   },
 
-  // ── (app) — behind registration ──────────────────────────────────────────
+  // ── (app) — redesigned platform, behind registration ─────────────────────
+  // The new shell (docs/DESIGN.md). Pre-existing platform pages stay on
+  // PlatformLayout below with their current chrome until each one's screen is
+  // designed and approved, so nothing that works today changes look early.
+  {
+    path: '/',
+    component: AppShell,
+    beforeEnter: (to) => {
+      const authStore = useAuthStore()
+      if (authStore.isAuthenticated) return true
+      return { name: 'register', query: { redirect: to.fullPath } }
+    },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: () => import('@/views/app/DashboardPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Bosh sahifa', seo: { title: 'Bosh sahifa', robots: 'noindex, nofollow' } },
+      },
+      {
+        path: 'testlar',
+        name: 'testlar',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Testlar', appIcon: 'tests', seo: { title: 'Testlar', robots: 'noindex, nofollow' } },
+      },
+      {
+        path: 'essay',
+        name: 'essay',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Essay tekshirish', appIcon: 'essay', seo: { title: 'Essay tekshirish', robots: 'noindex, nofollow' } },
+      },
+      {
+        path: 'yordam',
+        name: 'yordam',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Yordam', appIcon: 'help', seo: { title: 'Yordam', robots: 'noindex, nofollow' } },
+      },
+      {
+        path: 'sozlamalar',
+        name: 'sozlamalar',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Sozlamalar', appIcon: 'settings', seo: { title: 'Sozlamalar', robots: 'noindex, nofollow' } },
+      },
+      {
+        path: 'community',
+        name: 'community',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Community', appIcon: 'community', seo: { title: 'Community', robots: 'noindex, nofollow' } },
+      },
+    ],
+  },
+
+  // ── (app) — existing platform pages, unchanged chrome ────────────────────
   {
     path: '/',
     component: PlatformLayout,
