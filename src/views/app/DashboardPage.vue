@@ -172,8 +172,46 @@ const activities = computed(() => (!hasHistory.value ? [] : [
       </AppCard>
     </section>
 
-    <!-- Progress + activity -->
-    <section class="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_1fr]">
+    <!-- Activity + progress -->
+    <section class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.35fr]">
+      <AppCard>
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">So‘nggi faoliyatlar</h2>
+          <RouterLink
+            to="/result-exam"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-md text-[13px] font-medium text-app-muted transition-colors hover:text-app-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+            aria-label="Barchasini ko‘rish"
+          >
+            <span class="hidden sm:inline">Barchasini ko‘rish</span>
+            <AppIcon name="arrowRight" :size="15" />
+          </RouterLink>
+        </div>
+
+        <EmptyState
+          v-if="!activities.length"
+          icon="clock"
+          title="Hozircha faoliyat yo‘q"
+          description="Test, essay va kurslar bo‘yicha harakatlaringiz shu yerda ko‘rinadi."
+          action-label="Testni boshlash"
+          action-to="/testlar"
+        />
+
+        <ul v-else class="mt-3 divide-y divide-app-border">
+          <li v-for="item in activities" :key="item.id" class="flex items-center gap-3 py-3">
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-app-tile text-app-ink"
+            >
+              <AppIcon :name="item.icon" :size="18" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-[14px] font-semibold leading-snug text-app-ink">{{ item.title }}</p>
+              <p class="mt-0.5 text-[12px] text-app-muted">{{ item.meta }}</p>
+            </div>
+            <StatusBadge :tone="item.badge.tone">{{ item.badge.text }}</StatusBadge>
+          </li>
+        </ul>
+      </AppCard>
+
       <AppCard>
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">O‘qish progressi</h2>
@@ -216,44 +254,6 @@ const activities = computed(() => (!hasHistory.value ? [] : [
             </button>
           </div>
         </div>
-      </AppCard>
-
-      <AppCard>
-        <div class="flex items-center justify-between gap-4">
-          <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">So‘nggi faoliyatlar</h2>
-          <RouterLink
-            to="/result-exam"
-            class="inline-flex shrink-0 items-center gap-1.5 rounded-md text-[13px] font-medium text-app-muted transition-colors hover:text-app-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
-            aria-label="Barchasini ko‘rish"
-          >
-            <span class="hidden sm:inline">Barchasini ko‘rish</span>
-            <AppIcon name="arrowRight" :size="15" />
-          </RouterLink>
-        </div>
-
-        <EmptyState
-          v-if="!activities.length"
-          icon="clock"
-          title="Hozircha faoliyat yo‘q"
-          description="Test, essay va kurslar bo‘yicha harakatlaringiz shu yerda ko‘rinadi."
-          action-label="Testni boshlash"
-          action-to="/testlar"
-        />
-
-        <ul v-else class="mt-3 divide-y divide-app-border">
-          <li v-for="item in activities" :key="item.id" class="flex items-center gap-3 py-3">
-            <span
-              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-app-tile text-app-ink"
-            >
-              <AppIcon :name="item.icon" :size="18" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="text-[14px] font-semibold leading-snug text-app-ink">{{ item.title }}</p>
-              <p class="mt-0.5 text-[12px] text-app-muted">{{ item.meta }}</p>
-            </div>
-            <StatusBadge :tone="item.badge.tone">{{ item.badge.text }}</StatusBadge>
-          </li>
-        </ul>
       </AppCard>
     </section>
 
