@@ -32,7 +32,10 @@ const navItems = [
 const isActive = (to) => route.path === to || route.path.startsWith(`${to}/`)
 
 const itemClass = (item) => {
-  if (item.promoted) return 'bg-app-ink font-semibold text-app-surface hover:opacity-90'
+  // `mt-auto` drops the promoted item to the foot of the nav column so it sits
+  // directly above the user card instead of trailing the list with a gap under
+  // it. It stays inside <nav> because it is still a destination.
+  if (item.promoted) return 'mt-auto bg-app-ink font-semibold text-app-surface hover:opacity-90'
   if (isActive(item.to)) return 'bg-app-tile font-semibold text-app-ink'
   return 'font-medium text-app-ink hover:bg-app-tile'
 }
@@ -50,7 +53,9 @@ const itemClass = (item) => {
       </RouterLink>
     </div>
 
-    <nav class="flex-1 space-y-1 overflow-y-auto px-3" aria-label="Platforma menyusi">
+    <!-- gap, not space-y: `space-y-*` targets `& > * + *`, which outranks the
+         promoted item's `mt-auto` and would pin it back to the list. -->
+    <nav class="flex flex-1 flex-col gap-1 overflow-y-auto px-3" aria-label="Platforma menyusi">
       <RouterLink
         v-for="item in navItems"
         :key="item.to"
