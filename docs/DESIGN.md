@@ -84,7 +84,15 @@ landing's Playfair — serif is the marketing voice.
 - No new colours, card shapes, shadow depths, fonts, or a second icon style.
 - Colour never decorates. A card is not green because it is nice.
 - Every list ships an empty state and a skeleton loading state in the shape of
-  its content.
+  its content. Empty states use `EmptyState.vue` — name what is missing, say
+  what will appear here, offer the one action that fills it. Distinguish *the
+  student has none* ("Siz hali test yechmagansiz") from *the system has none*
+  ("Hozircha test qo'shilmagan"); they are different facts and need different
+  copy.
+- An empty screen must not carry invented figures. With no history the stat
+  cards read 0 or em dash with no trend, and per-user state (a score, an
+  in-progress flag) is stripped from test rows rather than shown against a test
+  the student never opened.
 - Uzbek (Latin) throughout: Bosh sahifa, Testlar, Essay tekshirish, Natijalar,
   Narxlar, Yordam, Sozlamalar, Community, tanga, savol, smena, Testni boshlash,
   Premium.

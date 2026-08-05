@@ -6,6 +6,7 @@
 // match the approved mockup; each block is marked with the endpoint it should
 // read once the platform screens are signed off.
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import AppTopbar from '@/components/app/AppTopbar.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
@@ -13,6 +14,7 @@ import CoinIcon from '@/components/app/CoinIcon.vue'
 import StatusBadge from '@/components/app/StatusBadge.vue'
 import LineChart from '@/components/app/LineChart.vue'
 import TestRow from '@/components/app/TestRow.vue'
+import EmptyState from '@/components/app/EmptyState.vue'
 import { toneForScore } from '@/components/app/score.js'
 
 const props = defineProps({
@@ -20,21 +22,29 @@ const props = defineProps({
 })
 defineEmits(['openMenu'])
 
+const route = useRoute()
+
+// TODO(api): drive this from the real payload — `hasHistory` becomes
+// `stats.value.solved > 0`. Until then ?empty=1 previews the first-run screen.
+const hasHistory = computed(() => route.query.empty !== '1')
+
 // TODO(api): GET /api/user/stats
 const stats = computed(() => [
   {
     key: 'solved',
     icon: 'tests',
     label: 'Testlar yechildi',
-    value: '24',
-    trend: { direction: 'up', amount: '12%', note: "o'tgan haftaga nisbatan" },
+    value: hasHistory.value ? '24' : '0',
+    trend: hasHistory.value ? { amount: '12%', note: "o'tgan haftaga nisbatan" } : null,
+    note: 'Hali test yechilmagan',
   },
   {
     key: 'average',
     icon: 'trend',
     label: "O'rtacha natija",
-    value: '78%',
-    trend: { direction: 'up', amount: '8%', note: "o'tgan haftaga nisbatan" },
+    value: hasHistory.value ? '78%' : '—',
+    trend: hasHistory.value ? { amount: '8%', note: "o'tgan haftaga nisbatan" } : null,
+    note: 'Birinchi testdan keyin',
   },
   {
     key: 'tanga',
@@ -47,13 +57,13 @@ const stats = computed(() => [
     key: 'activity',
     icon: 'clock',
     label: 'Oxirgi faoliyat',
-    value: 'Bugun',
-    note: '2 ta test yechildi',
+    value: hasHistory.value ? 'Bugun' : '—',
+    note: hasHistory.value ? '2 ta test yechildi' : 'Faoliyat yo‘q',
   },
 ])
 
 // TODO(api): GET /api/user/progress?range=week
-const weekProgress = [
+const weekProgress = computed(() => (!hasHistory.value ? [] : [
   { label: 'Dush', value: 25 },
   { label: 'Sesh', value: 50 },
   { label: 'Chor', value: 62 },
@@ -61,20 +71,24 @@ const weekProgress = [
   { label: 'Jum', value: 58 },
   { label: 'Shan', value: 75 },
   { label: 'Yak', value: 100 },
-]
+]))
 
 const goal = { percent: 75, done: 15, total: 20 }
 
 // TODO(api): GET /api/test?limit=4&sort=newest
-const latestTests = [
+// `state` and `score` are per-user, so a student with no history sees every
+// mock as not-started rather than a score they never earned.
+const latestTests = computed(() =>
+  [
   { id: 1, subject: 'math', date: '30.12.2025', shift: 1, questions: 45, takers: 1284, state: 'done', score: 85 },
   { id: 2, subject: 'motherTongue', date: '28.12.2025', shift: 2, questions: 40, takers: 962, premium: true, state: 'new' },
   { id: 3, subject: 'physics', date: '26.12.2025', shift: 1, questions: 35, takers: 741, state: 'progress' },
   { id: 4, subject: 'history', date: '24.12.2025', shift: 2, questions: 50, takers: 1105, premium: true, state: 'done', score: 65 },
-]
+  ].map((test) => (hasHistory.value ? test : { ...test, state: 'new', score: undefined })),
+)
 
 // TODO(api): GET /api/user/activity?limit=4
-const activities = [
+const activities = computed(() => (!hasHistory.value ? [] : [
   {
     id: 1,
     icon: 'tests',
@@ -103,7 +117,7 @@ const activities = [
     meta: '28.12.2025 • 50 savol',
     badge: { text: '65%', tone: toneForScore(65) },
   },
-]
+]))
 </script>
 
 <template>
@@ -172,7 +186,14 @@ const activities = [
           </RouterLink>
         </div>
 
-        <div class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-[1.7fr_1fr] sm:items-stretch">
+        <EmptyState
+          v-if="!weekProgress.length"
+          icon="trend"
+          title="Progress hali chizilmagan"
+          description="Testlarni yecha boshlaganingizda haftalik o‘sishingiz shu yerda ko‘rinadi."
+        />
+
+        <div v-else class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-[1.7fr_1fr] sm:items-stretch">
           <div class="flex items-center">
             <LineChart :points="weekProgress" />
           </div>
@@ -209,7 +230,16 @@ const activities = [
           </RouterLink>
         </div>
 
-        <ul class="mt-3 divide-y divide-app-border">
+        <EmptyState
+          v-if="!activities.length"
+          icon="tests"
+          title="Siz hali test yechmagansiz"
+          description="Birinchi mock testni yeching — natijangiz va tahlilingiz shu yerda paydo bo‘ladi."
+          action-label="Testni boshlash"
+          action-to="/testlar"
+        />
+
+        <ul v-else class="mt-3 divide-y divide-app-border">
           <li v-for="item in activities" :key="item.id" class="flex items-center gap-3 py-3">
             <span
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-app-tile text-app-ink"
@@ -243,7 +273,15 @@ const activities = [
           </RouterLink>
         </div>
 
-        <div class="mt-1 divide-y divide-app-border">
+        <EmptyState
+          v-if="!latestTests.length"
+          icon="tests"
+          title="Hozircha test qo‘shilmagan"
+          description="Yangi mock testlar joylangach, shu yerda birinchi bo‘lib ko‘rasiz."
+          compact
+        />
+
+        <div v-else class="mt-1 divide-y divide-app-border">
           <TestRow v-for="test in latestTests" :key="test.id" :test="test" />
         </div>
       </AppCard>
