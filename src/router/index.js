@@ -243,7 +243,7 @@ const routes = [
       {
         path: 'essay',
         name: 'essay',
-        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        component: () => import('@/views/app/EssayPage.vue'),
         meta: { requiresAuth: true, appTitle: 'Essay tekshirish', appIcon: 'essay', seo: { title: 'Essay tekshirish', robots: 'noindex, nofollow' } },
       },
       {

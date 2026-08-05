@@ -71,7 +71,7 @@ move here one at a time as each is approved; the rest still render
 | `/dashboard` | `views/app/DashboardPage.vue` | approved — the reference screen. **Still placeholder data** |
 | `/testlar` | `views/app/TestlarPage.vue` | the Fanlar grid — **live API** |
 | `/testlar/:subject` | `views/app/SubjectTestsPage.vue` | one subject's mock list — **live API** |
-| `/essay` | `AppPlaceholderPage.vue` | not designed yet |
+| `/essay` | `views/app/EssayPage.vue` | essay checking — **live API** |
 | `/community` | `AppPlaceholderPage.vue` | not designed yet |
 | `/sozlamalar` | `AppPlaceholderPage.vue` | not designed yet |
 | `/yordam` | `AppPlaceholderPage.vue` | not designed yet |
@@ -105,6 +105,28 @@ subject list does not re-hit the network. Rules that fall out of the real data:
   account gets every draft back from `/test` too — 30 tests instead of 15 — so
   the store keeps only `status: Published`. The public subject pages do not
   need this because they never send a token.
+
+**Essay tekshirish is wired too**, through `composables/useEssayCenter.js`:
+
+| Request | Does |
+|---|---|
+| `GET /essay-topic` | the user's own topics plus the shared ones |
+| `POST /essay-topic?text=` | add one of your own |
+| `DELETE /essay-topic?topicId=` | remove one of your own |
+| `POST /essay-review/custom` | grade a typed essay |
+| `POST /essay-review/custom/images` | OCR photographed pages, then grade |
+| `GET /essay-submission` | the OCR transcription, so highlights can anchor |
+
+The review itself renders through `EssayAnalysisSection`, the shared
+integration surface, so the grading UI cannot drift between the platform and
+the public Ona tili tab.
+
+`useEssayCenter` is a **separate implementation** from
+`components/onatili/OnaTiliEssayCenter.vue`, not a refactor of it. That
+component runs the live, paid essay flow for students today and the brief puts
+the essay feature off limits, so it is untouched. Endpoints, limits and error
+handling are mirrored deliberately; if the two ever disagree, that component is
+the authority.
 
 The dashboard is still placeholder — every figure there is marked `TODO(api)`,
 and `?empty=1` previews its first-run state.
