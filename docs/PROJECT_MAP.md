@@ -72,6 +72,7 @@ move here one at a time as each is approved; the rest still render
 | `/testlar` | `views/app/TestlarPage.vue` | the Fanlar grid — **live API** |
 | `/testlar/:subject` | `views/app/SubjectTestsPage.vue` | one subject's mock list — **live API** |
 | `/essay` | `views/app/EssayPage.vue` | essay checking — **live API** |
+| `/tanga` | `views/app/NarxlarPage.vue` | balance, plans, tanga history — **live API** |
 | `/community` | `AppPlaceholderPage.vue` | not designed yet |
 | `/sozlamalar` | `AppPlaceholderPage.vue` | not designed yet |
 | `/yordam` | `AppPlaceholderPage.vue` | not designed yet |
@@ -128,8 +129,25 @@ the essay feature off limits, so it is untouched. Endpoints, limits and error
 handling are mirrored deliberately; if the two ever disagree, that component is
 the authority.
 
+**Narxlar exists twice, on purpose.** `/narxlar` stays the public, indexed
+marketing page for logged-out visitors. A signed-in user asking for it is sent
+to `/tanga` by the global guard, because the marketing page carries the public
+navbar and would drop them out of the platform shell. `/tanga` reads the
+balance (`GET /api/balance`), the plans (the same i18n source the public page
+uses, so a price cannot be right in one place and stale in the other) and the
+tanga history (`GET /api/transaction`), and reuses `PricingPaymentModal` — the
+live manual-activation flow with the real card number — rather than
+reimplementing payment.
+
 The dashboard is still placeholder — every figure there is marked `TODO(api)`,
 and `?empty=1` previews its first-run state.
+
+**Correction to an earlier note in this file:** a score percentage *is*
+obtainable. `get-user-attempts` omits the maximum, but
+`get-results?testAttemptId=` returns `maxScore` alongside `totalScore` (and
+`correctCount` / `incorrectCount`) — one call per attempt. Test lists stay
+without percentages because that would be one request per row, but the
+dashboard's average and per-attempt results can use it.
 
 ### platform — `PlatformLayout` (guarded)
 | Path | Component | Notes |

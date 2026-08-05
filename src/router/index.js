@@ -241,6 +241,16 @@ const routes = [
         meta: { requiresAuth: true, appTitle: 'Testlar', appIcon: 'tests', seo: { title: 'Testlar', robots: 'noindex, nofollow' } },
       },
       {
+        // The platform's own pricing screen: balance, plans, tanga history.
+        // `/narxlar` stays the public, SEO-indexed marketing page for logged-out
+        // visitors — the global guard below sends signed-in users here instead,
+        // so the same nav item works for both without two competing designs.
+        path: 'tanga',
+        name: 'tanga',
+        component: () => import('@/views/app/NarxlarPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Narxlar', appIcon: 'coins', seo: { title: 'Narxlar', robots: 'noindex, nofollow' } },
+      },
+      {
         path: 'essay',
         name: 'essay',
         component: () => import('@/views/app/EssayPage.vue'),
@@ -362,6 +372,14 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  // A signed-in student asking for pricing wants their balance and history, not
+  // the marketing page — and the marketing page carries the public navbar,
+  // which would drop them out of the platform shell. Logged-out visitors still
+  // get /narxlar, which stays indexed.
+  if (to.path === '/narxlar' && useAuthStore().isAuthenticated) {
+    return { name: 'tanga', query: to.query }
+  }
+
   if (!to.meta?.requiresAuth) {
     return true
   }
