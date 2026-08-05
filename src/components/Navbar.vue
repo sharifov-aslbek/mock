@@ -50,7 +50,7 @@ const navItems = computed(() => [
   // Mashq page hidden until it's finished — re-enable when complete
   // { label: t('navbar.items.mashq'), to: '/mashq' },
   { label: t('navbar.result'), to: '/result-exam' },
-  { label: t('navbar.pricing'), to: '/pricing' },
+  { label: t('navbar.pricing'), to: '/narxlar' },
 ])
 
 const currentUser = computed(
@@ -168,7 +168,7 @@ onBeforeUnmount(() => {
 
         <router-link
           v-if="authStore.userInfo"
-          to="/pricing"
+          to="/narxlar"
           class="hidden items-center gap-1.5 rounded-full border border-[#333] bg-[#1e1e1e] px-3 py-2 transition hover:opacity-90 sm:flex"
           title="Tanga balansi"
         >
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
             </div>
 
             <router-link
-              to="/pricing"
+              to="/narxlar"
               class="mt-3 flex items-center gap-2 rounded-full border border-[#333] bg-[#1e1e1e] px-3.5 py-2.5"
               @click="closeMobileMenu"
             >

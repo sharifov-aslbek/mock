@@ -8,7 +8,7 @@
 // grades the transcription in one call) — the same AI pipeline the real /test
 // essays use — then rendered through EssayAnalysisSection. The first reviews
 // are free; once they're spent the endpoints reply 400 "Not enough balance",
-// and the top-up modal points at /pricing.
+// and the top-up modal points at /narxlar.
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NModal, NCard } from 'naive-ui'
@@ -347,7 +347,7 @@ const submit = async () => {
 
 const goToPricing = () => {
   balanceModalOpen.value = false
-  router.push('/pricing')
+  router.push('/narxlar')
 }
 
 const writeAnother = () => {

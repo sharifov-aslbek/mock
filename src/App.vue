@@ -1,27 +1,20 @@
 <script setup>
-import Navbar from '@/components/Navbar.vue'
-import Footer from '@/components/Footer.vue'
-import SupportButton from '@/components/SupportButton.vue'
+// The app root is now just the global providers. Navbar / Footer / SupportButton
+// moved into the per-group layouts (src/layouts/*) so the public marketing shell
+// and the authenticated platform shell can differ — see src/router/index.js.
 import NetworkStatusAlert from '@/components/NetworkStatusAlert.vue'
 import { NMessageProvider } from 'naive-ui'
-import { RouterView , useRoute } from 'vue-router'
-
-
-const route = useRoute()
-const layoutlessRoutes = ['/login', '/register', '/verify-phone', '/test' , '/explanation', '/ona-tili-demo-natija', '/biologiya/test']
-const supportlessRoutes = ['/test', '/explanation', '/ona-tili-demo-natija', '/biologiya/test']
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
-<!--  11-->
   <NMessageProvider placement="top">
-    <main class="w-full">
+    <!-- A <div>, not <main>: pages render their own <main>, and nesting two is
+         invalid HTML. Same `w-full`, so nothing changes visually. -->
+    <div class="w-full">
       <NetworkStatusAlert />
-       <Navbar v-if="!layoutlessRoutes.includes(route.path)" />
       <RouterView />
-      <SupportButton v-if="!supportlessRoutes.includes(route.path)" />
-      <Footer v-if="!layoutlessRoutes.includes(route.path)" />
-    </main>
+    </div>
   </NMessageProvider>
 </template>
 

@@ -235,7 +235,7 @@ onMounted(() => {
                 <span class="text-sm font-semibold text-[#8a857c]">tanga</span>
               </div>
               <RouterLink
-                to="/pricing"
+                to="/narxlar"
                 class="mt-3 inline-flex h-9 w-full items-center justify-center rounded-full border border-[#1a1814] bg-white px-4 text-xs font-semibold text-[#1a1814] transition hover:bg-[#1a1814] hover:text-white"
               >
                 Hisobni to‘ldirish

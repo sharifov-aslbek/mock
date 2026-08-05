@@ -1267,7 +1267,7 @@ onBeforeUnmount(() => {
 
           <p class="limit-topup">
             Balans yetarli emasmi?
-            <RouterLink to="/pricing">Hisobni to'ldirish</RouterLink>
+            <RouterLink to="/narxlar">Hisobni to'ldirish</RouterLink>
           </p>
         </div>
       </div>

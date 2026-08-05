@@ -220,19 +220,26 @@ const groupRenderModels = computed(() => {
     } else if (numericOrders.length === 1) {
       orderLabel = String(numericOrders[0])
     }
-    const questions = groupedQuestions.map((question, index) => ({
-      ...question,
-      groupSubLabel: useSharedGroupOrder
-        ? GROUP_SUBORDER_LETTERS[index] || String(index + 1)
-        : question.showOrder
-          ? String(question.displayOrder)
-          : '',
-      shouldSeparate: shouldSeparateGroupedQuestion(normalizedGroupId, question.id),
-      matchingOptions:
-        question.type === 'Matching'
-          ? getAvailableMatchingOptions(normalizedGroupId, question.id)
-          : [],
-    }))
+    const questions = groupedQuestions.map((question, index) => {
+      const questionOrderLabel = question.showOrder ? String(question.displayOrder) : ''
+      // A one-question group already prints that order on the left bar, so
+      // repeating it next to the prompt showed the same number twice (39 / 39.).
+      const duplicatesGroupOrder = Boolean(questionOrderLabel) && questionOrderLabel === orderLabel
+
+      return {
+        ...question,
+        groupSubLabel: useSharedGroupOrder
+          ? GROUP_SUBORDER_LETTERS[index] || String(index + 1)
+          : duplicatesGroupOrder
+            ? ''
+            : questionOrderLabel,
+        shouldSeparate: shouldSeparateGroupedQuestion(normalizedGroupId, question.id),
+        matchingOptions:
+          question.type === 'Matching'
+            ? getAvailableMatchingOptions(normalizedGroupId, question.id)
+            : [],
+      }
+    })
 
     models.set(normalizedGroupId, {
       orderLabel,
@@ -1093,7 +1100,7 @@ const loadTest = async (testId) => {
         shouldPersistProgress.value = false
         if (/insufficient/i.test(error?.message || '')) {
           testStore.clearCurrentTest()
-          await router.replace('/pricing')
+          await router.replace('/narxlar')
         }
         return
       }

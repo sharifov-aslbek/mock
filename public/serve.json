@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/pricing",
+      "destination": "/narxlar",
+      "type": 301
+    }
+  ]
+}

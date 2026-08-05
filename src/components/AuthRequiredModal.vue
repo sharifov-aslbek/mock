@@ -21,12 +21,12 @@ const close = () => emit('close')
 // to pricing so the user returns to finish their purchase after auth.
 const goRegister = () => {
   emit('close')
-  router.push({ path: '/login', query: { redirect: '/pricing', focus: 'telegram' } })
+  router.push({ path: '/login', query: { redirect: '/narxlar', focus: 'telegram' } })
 }
 
 const goLogin = () => {
   emit('close')
-  router.push({ path: '/login', query: { redirect: '/pricing' } })
+  router.push({ path: '/login', query: { redirect: '/narxlar' } })
 }
 </script>
 

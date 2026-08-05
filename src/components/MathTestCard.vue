@@ -153,7 +153,7 @@ const confirmPremiumPurchase = async () => {
 
 const goToPricing = () => {
   showTopUpModal.value = false
-  router.push('/pricing')
+  router.push('/narxlar')
 }
 
 // Begins the attempt via start-test (which also performs the premium purchase
