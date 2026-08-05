@@ -89,6 +89,13 @@ landing's Playfair — serif is the marketing voice.
   student has none* ("Siz hali test yechmagansiz") from *the system has none*
   ("Hozircha test qo'shilmagan"); they are different facts and need different
   copy.
+- An empty list that is also a dead end is a failure. Where a fallback exists,
+  show it: "So'nggi testlar" holds the student's own sat mocks, and with none it
+  says so and then hands over the newest available ones under "Boshlash uchun
+  yangi testlar".
+- Two empty states on one screen must not say the same sentence. Each names its
+  own subject — the activity card covers tests, essays and courses, so it reads
+  "Hozircha faoliyat yo'q", not "Siz hali test yechmagansiz".
 - An empty screen must not carry invented figures. With no history the stat
   cards read 0 or em dash with no trend, and per-user state (a score, an
   in-progress flag) is stripped from test rows rather than shown against a test
