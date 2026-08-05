@@ -68,17 +68,38 @@ move here one at a time as each is approved; the rest still render
 
 | Path | Component | Notes |
 |---|---|---|
-| `/dashboard` | `views/app/DashboardPage.vue` | approved — the reference screen |
-| `/testlar` | `views/app/TestlarPage.vue` | the Fanlar grid |
-| `/testlar/:subject` | `views/app/SubjectTestsPage.vue` | one subject's mock list |
+| `/dashboard` | `views/app/DashboardPage.vue` | approved — the reference screen. **Still placeholder data** |
+| `/testlar` | `views/app/TestlarPage.vue` | the Fanlar grid — **live API** |
+| `/testlar/:subject` | `views/app/SubjectTestsPage.vue` | one subject's mock list — **live API** |
 | `/essay` | `AppPlaceholderPage.vue` | not designed yet |
 | `/community` | `AppPlaceholderPage.vue` | not designed yet |
 | `/sozlamalar` | `AppPlaceholderPage.vue` | not designed yet |
 | `/yordam` | `AppPlaceholderPage.vue` | not designed yet |
 
-None of these read the API yet. Every placeholder figure is marked `TODO(api)`
-with the endpoint it should come from, and `?loading=1` / `?empty=1` preview the
-loading and empty states until real request state exists.
+**Testlar is wired to the live backend** through `stores/testCatalog.js`:
+
+| Request | Gives |
+|---|---|
+| `GET /test` | the catalogue — title, subject, question count, attempt count, premium flags |
+| `GET /user-test-attempt/get-user-attempts` | this user's attempts, folded in as each row's `new` / `progress` / `done` state |
+
+Both are fetched once and cached in the store, so moving between the grid and a
+subject list does not re-hit the network. Rules that fall out of the real data:
+
+- **The grid only shows subjects that have published tests.** It is derived from
+  the catalogue, not a hard-coded list, so a new subject appears the moment its
+  first test is published — and a student never opens a fan and finds nothing.
+  At the time of writing that is Matematika (6), Tarix (4), Ona tili (3),
+  Fizika (1), Biologiya (1). Kimyo, Geografiya, Ingliz tili and Informatika are
+  in the registry but have no tests, so they do not render.
+- **A subject the registry does not recognise is still shown**, under its raw
+  backend name with a generic icon, so publishing a test under an unexpected
+  subject string cannot make it vanish from the product.
+- **No score percentage on a row.** `get-user-attempts` returns `totalScore`
+  with no maximum, so a percentage would be invented. Rows say "Yakunlangan".
+
+The dashboard is still placeholder — every figure there is marked `TODO(api)`,
+and `?empty=1` previews its first-run state.
 
 ### platform — `PlatformLayout` (guarded)
 | Path | Component | Notes |

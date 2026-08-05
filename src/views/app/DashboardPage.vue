@@ -6,7 +6,7 @@
 // match the approved mockup; each block is marked with the endpoint it should
 // read once the platform screens are signed off.
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppTopbar from '@/components/app/AppTopbar.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
@@ -23,6 +23,7 @@ const props = defineProps({
 defineEmits(['openMenu'])
 
 const route = useRoute()
+const router = useRouter()
 
 // TODO(api): drive this from the real payload — `hasHistory` becomes
 // `stats.value.solved > 0`. Until then ?empty=1 previews the first-run screen.
@@ -76,14 +77,18 @@ const weekProgress = computed(() => (!hasHistory.value ? [] : [
 const goal = { percent: 75, done: 15, total: 20 }
 
 // The mocks this student has actually sat, newest first.
-// TODO(api): GET /api/user/tests?limit=4&sort=recent
+// TODO(api): this block is still placeholder. Testlar already reads the live
+// catalogue through stores/testCatalog.js — wire this to the same store
+// (catalogue.filter(t => t.state !== 'new')) when the dashboard's other blocks
+// get real endpoints, so the screen does not mix real and invented figures.
+// Shape matches the catalogue so TestRow renders both identically.
 const takenTests = computed(() =>
   !hasHistory.value
     ? []
     : [
-        { id: 1, subject: 'math', date: '30.12.2025', shift: 1, questions: 45, takers: 1284, state: 'done', score: 85 },
-        { id: 3, subject: 'physics', date: '26.12.2025', shift: 1, questions: 35, takers: 741, state: 'progress' },
-        { id: 4, subject: 'history', date: '24.12.2025', shift: 2, questions: 50, takers: 1105, premium: true, state: 'done', score: 65 },
+        { id: 1, subjectKey: 'math', title: '30.12.2025 (1-smena)', questionCount: 45, attemptCount: 1284, state: 'done' },
+        { id: 3, subjectKey: 'physics', title: '26.12.2025 (1-smena)', questionCount: 35, attemptCount: 741, state: 'progress' },
+        { id: 4, subjectKey: 'history', title: '24.12.2025 (2-smena)', questionCount: 50, attemptCount: 1105, isPremium: true, state: 'done' },
       ],
 )
 
@@ -275,7 +280,12 @@ const activities = computed(() => (!hasHistory.value ? [] : [
         </div>
 
         <div v-if="takenTests.length" class="mt-1 divide-y divide-app-border">
-          <TestRow v-for="test in takenTests" :key="test.id" :test="test" />
+          <TestRow
+            v-for="test in takenTests"
+            :key="test.id"
+            :test="test"
+            @action="router.push('/testlar')"
+          />
         </div>
 
         <EmptyState
