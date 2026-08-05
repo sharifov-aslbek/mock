@@ -87,16 +87,6 @@ const takenTests = computed(() =>
       ],
 )
 
-// The catalogue, shown only as the fallback when the student has sat nothing —
-// an empty block would tell a first-time student what they lack and give them
-// no way out of it. Always not-started: these are nobody's results yet.
-// TODO(api): GET /api/test?limit=4&sort=newest
-const newestTests = [
-  { id: 101, subject: 'math', date: '30.12.2025', shift: 1, questions: 45, takers: 1284, state: 'new' },
-  { id: 102, subject: 'motherTongue', date: '28.12.2025', shift: 2, questions: 40, takers: 962, premium: true, state: 'new' },
-  { id: 103, subject: 'physics', date: '26.12.2025', shift: 1, questions: 35, takers: 741, state: 'new' },
-  { id: 104, subject: 'history', date: '24.12.2025', shift: 2, questions: 50, takers: 1105, premium: true, state: 'new' },
-]
 
 // TODO(api): GET /api/user/activity?limit=4
 const activities = computed(() => (!hasHistory.value ? [] : [
@@ -288,23 +278,12 @@ const activities = computed(() => (!hasHistory.value ? [] : [
           <TestRow v-for="test in takenTests" :key="test.id" :test="test" />
         </div>
 
-        <!-- Nothing sat yet: say so, then hand over the newest mocks so the
-             block is an invitation rather than a dead end. -->
-        <template v-else>
-          <EmptyState
-            icon="tests"
-            title="Siz hali test yechmagansiz"
-            description="Yechgan testlaringiz shu yerda to‘planib boradi."
-            compact
-          />
-
-          <div class="border-t border-app-border pt-4">
-            <p class="text-[13px] font-semibold text-app-muted">Boshlash uchun yangi testlar</p>
-            <div class="mt-1 divide-y divide-app-border">
-              <TestRow v-for="test in newestTests" :key="test.id" :test="test" />
-            </div>
-          </div>
-        </template>
+        <EmptyState
+          v-else
+          icon="tests"
+          title="Siz hali test yechmagansiz"
+          description="Yechgan testlaringiz shu yerda to‘planib boradi."
+        />
       </AppCard>
     </section>
   </main>
