@@ -4,6 +4,9 @@ import { NPopover } from 'naive-ui'
 import MathAnswerInput from '@/components/MathAnswerInput.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
+import TestAiReviewBadge from '@/components/test/TestAiReviewBadge.vue'
+import TestAnswerImageUpload from '@/components/test/TestAnswerImageUpload.vue'
+import { hasAiReview, isImageAnswerQuestion } from '@/utils/aiReview'
 
 const props = defineProps({
   title: {
@@ -33,6 +36,16 @@ const props = defineProps({
   resolveFreeAnswer: {
     type: Function,
     default: () => '',
+  },
+  // Answer images for AI-reviewed open-response sub-questions (Biology 41–43):
+  // the locally picked photos, and any already stored server-side on a resume.
+  resolveAnswerImages: {
+    type: Function,
+    default: () => [],
+  },
+  resolveRemoteImageUrls: {
+    type: Function,
+    default: () => [],
   },
   imageAlt: {
     type: String,
@@ -64,7 +77,12 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update-matching-answer', 'update-option', 'update-free-answer'])
+const emit = defineEmits([
+  'update-matching-answer',
+  'update-option',
+  'update-free-answer',
+  'update-answer-images',
+])
 const openMatchingQuestionId = ref(null)
 const checkedQuestionIds = ref({})
 
@@ -349,7 +367,22 @@ const formattedQuestions = computed(() => {
               />
             </div>
 
-            <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-2.5 sm:space-y-3">
+            <TestAiReviewBadge v-if="hasAiReview(question)" />
+
+            <!-- AI-reviewed open response: photos of the handwritten solution
+                 replace the answer box entirely. -->
+            <TestAnswerImageUpload
+              v-if="isImageAnswerQuestion(question)"
+              :question-id="question.id"
+              :uploads="resolveAnswerImages(question.id)"
+              :remote-image-urls="resolveRemoteImageUrls(question.id)"
+              @update-uploads="(questionId, next) => emit('update-answer-images', questionId, next)"
+            />
+
+            <div
+              v-else-if="question.type === 'FreeAnswer'"
+              class="max-w-[620px] space-y-2.5 sm:space-y-3"
+            >
               <label class="font-mono-custom block text-[10px] font-normal uppercase tracking-[0.16em] text-[#8a857c] sm:text-[11px]">
                 {{ freeAnswerLabel }}
               </label>

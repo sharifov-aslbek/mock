@@ -72,7 +72,7 @@ const routes = [
   {
     path: '/biologiya',
     name: 'biologiya',
-    component: () => import('@/views/BiologySubjectPage.vue'),
+    component: () => import('@/views/SubjectPage.vue'),
     meta: {
       subjectKey: 'biology',
       seo: {
@@ -83,12 +83,17 @@ const routes = [
     }
   },
   {
+    // The Biology sample graduated into the real /test flow (backend test +
+    // AI-checked questions), so old links land on the subject page. Kept in DEV
+    // as the offline design reference for the AI question UI.
     path: '/biologiya/test',
-    name: 'biologiya-test',
-    component: () => import('@/views/BiologyDemoPage.vue'),
-    meta: {
-      seo: { title: 'Biologiya testi', robots: 'noindex, nofollow' },
-    }
+    ...(import.meta.env.DEV
+      ? {
+          name: 'biologiya-test',
+          component: () => import('@/views/BiologyDemoPage.vue'),
+          meta: { seo: { title: 'Biologiya testi', robots: 'noindex, nofollow' } },
+        }
+      : { redirect: '/biologiya' }),
   },
   {
     path: '/ona-tili',

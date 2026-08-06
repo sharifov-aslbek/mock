@@ -471,6 +471,25 @@ const messages = {
         errorDecodeFailed: '{name}ni ochib bo‘lmadi. Iltimos, JPG yoki PNG shaklida qayta urinib ko‘ring.',
         transcribeFailed: 'Qo‘lyozma inshoni saqlab bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.'
       },
+      aiReview: {
+        badge: 'AI tekshiradi',
+        imagesLabel: 'Javobingizni rasm ko‘rinishida yuklang',
+        dropTitle: 'Yechim va chizmalaringiz rasmini oling yoki shu yerga tashlang',
+        dropHint: 'JPG, PNG yoki HEIC • rasmlar avtomatik siqiladi • ko‘pi bilan {max} ta',
+        takePhoto: 'Rasmga olish',
+        pickPhoto: 'Fayl tanlash',
+        imageBadge: '{n}-rasm',
+        addImage: 'Yana qo‘shish',
+        removeImage: 'Rasmni o‘chirish',
+        uploaded: 'Yuklangan rasmlar',
+        replaceHint: 'Yangi rasm yuklasangiz, avvalgilari almashtiriladi.',
+        fileFallbackName: 'Rasm',
+        errorOnlyImages: 'Faqat rasm yuklash mumkin (JPG, PNG yoki telefon rasmi).',
+        errorMaxImages: 'Ko‘pi bilan {max} ta rasm yuklash mumkin.',
+        errorTooLarge: '{name} juda katta — har bir rasm {mb} MB dan oshmasligi kerak.',
+        errorDecodeFailed: '{name}ni ochib bo‘lmadi. Iltimos, JPG yoki PNG shaklida qayta urinib ko‘ring.',
+        uploadFailed: 'Rasmli javoblarni saqlab bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.'
+      },
       questionTypes: {
         MultipleChoice: 'Tanlovli savol',
         FreeAnswer: 'Erkin javob',
@@ -1005,6 +1024,25 @@ const messages = {
         errorTooLarge: '{name} слишком большой — каждое изображение не должно превышать {mb} МБ.',
         errorDecodeFailed: 'Не удалось открыть {name}. Попробуйте ещё раз в формате JPG или PNG.',
         transcribeFailed: 'Не удалось сохранить рукописное эссе. Проверьте интернет и попробуйте ещё раз.'
+      },
+      aiReview: {
+        badge: 'Проверяет ИИ',
+        imagesLabel: 'Загрузите ответ в виде фотографий',
+        dropTitle: 'Сфотографируйте решение и рисунки или перетащите файлы сюда',
+        dropHint: 'JPG, PNG или HEIC • изображения сжимаются автоматически • не более {max} шт.',
+        takePhoto: 'Сделать фото',
+        pickPhoto: 'Выбрать файл',
+        imageBadge: 'Фото {n}',
+        addImage: 'Добавить ещё',
+        removeImage: 'Удалить фото',
+        uploaded: 'Загруженные фото',
+        replaceHint: 'Если загрузите новые фото, предыдущие будут заменены.',
+        fileFallbackName: 'Фото',
+        errorOnlyImages: 'Можно загружать только изображения (JPG, PNG или фото с телефона).',
+        errorMaxImages: 'Можно загрузить не более {max} фото.',
+        errorTooLarge: '{name} слишком большой — каждое изображение не должно превышать {mb} МБ.',
+        errorDecodeFailed: 'Не удалось открыть {name}. Попробуйте ещё раз в формате JPG или PNG.',
+        uploadFailed: 'Не удалось сохранить фото-ответы. Проверьте интернет и попробуйте ещё раз.'
       },
       questionTypes: {
         MultipleChoice: 'Выбор ответа',

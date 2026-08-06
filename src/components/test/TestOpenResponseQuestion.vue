@@ -1,47 +1,24 @@
 <script setup>
 import { ref } from 'vue'
-import MathAnswerInput from '@/components/MathAnswerInput.vue'
+import { useI18n } from 'vue-i18n'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
-import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
 import TestAiReviewBadge from '@/components/test/TestAiReviewBadge.vue'
-import { hasAiReview } from '@/utils/aiReview'
+import TestAnswerImageUpload from '@/components/test/TestAnswerImageUpload.vue'
 
+// A standalone AI-reviewed open-response question (Biology 41–43). Same
+// canonical card and number gutter as TestQuestionBlock — only the answer area
+// differs: there is no typed input, the uploaded photo(s) of the handwritten
+// solution and drawings ARE the answer, graded from the images at get-results.
 defineProps({
-  question: {
-    type: Object,
-    required: true,
-  },
-  selectedAnswer: {
-    type: [String, Number],
-    default: '',
-  },
-  freeAnswerValue: {
-    type: String,
-    default: '',
-  },
-  imageAlt: {
-    type: String,
-    default: '',
-  },
-  freeAnswerLabel: {
-    type: String,
-    default: '',
-  },
-  freeAnswerPlaceholder: {
-    type: String,
-    default: '',
-  },
-  openMathLabel: {
-    type: String,
-    default: '',
-  },
-  closeMathLabel: {
-    type: String,
-    default: '',
-  },
+  question: { type: Object, required: true },
+  uploads: { type: Array, default: () => [] },
+  remoteImageUrls: { type: Array, default: () => [] },
+  imageAlt: { type: String, default: '' },
 })
 
-defineEmits(['update-option', 'update-free-answer'])
+defineEmits(['update-uploads'])
+
+const { t } = useI18n()
 
 const isQuestionChecked = ref(false)
 </script>
@@ -57,7 +34,7 @@ const isQuestionChecked = ref(false)
         <TestInlineMathText
           tag="h2"
           :text="question.text || ''"
-          wrapper-class="max-w-full text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
+          wrapper-class="max-w-full whitespace-pre-line text-[15px] font-normal leading-[1.65] text-[#1a1814] sm:text-[16px] sm:leading-[1.8]"
         />
 
         <div
@@ -66,32 +43,18 @@ const isQuestionChecked = ref(false)
         >
           <img
             :src="question.imageUrl"
-            :alt="imageAlt"
+            :alt="imageAlt || t('testPage.imageAlt')"
             class="max-h-[420px] w-full object-contain"
           />
         </div>
 
-        <TestAiReviewBadge v-if="hasAiReview(question)" />
+        <TestAiReviewBadge />
 
-        <div v-if="question.type === 'FreeAnswer'" class="max-w-[620px] space-y-2.5 sm:space-y-3">
-          <label class="font-mono-custom block text-[10px] font-normal uppercase tracking-[0.16em] text-[#8a857c] sm:text-[11px]">
-            {{ freeAnswerLabel }}
-          </label>
-
-          <MathAnswerInput
-            :model-value="freeAnswerValue"
-            :placeholder="freeAnswerPlaceholder"
-            :open-label="openMathLabel"
-            :close-label="closeMathLabel"
-            @update:model-value="$emit('update-free-answer', question.id, $event)"
-          />
-        </div>
-
-        <TestOptionButtons
-          v-else
-          :options="question.options"
-          :model-value="selectedAnswer"
-          @update:model-value="$emit('update-option', question.id, $event)"
+        <TestAnswerImageUpload
+          :question-id="question.id"
+          :uploads="uploads"
+          :remote-image-urls="remoteImageUrls"
+          @update-uploads="(questionId, next) => $emit('update-uploads', questionId, next)"
         />
       </div>
 

@@ -293,6 +293,10 @@ export const useTestStore = defineStore('test', () => {
         // essay, or while grading is still pending. ExplanationPage renders it
         // via EssayAnalysisSection.
         essayReview: data.essayReview ?? null,
+        // AI grading for the image-only open responses (Biology 41–43), one
+        // entry per question. Empty for tests without them, or while grading is
+        // still pending. Rendered by BiologyReviewSection.
+        biologyReviews: Array.isArray(data.biologyReviews) ? data.biologyReviews : [],
         userAnswers,
       }
 
@@ -423,6 +427,46 @@ export const useTestStore = defineStore('test', () => {
     return typeof transcription === 'string' ? transcription : ''
   }
 
+  // Store the photo answer for an AI-reviewed open-response question
+  // (AiReviewMode.BiologyOpenResponse). Multipart body matching
+  // SetUserAnswerImagesDto: UserTestAttemptId + QuestionId + Images[].
+  //
+  // This SETS the question's image list, so callers post the full current
+  // selection rather than a delta. Nothing else changes: the attempt is finished
+  // with the usual submit, and get-results runs the AI review over the images.
+  async function setUserAnswerImages(testAttemptId, questionId, imageFiles) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('Test API base URL is missing.')
+    }
+
+    ensureAuth()
+
+    const formData = new FormData()
+    formData.append('UserTestAttemptId', String(Number(testAttemptId)))
+    formData.append('QuestionId', String(Number(questionId)))
+
+    for (const file of imageFiles) {
+      formData.append('Images', file)
+    }
+
+    const response = await apiFetch(`${apiBaseUrl}/user-answer/images`, {
+      method: 'POST',
+      // No Content-Type here — the browser sets the multipart boundary itself.
+      headers: buildAuthHeaders(),
+      body: formData,
+    })
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok || (payload && payload.code !== 200)) {
+      throw new Error(payload?.message || 'Could not save the answer images.')
+    }
+
+    return payload?.data ?? null
+  }
+
   async function requestUserAnswer(method, answerPayload) {
     const apiBaseUrl = getTestApiBaseUrl()
 
@@ -482,6 +526,7 @@ export const useTestStore = defineStore('test', () => {
     fetchQuestionExplanation,
     createUserAnswer,
     updateUserAnswer,
+    setUserAnswerImages,
     clearCurrentTest,
     clearError,
   }
