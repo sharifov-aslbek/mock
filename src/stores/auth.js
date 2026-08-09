@@ -4,6 +4,30 @@ import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 
 const TOKEN_KEY = 'milliymock_token'
 
+// Every OTP/SMS endpoint hands the code to an external SMS gateway (Eskiz).
+// When that gateway answers with anything but 200 — it's down, or our balance
+// ran out — the backend bubbles it up as 502 `{"message": "Failed to send SMS"}`.
+// Nothing the user typed is wrong, so callers flag it and show a "try again or
+// contact support" message instead of the raw provider error.
+function isSmsProviderDown(response, payload) {
+  return (
+    response.status === 502 ||
+    payload?.code === 502 ||
+    payload?.status === 502 ||
+    /failed to send sms/i.test(String(payload?.message || ''))
+  )
+}
+
+// The account row is written before the OTP goes out, so an SMS outage
+// mid-signup leaves a real-but-unconfirmed account behind — the user comes
+// back, registers the same number again, and the backend answers
+// 409 {"code":409,"message":"This phone number is already registered."}.
+// Flagged so the UI can send them to the login page in their own language
+// instead of showing the raw English message.
+function isAccountAlreadyRegistered(response, payload) {
+  return response.status === 409 || payload?.code === 409
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '')
   const isLoading = ref(false)
@@ -218,7 +242,10 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Registration failed.')
+        const error = new Error(payload?.message || 'Registration failed.')
+        error.smsUnavailable = isSmsProviderDown(response, payload)
+        error.accountExists = isAccountAlreadyRegistered(response, payload)
+        throw error
       }
 
       return payload
@@ -301,7 +328,9 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Could not resend the code.')
+        const error = new Error(payload?.message || 'Could not resend the code.')
+        error.smsUnavailable = isSmsProviderDown(response, payload)
+        throw error
       }
 
       return payload
@@ -347,6 +376,7 @@ export const useAuthStore = defineStore('auth', () => {
         // reset code is sent there. The UI offers the verify-phone drill instead.
         error.channelNotConfirmed =
           payload?.code === 403 || response.status === 403
+        error.smsUnavailable = isSmsProviderDown(response, payload)
         throw error
       }
 

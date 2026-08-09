@@ -122,6 +122,13 @@ const sendCode = async () => {
     // no reset code goes to an unconfirmed phone — offer verification instead.
     if (reason.value === 'forgot' && error?.channelNotConfirmed) {
       showVerifyHint.value = true
+      return
+    }
+    // The SMS gateway being down isn't the user's fault — replace the raw
+    // "Failed to send SMS" with something they can act on. validationError
+    // takes precedence over authStore.errorMessage in the error box.
+    if (error?.smsUnavailable) {
+      validationError.value = t('register.smsUnavailable')
     }
   } finally {
     isSending.value = false
@@ -160,19 +167,13 @@ const submitOtp = async () => {
   isVerifying.value = true
 
   try {
-    const result = await authStore.verifyOtp({
+    // verify-otp answers with a LoginResultDto, so a call that comes back
+    // clean means the session is already live — no separate login step.
+    await authStore.verifyOtp({
       phoneNumber: apiPhoneNumber.value,
       code: otpCode.value,
     })
-
-    if (result?.token) {
-      await redirectAfterAuth()
-      return
-    }
-
-    // Verified but no session token — send them through the normal login.
-    message.success(t('verify.verified'), { duration: 4000 })
-    await router.push({ path: '/login', query: redirectQuery.value })
+    await redirectAfterAuth()
   } catch {
     // Wrong/expired code: clear the boxes for a clean retry.
     await otpInput.value?.clear()
@@ -253,12 +254,17 @@ const resendCode = async () => {
   }
 
   isResending.value = true
+  validationError.value = ''
 
   try {
     await sendCodeRequest()
     message.success(t('register.otpResent'), { duration: 3000 })
     startResendCountdown()
-  } catch {
+  } catch (error) {
+    if (error?.smsUnavailable) {
+      validationError.value = t('register.smsUnavailable')
+      return
+    }
     // authStore.errorMessage already carries the backend message.
   } finally {
     isResending.value = false

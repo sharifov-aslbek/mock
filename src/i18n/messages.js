@@ -295,7 +295,8 @@ const messages = {
       otpResend: 'Qayta yuborish',
       otpResent: 'Kod qayta yuborildi.',
       changeNumber: 'Raqamni o‘zgartirish',
-      registered: 'Ro‘yxatdan o‘tdingiz! Endi tizimga kiring.'
+      smsUnavailable: 'Hozircha SMS xizmatida nosozlik bor va kod yuborilmadi. Iltimos, birozdan so‘ng qayta urinib ko‘ring yoki @Milliymocksupport ga murojaat qiling.',
+      accountExists: 'Bu raqam allaqachon ro‘yxatdan o‘tgan. Pastdagi “Kirish” tugmasini bosib, hisobingizga kiring.'
     },
     verify: {
       forgotTitle: 'Parolni unutdingizmi?',
@@ -310,7 +311,6 @@ const messages = {
       sendCode: 'Kodni yuborish',
       sending: 'Yuborilmoqda...',
       goVerify: 'Raqamni tasdiqlash',
-      verified: 'Telefon raqam tasdiqlandi! Endi tizimga kiring.',
       backToLogin: 'Kirish sahifasiga qaytish'
     },
     math: {
@@ -849,7 +849,8 @@ const messages = {
       otpResend: 'Отправить ещё раз',
       otpResent: 'Код отправлен повторно.',
       changeNumber: 'Изменить номер',
-      registered: 'Регистрация завершена! Теперь войдите в систему.'
+      smsUnavailable: 'Сейчас в SMS-сервисе сбой, код не отправлен. Пожалуйста, попробуйте чуть позже или напишите в @Milliymocksupport.',
+      accountExists: 'Этот номер уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.'
     },
     verify: {
       forgotTitle: 'Забыли пароль?',
@@ -864,7 +865,6 @@ const messages = {
       sendCode: 'Отправить код',
       sending: 'Отправляем...',
       goVerify: 'Подтвердить номер',
-      verified: 'Номер подтверждён! Теперь войдите в систему.',
       backToLogin: 'Вернуться ко входу'
     },
     math: {

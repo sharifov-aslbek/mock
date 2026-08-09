@@ -106,7 +106,21 @@ const submitRegisterForm = async () => {
       password: password.value,
     })
     await enterOtpStep()
-  } catch {
+  } catch (error) {
+    // Deliberately NOT routed into /verify-phone: the number may already be
+    // confirmed under someone else's account, and handing out a fresh code
+    // would be a way in. Point them at the login link at the bottom instead.
+    if (error?.accountExists) {
+      validationError.value = t('register.accountExists')
+      return
+    }
+    // The SMS gateway being down isn't the user's fault — replace the raw
+    // "Failed to send SMS" with something they can act on. validationError
+    // takes precedence over authStore.errorMessage in the error box.
+    if (error?.smsUnavailable) {
+      validationError.value = t('register.smsUnavailable')
+      return
+    }
     // authStore.errorMessage already carries the backend message.
   }
 }
@@ -126,19 +140,13 @@ const submitOtp = async () => {
   isVerifying.value = true
 
   try {
-    const result = await authStore.verifyOtp({
+    // verify-otp answers with a LoginResultDto, so a call that comes back
+    // clean means the session is already live — no separate login step.
+    await authStore.verifyOtp({
       phoneNumber: apiPhoneNumber.value,
       code: otpCode.value,
     })
-
-    if (result?.token) {
-      await redirectAfterAuth()
-      return
-    }
-
-    // Verified but no session token — send them through the normal login.
-    message.success(t('register.registered'), { duration: 4000 })
-    await router.push({ path: '/login', query: redirectQuery.value })
+    await redirectAfterAuth()
   } catch {
     // Wrong/expired code: clear the boxes for a clean retry.
     await otpInput.value?.clear()
@@ -153,12 +161,17 @@ const resendCode = async () => {
   }
 
   isResending.value = true
+  validationError.value = ''
 
   try {
     await authStore.resendOtp({ phoneNumber: apiPhoneNumber.value })
     message.success(t('register.otpResent'), { duration: 3000 })
     startResendCountdown()
-  } catch {
+  } catch (error) {
+    if (error?.smsUnavailable) {
+      validationError.value = t('register.smsUnavailable')
+      return
+    }
     // authStore.errorMessage already carries the backend message.
   } finally {
     isResending.value = false
