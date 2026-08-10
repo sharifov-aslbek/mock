@@ -21,12 +21,21 @@ const RULES = [
   // someone else can claim the number in between and verify-otp 409s.
   [/has since been registered by another account/i, 'identifierTakenMeanwhile'],
   [/no pending registration was found/i, 'noPendingRegistration'],
-  [/this account is already verified/i, 'alreadyVerified'],
+  // "This account is already verified." (resend-otp) and "This phone number is
+  // already verified." (verify-my-phone) mean the same thing to the user.
+  [/is already verified/i, 'alreadyVerified'],
+  // verify-my-phone with nothing to send to, and PUT /user hitting another
+  // account's number (UserService.Update).
+  [/add a phone number to your profile first/i, 'addPhoneFirst'],
+  [/user with this phone number already exists/i, 'phoneTakenByAnother'],
+  [/not authenticated/i, 'notAuthenticated'],
   // Two variants: the pending-registration check says only "has expired", the
   // legacy draft path adds "or was never requested".
   [/code has expired/i, 'codeExpired'],
   [/invalid (verification|reset) code/i, 'codeInvalid'],
   [/is not verified for this account/i, 'channelNotVerified'],
+  // UserTestAttemptService refuses to mint an attempt on an unconfirmed phone.
+  [/verify your phone number/i, 'phoneNotConfirmed'],
   [/verify your account before logging in/i, 'notVerified'],
   [/password or login is incorrect/i, 'badCredentials'],
   [/user not found/i, 'userNotFound'],

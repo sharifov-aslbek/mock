@@ -8,6 +8,7 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
+import { resolvePostAuthRoute } from '@/utils/postAuth'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -78,12 +79,12 @@ const redirectQuery = computed(() =>
     : {},
 )
 
-const redirectAfterAuth = () => {
+const redirectAfterAuth = async () => {
   const redirectTarget =
     typeof route.query.redirect === 'string' && route.query.redirect
       ? route.query.redirect
       : '/math'
-  return router.push(redirectTarget)
+  return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
 // forgot-password and resend-otp both deliver a code to the phone; which one

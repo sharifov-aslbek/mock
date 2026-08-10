@@ -15,8 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // The certificate is printed from the user's real name. A profile is only
   // "complete" once firstName, lastName, fatherName and phoneNumber are all
-  // filled — that's what the first-time test gate checks before an attempt is
-  // started. See src/composables/useProfileGate.js.
+  // filled.
   const isProfileComplete = computed(() => {
     const info = userInfo.value
     return Boolean(
@@ -27,6 +26,20 @@ export const useAuthStore = defineStore('auth', () => {
         String(info.phoneNumber || '').trim(),
     )
   })
+
+  const isPhoneVerified = computed(() =>
+    Boolean(userInfo.value?.phoneNumberConfirmed),
+  )
+
+  // Both are required before a test can be started: the certificate needs the
+  // real name, and UserTestAttemptService refuses to mint an attempt on an
+  // unconfirmed phone (403). False while userInfo is still unloaded — we'd
+  // rather let the user through and catch the 403 than bounce them on a guess.
+  const needsProfileSetup = computed(
+    () =>
+      Boolean(userInfo.value) &&
+      (!isProfileComplete.value || !isPhoneVerified.value),
+  )
 
   // Password login. The single identifier field accepts an email or a phone
   // number — the endpoint takes Email or PhoneNumber, so we pick the field
@@ -304,6 +317,49 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Sends a confirmation code to the phone number already on the signed-in
+  // user's profile (POST /auth/verify-my-phone takes no body — the backend
+  // reads it from the token). The code is then confirmed through the ordinary
+  // verifyOtp call, which also hands back a fresh token.
+  //
+  // Used by /complete-profile, mainly for Google and Telegram sign-ins: those
+  // mint a session without ever touching a phone number.
+  async function sendMyPhoneOtp() {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    errorMessage.value = ''
+
+    try {
+      const response = await apiFetch(`${apiBaseUrl}/auth/verify-my-phone`, {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          Authorization: `Bearer ${token.value}`,
+        },
+      })
+
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        const error = authApiError(payload)
+        // 409 = nothing left to confirm. The caller treats that as success
+        // rather than stranding the user on a code that will never arrive.
+        error.alreadyVerified =
+          payload?.code === 409 || response.status === 409
+        throw error
+      }
+
+      return payload
+    } catch (error) {
+      errorMessage.value = localizeAuthFailure(error)
+      throw error
+    }
+  }
+
   // Forgot-password, step 1: send a reset code over the given channel.
   // The backend only sends to a CONFIRMED email/phone (403 otherwise) and
   // applies the OTP rate-limit policy (1-min cooldown, daily/IP caps).
@@ -464,7 +520,7 @@ export const useAuthStore = defineStore('auth', () => {
     const payload = await response.json().catch(() => null)
 
     if (!response.ok || (payload?.code && payload.code !== 200)) {
-      throw new Error(payload?.message || 'Failed to update profile.')
+      throw authApiError(payload)
     }
 
     // Optimistically merge so isProfileComplete flips right away, then refresh
@@ -500,10 +556,13 @@ export const useAuthStore = defineStore('auth', () => {
     errorMessage,
     isAuthenticated,
     isProfileComplete,
+    isPhoneVerified,
+    needsProfileSetup,
     login,
     register,
     verifyOtp,
     resendOtp,
+    sendMyPhoneOtp,
     forgotPassword,
     resetPassword,
     telegramLogin,

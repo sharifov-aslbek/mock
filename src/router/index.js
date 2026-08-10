@@ -168,6 +168,16 @@ const routes = [
     meta: { seo: { robots: 'noindex, nofollow' } }
   },
   {
+    // Name + phone confirmation for a session that has neither — mainly Google
+    // and Telegram sign-ins. start-test is the only thing actually gated on
+    // this (403 from UserTestAttemptService), so the page is a redirect target
+    // rather than a wall: browsing stays open.
+    path: '/complete-profile',
+    name: 'complete-profile',
+    component: () => import('@/views/CompleteProfilePage.vue'),
+    meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } }
+  },
+  {
     // Forgot password + unconfirmed-phone verification (?reason=unverified),
     // both via the resend-otp → verify-otp drill.
     path: '/verify-phone',

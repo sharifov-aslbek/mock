@@ -8,8 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
 import { isPremiumTest, isTestPurchased, testTokenCost } from '@/utils/premium'
 import { subjectIcon } from '@/utils/subjects'
-import ProfileGateModal from '@/components/ProfileGateModal.vue'
-import { useProfileGate } from '@/composables/useProfileGate'
+import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
 
 const props = defineProps({
   test: {
@@ -34,8 +33,6 @@ const { t } = useI18n()
 const testStore = useTestStore()
 const authStore = useAuthStore()
 const balanceStore = useBalanceStore()
-const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
-  useProfileGate()
 const isStarting = ref(false)
 const startError = ref('')
 const showStartModal = ref(false)
@@ -162,16 +159,6 @@ const goToPricing = () => {
 // insufficient funds, the plain start button shows an inline error. The test
 // page renders straight from the store; it never re-fetches or re-starts.
 const startAndOpen = async () => {
-  // First-time gate: start-test mints a brand-new attempt (and, for premium,
-  // performs the purchase), so the test-taker must have a real name on file for
-  // the certificate. No-op once the profile is complete; otherwise this blocks
-  // on the ProfileGateModal. Backing out aborts the start — no attempt, no
-  // navigation, no charge.
-  const profileOk = await ensureProfileComplete()
-  if (!profileOk) {
-    return
-  }
-
   await testStore.startTest(props.test.id)
 
   // Carry the freshly minted attempt id in the URL so a refresh resumes THIS
@@ -196,6 +183,16 @@ const openTest = async () => {
     await startAndOpen()
   } catch (error) {
     console.error(error)
+    // start-test is the one endpoint gated on a confirmed phone. Rather than
+    // showing that 403 as an error, hand the user the form that fixes it and
+    // bring them back to this test afterwards.
+    if (error?.phoneNotConfirmed) {
+      await router.push({
+        path: COMPLETE_PROFILE_PATH,
+        query: { redirect: route.fullPath },
+      })
+      return
+    }
     startError.value = testStore.errorMessage || t('mathCard.startError')
   } finally {
     isStarting.value = false
@@ -597,11 +594,5 @@ const handleAttemptedCardClick = () => {
         </NCard>
       </div>
     </NModal>
-
-    <ProfileGateModal
-      v-model:show="showProfileGate"
-      @completed="onProfileCompleted"
-      @cancel="onProfileCancel"
-    />
   </article>
 </template>

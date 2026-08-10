@@ -156,7 +156,15 @@ export const useTestStore = defineStore('test', () => {
       const payload = await response.json()
 
       if (!response.ok || payload?.code !== 200 || !payload?.data) {
-        throw new Error(payload?.message || 'Could not start the test.')
+        const error = new Error(payload?.message || 'Could not start the test.')
+        // UserTestAttemptService refuses to mint an attempt while the phone is
+        // unconfirmed. That's the one gate that actually matters, so callers
+        // send the user to /complete-profile instead of showing a dead error.
+        error.phoneNotConfirmed =
+          payload?.code === 403 ||
+          response.status === 403 ||
+          /verify your phone number/i.test(String(payload?.message || ''))
+        throw error
       }
 
       // Fresh attempt: no resume state, so the page starts from the full duration

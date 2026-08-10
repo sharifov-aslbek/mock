@@ -17,12 +17,11 @@ import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
 import TestOpenResponseQuestion from '@/components/test/TestOpenResponseQuestion.vue'
 import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
 import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
-import ProfileGateModal from '@/components/ProfileGateModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
-import { useProfileGate } from '@/composables/useProfileGate'
 import { getTestApiBaseUrl } from '@/utils/api'
+import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,8 +29,6 @@ const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
-const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
-  useProfileGate()
 const answers = reactive({})
 const freeAnswers = reactive({})
 const pageErrorKey = ref('')
@@ -1154,29 +1151,24 @@ const loadTest = async (testId) => {
         return
       }
     } else {
-      // First-time gate: a direct link with no attempt starts a brand-new attempt
-      // here, so the test-taker must have a real name on file for the certificate.
-      // No-op once the profile is complete; otherwise this blocks on the
-      // ProfileGateModal. Backing out returns them to where they came from rather
-      // than starting a nameless attempt.
-      const profileOk = await ensureProfileComplete()
-      if (!profileOk) {
-        shouldPersistProgress.value = false
-        router.back()
-        return
-      }
-
       try {
         await testStore.startTest(testId)
       } catch (error) {
         // start-test failed. For a premium test reached directly (a deep link or
         // the auth guard's post-login redirect) this is usually "insufficient
         // balance" — don't strand the user in a half-loaded test shell; clear it
-        // and send them to pricing to top up. Any other error surfaces via
-        // resolvedErrorMessage instead.
+        // and send them to pricing to top up. An unconfirmed phone (403) is the
+        // other gate: send them to the form that fixes it and bring them back
+        // here afterwards. Any other error surfaces via resolvedErrorMessage.
         console.error(error)
         shouldPersistProgress.value = false
-        if (/insufficient/i.test(error?.message || '')) {
+        if (error?.phoneNotConfirmed) {
+          testStore.clearCurrentTest()
+          await router.replace({
+            path: COMPLETE_PROFILE_PATH,
+            query: { redirect: route.fullPath },
+          })
+        } else if (/insufficient/i.test(error?.message || '')) {
           testStore.clearCurrentTest()
           await router.replace('/pricing')
         }
@@ -1671,12 +1663,6 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="font-sans-custom min-h-screen touch-manipulation bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
-
-    <ProfileGateModal
-      v-model:show="showProfileGate"
-      @completed="onProfileCompleted"
-      @cancel="onProfileCancel"
-    />
 
     <EssayProcessingOverlay
       v-if="finishOverlayState"

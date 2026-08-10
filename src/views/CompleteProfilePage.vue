@@ -2,41 +2,46 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
-import { resolvePostAuthRoute } from '@/utils/postAuth'
+import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
 
+// The one gate that stands between a signed-in user and a test attempt.
+// UserTestAttemptService refuses start-test unless the phone is confirmed, and
+// the certificate is printed from the real name — so both are collected here:
+//
+//  'profile' → name + phone, saved with PUT /user. Changing the number clears
+//              PhoneNumberConfirmed server-side, so verification follows.
+//  'otp'     → POST /auth/verify-my-phone sends the code to the number we just
+//              saved; verify-otp confirms it and returns a fresh token.
+//
+// Password-registered users arrive already confirmed (their row is only created
+// once the code is verified), so for them this is a one-step name form.
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const message = useMessage()
 
-// 'form' → name + phone + password, POST /auth/register sends the SMS code;
-// 'otp'  → 6-digit confirmation, POST /auth/verify-otp starts the session.
-const step = ref('form')
+const step = ref('profile')
 
 const firstName = ref('')
 const lastName = ref('')
-// The national part only (9 digits, e.g. "901234567") — the +998 prefix is a
-// fixed box in the UI and re-attached when calling the API.
+const fatherName = ref('')
+// National part only (9 digits) — the +998 prefix is a fixed box in the UI.
 const phoneDigits = ref('')
-const password = ref('')
-const passwordConfirm = ref('')
-const showPassword = ref(false)
-const validationError = ref('')
 
-const PASSWORD_MIN_LENGTH = 6
+const validationError = ref('')
+const isSaving = ref(false)
+const isVerifying = ref(false)
+const isResending = ref(false)
+
 const OTP_LENGTH = 6
 
 const otpCode = ref('')
 const otpInput = ref(null)
-const isVerifying = ref(false)
-const isResending = ref(false)
 
 const {
   remaining: resendRemaining,
@@ -51,70 +56,82 @@ const apiPhoneNumber = computed(() => `998${phoneDigits.value}`)
 
 const onPhoneInput = (event) => {
   phoneDigits.value = String(event.target.value).replace(/\D/g, '').slice(0, 9)
-  // Rewrite the input so stray characters vanish and grouping stays live.
   event.target.value = formatPhoneDigits(phoneDigits.value)
 }
 
-const redirectQuery = computed(() =>
-  typeof route.query.redirect === 'string' && route.query.redirect
-    ? { redirect: route.query.redirect }
-    : {},
-)
+const destination = computed(() => {
+  const target =
+    typeof route.query.redirect === 'string' ? route.query.redirect : ''
+  // Never bounce back into this page — that would loop.
+  return target && !target.startsWith(COMPLETE_PROFILE_PATH) ? target : '/math'
+})
 
-const redirectAfterAuth = async () => {
-  const redirectTarget =
-    typeof route.query.redirect === 'string' && route.query.redirect
-      ? route.query.redirect
-      : '/math'
-  // The phone is confirmed by the time we get here, but fatherName isn't
-  // collected during registration — /complete-profile picks that up.
-  return router.push(await resolvePostAuthRoute(redirectTarget))
-}
+const finish = () => router.replace(destination.value)
 
 const enterOtpStep = async () => {
   step.value = 'otp'
   otpCode.value = ''
+  validationError.value = ''
   startResendCountdown()
   await nextTick()
   otpInput.value?.focus()
 }
 
-const submitRegisterForm = async () => {
-  if (authStore.isLoading) {
+const submitProfile = async () => {
+  if (isSaving.value) {
     return
   }
 
   validationError.value = ''
 
-  if (!firstName.value.trim() || !lastName.value.trim() || phoneDigits.value.length !== 9) {
-    validationError.value = t('register.validation')
+  if (!firstName.value.trim() || !lastName.value.trim() || !fatherName.value.trim()) {
+    validationError.value = t('completeProfile.validation')
     return
   }
 
-  if (password.value.length < PASSWORD_MIN_LENGTH) {
-    validationError.value = t('register.passwordValidation')
+  if (phoneDigits.value.length !== 9) {
+    validationError.value = t('completeProfile.phoneValidation')
     return
   }
 
-  if (password.value !== passwordConfirm.value) {
-    validationError.value = t('register.passwordMismatch')
-    return
-  }
+  isSaving.value = true
 
   try {
-    await authStore.register({
+    await authStore.updateProfile({
       firstName: firstName.value.trim(),
       lastName: lastName.value.trim(),
+      fatherName: fatherName.value.trim(),
       phoneNumber: apiPhoneNumber.value,
-      password: password.value,
     })
+
+    // Unchanged number on an already-confirmed account: nothing to verify.
+    if (authStore.isPhoneVerified) {
+      await finish()
+      return
+    }
+
+    await sendCode()
+  } catch (error) {
+    validationError.value = authStore.errorMessage || error?.message || ''
+  } finally {
+    isSaving.value = false
+  }
+}
+
+// Asks the backend to text the number now stored on the profile. A 409 means it
+// was already confirmed — treat that as done rather than waiting for a code that
+// will never come.
+const sendCode = async () => {
+  try {
+    await authStore.sendMyPhoneOtp()
     await enterOtpStep()
-  } catch {
-    // authStore.errorMessage already carries the localized backend message.
-    // Note a 409 here is deliberately NOT routed into /verify-phone: the
-    // backend only rejects a number that belongs to a *verified* account
-    // (AuthService.Register), so the copy sends them to the login link below.
-    // An unverified leftover is resumed server-side and never reaches here.
+  } catch (error) {
+    if (error?.alreadyVerified) {
+      await authStore.getUserInfo().catch(() => {})
+      await finish()
+      return
+    }
+    throw error
   }
 }
 
@@ -133,13 +150,13 @@ const submitOtp = async () => {
   isVerifying.value = true
 
   try {
-    // verify-otp answers with a LoginResultDto, so a call that comes back
-    // clean means the session is already live — no separate login step.
+    // Confirming the phone re-issues the session token; the store swaps it in.
     await authStore.verifyOtp({
       phoneNumber: apiPhoneNumber.value,
       code: otpCode.value,
     })
-    await redirectAfterAuth()
+    await authStore.getUserInfo().catch(() => {})
+    await finish()
   } catch {
     // Wrong/expired code: clear the boxes for a clean retry.
     await otpInput.value?.clear()
@@ -157,75 +174,108 @@ const resendCode = async () => {
   validationError.value = ''
 
   try {
-    await authStore.resendOtp({ phoneNumber: apiPhoneNumber.value })
-    message.success(t('register.otpResent'), { duration: 3000 })
+    await authStore.sendMyPhoneOtp()
     startResendCountdown()
-  } catch {
-    // authStore.errorMessage already carries the localized backend message.
+  } catch (error) {
+    if (error?.alreadyVerified) {
+      await authStore.getUserInfo().catch(() => {})
+      await finish()
+    }
+    // Anything else is already in authStore.errorMessage.
   } finally {
     isResending.value = false
   }
 }
 
-const backToForm = () => {
+// Back to the name form to fix a mistyped number — the next save re-sends.
+const backToProfile = () => {
   stopResendCountdown()
   authStore.errorMessage = ''
   validationError.value = ''
-  step.value = 'form'
+  step.value = 'profile'
 }
 
-onMounted(() => {
-  // A fresh visit shouldn't show a stale error from the login page.
+onMounted(async () => {
   authStore.errorMessage = ''
+
+  if (!authStore.userInfo) {
+    await authStore.getUserInfo().catch(() => {})
+  }
+
+  // Prefill whatever the backend already knows — a Telegram sign-in arrives
+  // with first/last name, a password sign-up with everything but fatherName.
+  const info = authStore.userInfo || {}
+  firstName.value = info.firstName || ''
+  lastName.value = info.lastName || ''
+  fatherName.value = info.fatherName || ''
+
+  const digits = String(info.phoneNumber || '').replace(/\D/g, '')
+  phoneDigits.value = digits.startsWith('998') ? digits.slice(3, 12) : digits.slice(0, 9)
+
+  // Nothing left to collect (e.g. landed here from a stale link).
+  if (!authStore.needsProfileSetup && authStore.userInfo) {
+    await finish()
+  }
 })
 </script>
 
 <template>
   <AuthLayout>
-    <div v-if="step === 'form'" class="mb-8 text-center">
+    <div v-if="step === 'profile'" class="mb-8 text-center">
       <h1 class="text-3xl font-bold tracking-[-0.02em] text-[#1a1814]">
-        {{ t('register.title') }}
+        {{ t('completeProfile.title') }}
       </h1>
       <p class="mt-3 text-sm leading-relaxed text-[#6b6760]">
-        {{ t('register.description') }}
+        {{ t('completeProfile.description') }}
       </p>
     </div>
 
-    <!-- ── Step 1: name + phone + password ──────────────────────────── -->
+    <!-- ── Step 1: name + phone ─────────────────────────────────────── -->
     <form
-      v-if="step === 'form'"
+      v-if="step === 'profile'"
       class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]"
-      @submit.prevent="submitRegisterForm"
+      @submit.prevent="submitProfile"
     >
       <div class="flex flex-col gap-4">
-        <div class="flex gap-3">
-          <label class="flex-1">
-            <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-              {{ t('register.firstName') }}
-            </span>
-            <input
-              v-model="firstName"
-              type="text"
-              name="given-name"
-              autocomplete="given-name"
-              :placeholder="t('register.firstNamePlaceholder')"
-              class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
-            />
-          </label>
-          <label class="flex-1">
-            <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-              {{ t('register.lastName') }}
-            </span>
-            <input
-              v-model="lastName"
-              type="text"
-              name="family-name"
-              autocomplete="family-name"
-              :placeholder="t('register.lastNamePlaceholder')"
-              class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
-            />
-          </label>
-        </div>
+        <label class="block">
+          <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
+            {{ t('completeProfile.lastName') }}
+          </span>
+          <input
+            v-model="lastName"
+            type="text"
+            name="family-name"
+            autocomplete="family-name"
+            :placeholder="t('completeProfile.lastNamePlaceholder')"
+            class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+          />
+        </label>
+
+        <label class="block">
+          <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
+            {{ t('completeProfile.firstName') }}
+          </span>
+          <input
+            v-model="firstName"
+            type="text"
+            name="given-name"
+            autocomplete="given-name"
+            :placeholder="t('completeProfile.firstNamePlaceholder')"
+            class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+          />
+        </label>
+
+        <label class="block">
+          <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
+            {{ t('completeProfile.fatherName') }}
+          </span>
+          <input
+            v-model="fatherName"
+            type="text"
+            :placeholder="t('completeProfile.fatherNamePlaceholder')"
+            class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+          />
+        </label>
 
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
@@ -246,42 +296,9 @@ onMounted(() => {
               @input="onPhoneInput"
             />
           </div>
-        </label>
-
-        <label class="block">
-          <span class="mb-1.5 flex items-center justify-between text-[12px] font-semibold text-[#1a1814]">
-            {{ t('register.password') }}
-            <button
-              type="button"
-              class="font-medium text-[#8a857c] transition hover:text-[#1a1814]"
-              @click="showPassword = !showPassword"
-            >
-              {{ showPassword ? t('login.hide') : t('login.show') }}
-            </button>
+          <span class="mt-1.5 block text-[12px] leading-relaxed text-[#8a857c]">
+            {{ t('completeProfile.phoneHint') }}
           </span>
-          <input
-            v-model="password"
-            :type="showPassword ? 'text' : 'password'"
-            name="new-password"
-            autocomplete="new-password"
-            :placeholder="t('register.passwordPlaceholder')"
-            class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
-          />
-        </label>
-
-        <label class="block">
-          <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-            {{ t('register.passwordConfirm') }}
-          </span>
-          <input
-            v-model="passwordConfirm"
-            :type="showPassword ? 'text' : 'password'"
-            name="confirm-password"
-            autocomplete="new-password"
-            :placeholder="t('register.passwordConfirmPlaceholder')"
-            class="w-full rounded-xl border-[1.5px] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
-            :class="passwordConfirm && passwordConfirm !== password ? 'border-red-300' : 'border-[#e0ddd7]'"
-          />
         </label>
       </div>
 
@@ -294,10 +311,10 @@ onMounted(() => {
 
       <button
         type="submit"
-        :disabled="authStore.isLoading"
+        :disabled="isSaving"
         class="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {{ authStore.isLoading ? t('register.submitting') : t('register.continue') }}
+        {{ isSaving ? t('completeProfile.submitting') : t('completeProfile.submit') }}
       </button>
     </form>
 
@@ -368,19 +385,18 @@ onMounted(() => {
       <button
         type="button"
         class="mt-2 text-[12.5px] font-medium text-[#8a857c] underline underline-offset-2 transition hover:text-[#1a1814]"
-        @click="backToForm"
+        @click="backToProfile"
       >
         {{ t('register.changeNumber') }}
       </button>
     </div>
 
-    <p v-if="step === 'form'" class="mt-6 text-center text-sm text-[#6b6760]">
-      {{ t('register.haveAccount') }}
+    <p class="mt-6 text-center text-sm text-[#6b6760]">
       <router-link
-        :to="{ path: '/login', query: redirectQuery }"
+        to="/"
         class="font-semibold text-[#1a1814] underline-offset-2 hover:underline"
       >
-        {{ t('register.signIn') }}
+        {{ t('completeProfile.later') }}
       </router-link>
     </p>
   </AuthLayout>
