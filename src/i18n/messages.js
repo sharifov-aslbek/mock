@@ -294,9 +294,7 @@ const messages = {
       otpNotReceived: 'Kod kelmadimi?',
       otpResend: 'Qayta yuborish',
       otpResent: 'Kod qayta yuborildi.',
-      changeNumber: 'Raqamni o‘zgartirish',
-      smsUnavailable: 'Hozircha SMS xizmatida nosozlik bor va kod yuborilmadi. Iltimos, birozdan so‘ng qayta urinib ko‘ring yoki @Milliymocksupport ga murojaat qiling.',
-      accountExists: 'Bu raqam allaqachon ro‘yxatdan o‘tgan. Pastdagi “Kirish” tugmasini bosib, hisobingizga kiring.'
+      changeNumber: 'Raqamni o‘zgartirish'
     },
     verify: {
       forgotTitle: 'Parolni unutdingizmi?',
@@ -312,6 +310,32 @@ const messages = {
       sending: 'Yuborilmoqda...',
       goVerify: 'Raqamni tasdiqlash',
       backToLogin: 'Kirish sahifasiga qaytish'
+    },
+    // Localized counterparts of the backend's English MilliyMockException
+    // messages — see src/utils/authErrors.js for the message→key mapping.
+    authErrors: {
+      network: 'Internetda uzilish bor. Ulanishni tekshirib, qayta urinib ko‘ring.',
+      generic: "Xatolik yuz berdi. Qayta urinib ko‘ring yoki {'@'}Milliymocksupport ga murojaat qiling.",
+      smsUnavailable: "Hozircha SMS xizmatida nosozlik bor va kod yuborilmadi. Birozdan so‘ng qayta urinib ko‘ring yoki {'@'}Milliymocksupport ga murojaat qiling.",
+      smsDailyLimit: 'Bu raqam uchun bugungi SMS chegarasi tugadi. Ertaga qayta urinib ko‘ring.',
+      cooldown: 'Yangi kod so‘rash uchun {seconds} soniya kuting.',
+      emailRegistered: 'Bu email allaqachon ro‘yxatdan o‘tgan. Pastdagi “Kirish” tugmasini bosib, hisobingizga kiring.',
+      phoneRegistered: 'Bu raqam allaqachon ro‘yxatdan o‘tgan. Pastdagi “Kirish” tugmasini bosib, hisobingizga kiring.',
+      alreadyVerified: 'Bu hisob allaqachon tasdiqlangan. Tizimga kirishingiz mumkin.',
+      identifierTakenMeanwhile: 'Bu raqam shu orada boshqa hisobga ro‘yxatdan o‘tkazilgan. Boshqa raqam bilan urinib ko‘ring.',
+      noPendingRegistration: 'Ro‘yxatdan o‘tish muddati tugagan. Iltimos, qaytadan ro‘yxatdan o‘ting.',
+      codeExpired: 'Kod muddati tugagan yoki so‘ralmagan. Yangi kod oling.',
+      codeInvalid: 'Kod noto‘g‘ri. Tekshirib, qayta kiriting.',
+      channelNotVerified: 'Bu raqam hisobingizda tasdiqlanmagan.',
+      notVerified: 'Kirishdan oldin hisobingizni tasdiqlashingiz kerak.',
+      badCredentials: 'Login yoki parol noto‘g‘ri.',
+      userNotFound: 'Bunday foydalanuvchi topilmadi. Raqamni tekshiring yoki ro‘yxatdan o‘ting.',
+      phoneFormat: 'Telefon raqam noto‘g‘ri kiritilgan. Masalan: 90 123 45 67.',
+      identifierRequired: 'Email yoki telefon raqamni kiriting.',
+      passwordRequired: 'Yangi parolni kiriting.',
+      googleEmailExists: 'Bu email bilan hisob allaqachon mavjud. Parolingiz bilan kiring.',
+      googleFailed: 'Google orqali kirishda xatolik. Qayta urinib ko‘ring.',
+      telegramFailed: 'Telegram orqali kirishda xatolik. Qayta urinib ko‘ring.'
     },
     math: {
       eyebrow: 'Matematika markazi',
@@ -848,9 +872,7 @@ const messages = {
       otpNotReceived: 'Не пришёл код?',
       otpResend: 'Отправить ещё раз',
       otpResent: 'Код отправлен повторно.',
-      changeNumber: 'Изменить номер',
-      smsUnavailable: 'Сейчас в SMS-сервисе сбой, код не отправлен. Пожалуйста, попробуйте чуть позже или напишите в @Milliymocksupport.',
-      accountExists: 'Этот номер уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.'
+      changeNumber: 'Изменить номер'
     },
     verify: {
       forgotTitle: 'Забыли пароль?',
@@ -866,6 +888,30 @@ const messages = {
       sending: 'Отправляем...',
       goVerify: 'Подтвердить номер',
       backToLogin: 'Вернуться ко входу'
+    },
+    authErrors: {
+      network: 'Проблема с интернетом. Проверьте соединение и попробуйте снова.',
+      generic: "Произошла ошибка. Попробуйте ещё раз или напишите в {'@'}Milliymocksupport.",
+      smsUnavailable: "Сейчас в SMS-сервисе сбой, код не отправлен. Попробуйте чуть позже или напишите в {'@'}Milliymocksupport.",
+      smsDailyLimit: 'Дневной лимит SMS для этого номера исчерпан. Попробуйте завтра.',
+      cooldown: 'Подождите {seconds} секунд, прежде чем запросить новый код.',
+      emailRegistered: 'Этот email уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.',
+      phoneRegistered: 'Этот номер уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.',
+      alreadyVerified: 'Этот аккаунт уже подтверждён. Вы можете войти в систему.',
+      identifierTakenMeanwhile: 'Этот номер за это время был зарегистрирован на другой аккаунт. Попробуйте другой номер.',
+      noPendingRegistration: 'Срок регистрации истёк. Пожалуйста, зарегистрируйтесь заново.',
+      codeExpired: 'Срок действия кода истёк или код не запрашивался. Получите новый код.',
+      codeInvalid: 'Неверный код. Проверьте и введите ещё раз.',
+      channelNotVerified: 'Этот номер не подтверждён для вашего аккаунта.',
+      notVerified: 'Перед входом необходимо подтвердить аккаунт.',
+      badCredentials: 'Неверный логин или пароль.',
+      userNotFound: 'Такой пользователь не найден. Проверьте номер или зарегистрируйтесь.',
+      phoneFormat: 'Номер телефона указан неверно. Например: 90 123 45 67.',
+      identifierRequired: 'Введите email или номер телефона.',
+      passwordRequired: 'Введите новый пароль.',
+      googleEmailExists: 'Аккаунт с этим email уже существует. Войдите с помощью пароля.',
+      googleFailed: 'Не удалось войти через Google. Попробуйте ещё раз.',
+      telegramFailed: 'Не удалось войти через Telegram. Попробуйте ещё раз.'
     },
     math: {
       eyebrow: 'Центр математики',

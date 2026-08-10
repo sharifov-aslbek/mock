@@ -118,17 +118,11 @@ const sendCode = async () => {
     await nextTick()
     otpInput.value?.focus()
   } catch (error) {
-    // authStore.errorMessage already carries the backend message. A 403 means
-    // no reset code goes to an unconfirmed phone — offer verification instead.
+    // authStore.errorMessage already carries the localized backend message.
+    // A 403 means no reset code goes to an unconfirmed phone — offer
+    // verification instead.
     if (reason.value === 'forgot' && error?.channelNotConfirmed) {
       showVerifyHint.value = true
-      return
-    }
-    // The SMS gateway being down isn't the user's fault — replace the raw
-    // "Failed to send SMS" with something they can act on. validationError
-    // takes precedence over authStore.errorMessage in the error box.
-    if (error?.smsUnavailable) {
-      validationError.value = t('register.smsUnavailable')
     }
   } finally {
     isSending.value = false
@@ -260,12 +254,8 @@ const resendCode = async () => {
     await sendCodeRequest()
     message.success(t('register.otpResent'), { duration: 3000 })
     startResendCountdown()
-  } catch (error) {
-    if (error?.smsUnavailable) {
-      validationError.value = t('register.smsUnavailable')
-      return
-    }
-    // authStore.errorMessage already carries the backend message.
+  } catch {
+    // authStore.errorMessage already carries the localized backend message.
   } finally {
     isResending.value = false
   }

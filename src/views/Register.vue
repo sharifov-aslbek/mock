@@ -106,22 +106,12 @@ const submitRegisterForm = async () => {
       password: password.value,
     })
     await enterOtpStep()
-  } catch (error) {
-    // Deliberately NOT routed into /verify-phone: the number may already be
-    // confirmed under someone else's account, and handing out a fresh code
-    // would be a way in. Point them at the login link at the bottom instead.
-    if (error?.accountExists) {
-      validationError.value = t('register.accountExists')
-      return
-    }
-    // The SMS gateway being down isn't the user's fault — replace the raw
-    // "Failed to send SMS" with something they can act on. validationError
-    // takes precedence over authStore.errorMessage in the error box.
-    if (error?.smsUnavailable) {
-      validationError.value = t('register.smsUnavailable')
-      return
-    }
-    // authStore.errorMessage already carries the backend message.
+  } catch {
+    // authStore.errorMessage already carries the localized backend message.
+    // Note a 409 here is deliberately NOT routed into /verify-phone: the
+    // backend only rejects a number that belongs to a *verified* account
+    // (AuthService.Register), so the copy sends them to the login link below.
+    // An unverified leftover is resumed server-side and never reaches here.
   }
 }
 
@@ -167,12 +157,8 @@ const resendCode = async () => {
     await authStore.resendOtp({ phoneNumber: apiPhoneNumber.value })
     message.success(t('register.otpResent'), { duration: 3000 })
     startResendCountdown()
-  } catch (error) {
-    if (error?.smsUnavailable) {
-      validationError.value = t('register.smsUnavailable')
-      return
-    }
-    // authStore.errorMessage already carries the backend message.
+  } catch {
+    // authStore.errorMessage already carries the localized backend message.
   } finally {
     isResending.value = false
   }

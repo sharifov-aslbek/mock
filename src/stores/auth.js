@@ -1,32 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { authApiError, localizeAuthFailure } from '@/utils/authErrors'
 
 const TOKEN_KEY = 'milliymock_token'
-
-// Every OTP/SMS endpoint hands the code to an external SMS gateway (Eskiz).
-// When that gateway answers with anything but 200 — it's down, or our balance
-// ran out — the backend bubbles it up as 502 `{"message": "Failed to send SMS"}`.
-// Nothing the user typed is wrong, so callers flag it and show a "try again or
-// contact support" message instead of the raw provider error.
-function isSmsProviderDown(response, payload) {
-  return (
-    response.status === 502 ||
-    payload?.code === 502 ||
-    payload?.status === 502 ||
-    /failed to send sms/i.test(String(payload?.message || ''))
-  )
-}
-
-// The account row is written before the OTP goes out, so an SMS outage
-// mid-signup leaves a real-but-unconfirmed account behind — the user comes
-// back, registers the same number again, and the backend answers
-// 409 {"code":409,"message":"This phone number is already registered."}.
-// Flagged so the UI can send them to the login page in their own language
-// instead of showing the raw English message.
-function isAccountAlreadyRegistered(response, payload) {
-  return response.status === 409 || payload?.code === 409
-}
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '')
@@ -93,18 +70,15 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json()
 
       if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-        const messageText = payload?.message || 'Login failed.'
-        const error = new Error(messageText)
-        // The backend refuses password logins until the phone number is
-        // OTP-confirmed. Flag that case so the login page can hand the user
-        // to /verify-phone instead of showing a dead-end error. Detected by
-        // status/message since swagger doesn't type the response.
+        const error = authApiError(payload)
+        // AuthService.Login answers 403 "Please verify your account before
+        // logging in." for an account whose phone was never OTP-confirmed.
+        // Flag it so the login page can hand the user to /verify-phone instead
+        // of leaving them on a dead-end error. Matched on the RAW backend
+        // message — error.message is already localized by this point.
         error.phoneNotVerified =
           payload?.code === 403 ||
-          /verif|tasdiq|подтвер|confirm/i.test(messageText) ||
-          payload?.data?.phoneNumberVerified === false ||
-          payload?.data?.isPhoneVerified === false ||
-          payload?.data?.phoneNumberConfirmed === false
+          /verif|confirm/i.test(String(payload?.message || ''))
         throw error
       }
 
@@ -113,8 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Login failed.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -154,15 +127,14 @@ export const useAuthStore = defineStore('auth', () => {
             const payload = await response.json()
 
             if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-                throw new Error(payload?.message || 'Login failed.')
+                throw authApiError(payload)
             }
 
             token.value = payload.data.token
             localStorage.setItem(TOKEN_KEY, payload.data.token)
 
         } catch (error) {
-            errorMessage.value =
-                error instanceof Error ? error.message : 'Login failed.'
+            errorMessage.value = localizeAuthFailure(error)
             throw error
         } finally {
             isLoading.value = false
@@ -196,15 +168,14 @@ export const useAuthStore = defineStore('auth', () => {
             const payload = await response.json()
 
             if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-                throw new Error(payload?.message || 'Login failed.')
+                throw authApiError(payload)
             }
 
             token.value = payload.data.token
             localStorage.setItem(TOKEN_KEY, payload.data.token)
 
         } catch (error) {
-            errorMessage.value =
-                error instanceof Error ? error.message : 'Login failed.'
+            errorMessage.value = localizeAuthFailure(error)
             throw error
         } finally {
             isLoading.value = false
@@ -242,16 +213,12 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        const error = new Error(payload?.message || 'Registration failed.')
-        error.smsUnavailable = isSmsProviderDown(response, payload)
-        error.accountExists = isAccountAlreadyRegistered(response, payload)
-        throw error
+        throw authApiError(payload)
       }
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Registration failed.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -286,7 +253,7 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Verification failed.')
+        throw authApiError(payload)
       }
 
       if (payload?.data?.token) {
@@ -296,8 +263,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload?.data || null
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Verification failed.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -328,15 +294,12 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        const error = new Error(payload?.message || 'Could not resend the code.')
-        error.smsUnavailable = isSmsProviderDown(response, payload)
-        throw error
+        throw authApiError(payload)
       }
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Could not resend the code.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     }
   }
@@ -371,19 +334,17 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        const error = new Error(payload?.message || 'Could not send the reset code.')
+        const error = authApiError(payload)
         // 403 = the account exists but this channel was never confirmed, so no
         // reset code is sent there. The UI offers the verify-phone drill instead.
         error.channelNotConfirmed =
           payload?.code === 403 || response.status === 403
-        error.smsUnavailable = isSmsProviderDown(response, payload)
         throw error
       }
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Could not send the reset code.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     }
   }
@@ -420,7 +381,7 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Could not reset the password.')
+        throw authApiError(payload)
       }
 
       if (payload?.data?.token) {
@@ -430,8 +391,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload?.data || null
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Could not reset the password.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
