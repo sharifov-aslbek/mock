@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl, readJsonBody } from '@/utils/api'
 import { authApiError, localizeAuthFailure } from '@/utils/authErrors'
 
 const TOKEN_KEY = 'milliymock_token'
@@ -80,16 +80,17 @@ export const useAuthStore = defineStore('auth', () => {
         body: formData,
       })
 
-      const payload = await response.json()
+      const payload = await readJsonBody(response)
 
       if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-        const error = authApiError(payload)
+        const error = authApiError(payload, response.status, 'login')
         // AuthService.Login answers 403 "Please verify your account before
         // logging in." for an account whose phone was never OTP-confirmed.
         // Flag it so the login page can hand the user to /verify-phone instead
         // of leaving them on a dead-end error. Matched on the RAW backend
         // message — error.message is already localized by this point.
         error.phoneNotVerified =
+          response.status === 403 ||
           payload?.code === 403 ||
           /verif|confirm/i.test(String(payload?.message || ''))
         throw error
@@ -137,10 +138,10 @@ export const useAuthStore = defineStore('auth', () => {
                 body,
             })
 
-            const payload = await response.json()
+            const payload = await readJsonBody(response)
 
             if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-                throw authApiError(payload)
+                throw authApiError(payload, response.status, 'telegramLogin')
             }
 
             token.value = payload.data.token
@@ -178,10 +179,10 @@ export const useAuthStore = defineStore('auth', () => {
                 body: JSON.stringify({ token: idToken }),
             })
 
-            const payload = await response.json()
+            const payload = await readJsonBody(response)
 
             if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-                throw authApiError(payload)
+                throw authApiError(payload, response.status, 'googleLogin')
             }
 
             token.value = payload.data.token
@@ -223,10 +224,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw authApiError(payload)
+        throw authApiError(payload, response.status, 'register')
       }
 
       return payload
@@ -263,10 +264,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw authApiError(payload)
+        throw authApiError(payload, response.status, 'verifyOtp')
       }
 
       if (payload?.data?.token) {
@@ -304,10 +305,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw authApiError(payload)
+        throw authApiError(payload, response.status, 'resendOtp')
       }
 
       return payload
@@ -342,10 +343,10 @@ export const useAuthStore = defineStore('auth', () => {
         },
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        const error = authApiError(payload)
+        const error = authApiError(payload, response.status, 'sendMyPhoneOtp')
         // 409 = nothing left to confirm. The caller treats that as success
         // rather than stranding the user on a code that will never arrive.
         error.alreadyVerified =
@@ -387,10 +388,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        const error = authApiError(payload)
+        const error = authApiError(payload, response.status, 'forgotPassword')
         // 403 = the account exists but this channel was never confirmed, so no
         // reset code is sent there. The UI offers the verify-phone drill instead.
         error.channelNotConfirmed =
@@ -434,10 +435,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw authApiError(payload)
+        throw authApiError(payload, response.status, 'resetPassword')
       }
 
       if (payload?.data?.token) {
@@ -469,7 +470,7 @@ export const useAuthStore = defineStore('auth', () => {
         },
       })
 
-      const payload = await response.json()
+      const payload = await readJsonBody(response)
 
       if (!response.ok || payload?.code !== 200 || !payload?.data) {
         throw new Error(payload?.message || 'Failed to fetch user info.')
@@ -517,10 +518,10 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify(body),
     })
 
-    const payload = await response.json().catch(() => null)
+    const payload = await readJsonBody(response)
 
     if (!response.ok || (payload?.code && payload.code !== 200)) {
-      throw authApiError(payload)
+      throw authApiError(payload, response.status, 'updateProfile')
     }
 
     // Optimistically merge so isProfileComplete flips right away, then refresh

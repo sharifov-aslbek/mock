@@ -69,15 +69,19 @@ const isPurchasing = ref(false)
 // the purchase before creating the attempt. Free tests and already-purchased
 // tests start straight away — no charge.
 const handlePremiumClick = async () => {
-  // Must be signed in to have a tanga balance / make a purchase. Send guests to
-  // login and bring them BACK to this tests listing (not straight into /test):
-  // a premium test has to clear the purchase/balance gate that lives on the card,
-  // so after signing up the user re-picks the test and goes through the normal
-  // buy / top-up flow. Redirecting into /test would auto-start the premium test
-  // and strand a 0-balance user on the broken "insufficient balance" screen.
+  // Must be signed in to have a tanga balance / make a purchase. Guests go to
+  // REGISTER, not login: someone clicking a test for the first time has no
+  // account yet, and the login card sends them hunting for a password they
+  // never set. The register page links back to login for returning users.
+  //
+  // Bring them BACK to this tests listing (not straight into /test): a premium
+  // test has to clear the purchase/balance gate that lives on the card, so after
+  // signing up the user re-picks the test and goes through the normal buy /
+  // top-up flow. Redirecting into /test would auto-start the premium test and
+  // strand a 0-balance user on the broken "insufficient balance" screen.
   if (!authStore.isAuthenticated) {
     router.push({
-      path: '/login',
+      path: '/register',
       query: { reason: 'auth-required', redirect: route.fullPath },
     })
     return
@@ -201,9 +205,9 @@ const openTest = async () => {
 
 // Free test card CTA ("Testni boshlash"). On the results page the card opens
 // the attempt-choice modal. Otherwise an unauthenticated user is sent straight
-// to login the instant they click — before the confirm modal or any backend
-// call — mirroring the premium card's gate. An authenticated user gets the
-// usual confirm modal and the unchanged start flow.
+// to registration the instant they click — before the confirm modal or any
+// backend call — mirroring the premium card's gate. An authenticated user gets
+// the usual confirm modal and the unchanged start flow.
 const handleStartClick = () => {
   if (props.isAttemptedCard) {
     showAttemptChoiceModal.value = true
@@ -212,7 +216,7 @@ const handleStartClick = () => {
 
   if (!authStore.isAuthenticated) {
     router.push({
-      path: '/login',
+      path: '/register',
       query: { reason: 'auth-required', redirect: `/test?testId=${props.test.id}` },
     })
     return

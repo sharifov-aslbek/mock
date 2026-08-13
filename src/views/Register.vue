@@ -177,6 +177,13 @@ const backToForm = () => {
 onMounted(() => {
   // A fresh visit shouldn't show a stale error from the login page.
   authStore.errorMessage = ''
+
+  // The test gate (test card / TestPage) sends guests here with
+  // ?reason=auth-required — say why they were bounced instead of dropping them
+  // on a signup form with no explanation.
+  if (route.query.reason === 'auth-required') {
+    message.warning(t('testPage.authRequiredRegister'), { duration: 4000 })
+  }
 })
 </script>
 

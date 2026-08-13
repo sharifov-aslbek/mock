@@ -1108,8 +1108,11 @@ const loadTest = async (testId) => {
     closeReferenceWindow()
     testStore.clearCurrentTest()
     shouldPersistProgress.value = false
+    // Same gate as the test card: a guest opening a test has no account yet, so
+    // registration is the useful destination. (A session that DIED mid-test is a
+    // 401, which api.js routes to /login instead — that user does have one.)
     await router.replace({
-      path: '/login',
+      path: '/register',
       query: { reason: 'auth-required', redirect: route.fullPath },
     })
     return

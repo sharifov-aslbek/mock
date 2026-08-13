@@ -332,6 +332,12 @@ const messages = {
     authErrors: {
       network: 'Internetda uzilish bor. Ulanishni tekshirib, qayta urinib ko‘ring.',
       generic: "Xatolik yuz berdi. Qayta urinib ko‘ring yoki {'@'}Milliymocksupport ga murojaat qiling.",
+      serverError: "Serverda nosozlik yuz berdi — bu sizning xatoyingiz emas. Bir necha daqiqadan so‘ng qayta urinib ko‘ring yoki {'@'}Milliymocksupport ga yozing.",
+      serviceUnavailable: "Server bilan bog‘lanib bo‘lmadi. Sahifani yangilab qayta urinib ko‘ring. Muammo takrorlansa {'@'}Milliymocksupport ga yozing.",
+      tooManyRequests: 'Juda ko‘p urinish qilindi. Xavfsizlik uchun vaqtincha cheklandi — taxminan bir soatdan so‘ng qayta urinib ko‘ring.',
+      invalidRequest: 'Kiritilgan ma’lumotlarda xatolik bor. Tekshirib, qayta urinib ko‘ring.',
+      forbidden: 'Bu amalni bajarishga ruxsat yo‘q.',
+      missingFields: 'Quyidagi maydonlar to‘g‘ri to‘ldirilmagan: {fields}.',
       smsUnavailable: "Hozircha SMS xizmatida nosozlik bor va kod yuborilmadi. Birozdan so‘ng qayta urinib ko‘ring yoki {'@'}Milliymocksupport ga murojaat qiling.",
       smsDailyLimit: 'Bu raqam uchun bugungi SMS chegarasi tugadi. Ertaga qayta urinib ko‘ring.',
       cooldown: 'Yangi kod so‘rash uchun {seconds} soniya kuting.',
@@ -355,7 +361,20 @@ const messages = {
       passwordRequired: 'Yangi parolni kiriting.',
       googleEmailExists: 'Bu email bilan hisob allaqachon mavjud. Parolingiz bilan kiring.',
       googleFailed: 'Google orqali kirishda xatolik. Qayta urinib ko‘ring.',
-      telegramFailed: 'Telegram orqali kirishda xatolik. Qayta urinib ko‘ring.'
+      telegramFailed: 'Telegram orqali kirishda xatolik. Qayta urinib ko‘ring.',
+      // Field names as they appear in ASP.NET's validation response, for the
+      // "missingFields" line above.
+      fields: {
+        firstName: 'Ism',
+        lastName: 'Familiya',
+        fatherName: 'Otasining ismi',
+        phoneNumber: 'Telefon raqam',
+        email: 'Email',
+        password: 'Parol',
+        newPassword: 'Yangi parol',
+        code: 'Tasdiqlash kodi',
+        token: 'Kirish ma’lumotlari'
+      }
     },
     math: {
       eyebrow: 'Matematika markazi',
@@ -469,6 +488,8 @@ const messages = {
       sessionExpired: 'Test sessiyasi topilmadi. Iltimos, testni ro‘yxatdan qaytadan oching.',
       submitFailed: 'Testni topshirib bo‘lmadi. Iltimos, qayta urinib ko‘ring.',
       authRequired: 'Bu testni ochish uchun tizimga kiring.',
+      // Shown on the register page, where the test gate now sends guests.
+      authRequiredRegister: 'Testni boshlash uchun ro‘yxatdan o‘ting. Hisobingiz bo‘lsa, pastdagi “Kirish” havolasini bosing.',
       leaveConfirm:
         'Test davomida boshqa sahifaga o‘tish bloklangan. Testni yakunlash uchun pastdagi tugmadan natijalar sahifasiga o‘ting.',
       leaveConfirmTitle: 'Test hali davom etmoqda',
@@ -912,9 +933,18 @@ const messages = {
     authErrors: {
       network: 'Проблема с интернетом. Проверьте соединение и попробуйте снова.',
       generic: "Произошла ошибка. Попробуйте ещё раз или напишите в {'@'}Milliymocksupport.",
+      serverError: "Ошибка на сервере — это не связано с вашими данными. Попробуйте через несколько минут или напишите в {'@'}Milliymocksupport.",
+      serviceUnavailable: "Не удалось связаться с сервером. Обновите страницу (Ctrl+F5) и попробуйте снова. Если проблема повторится — напишите в {'@'}Milliymocksupport.",
+      tooManyRequests: 'Слишком много попыток. Доступ временно ограничен — попробуйте примерно через час.',
+      invalidRequest: 'В введённых данных есть ошибка. Проверьте и попробуйте снова.',
+      forbidden: 'Недостаточно прав для этого действия.',
+      missingFields: 'Следующие поля заполнены неверно: {fields}.',
       smsUnavailable: "Сейчас в SMS-сервисе сбой, код не отправлен. Попробуйте чуть позже или напишите в {'@'}Milliymocksupport.",
       smsDailyLimit: 'Дневной лимит SMS для этого номера исчерпан. Попробуйте завтра.',
-      cooldown: 'Подождите {seconds} секунд, прежде чем запросить новый код.',
+      // Plural forms in the order the `ru` rule in i18n/index.js indexes them:
+      // zero | one (1, 21…) | few (2–4, 22–24…) | many (5–20, 25–30…).
+      cooldown:
+        'Подождите {seconds} секунд, прежде чем запросить новый код. | Подождите {seconds} секунду, прежде чем запросить новый код. | Подождите {seconds} секунды, прежде чем запросить новый код. | Подождите {seconds} секунд, прежде чем запросить новый код.',
       emailRegistered: 'Этот email уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.',
       phoneRegistered: 'Этот номер уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.',
       alreadyVerified: 'Этот аккаунт уже подтверждён. Вы можете войти в систему.',
@@ -935,7 +965,18 @@ const messages = {
       passwordRequired: 'Введите новый пароль.',
       googleEmailExists: 'Аккаунт с этим email уже существует. Войдите с помощью пароля.',
       googleFailed: 'Не удалось войти через Google. Попробуйте ещё раз.',
-      telegramFailed: 'Не удалось войти через Telegram. Попробуйте ещё раз.'
+      telegramFailed: 'Не удалось войти через Telegram. Попробуйте ещё раз.',
+      fields: {
+        firstName: 'Имя',
+        lastName: 'Фамилия',
+        fatherName: 'Отчество',
+        phoneNumber: 'Номер телефона',
+        email: 'Email',
+        password: 'Пароль',
+        newPassword: 'Новый пароль',
+        code: 'Код подтверждения',
+        token: 'Данные для входа'
+      }
     },
     math: {
       eyebrow: 'Центр математики',
@@ -1049,6 +1090,7 @@ const messages = {
       sessionExpired: 'Сессия теста не найдена. Пожалуйста, откройте тест заново из списка.',
       submitFailed: 'Не удалось отправить тест. Пожалуйста, попробуйте ещё раз.',
       authRequired: 'Для открытия этого теста нужно войти в систему.',
+      authRequiredRegister: 'Чтобы начать тест, зарегистрируйтесь. Если аккаунт уже есть — нажмите «Войти» ниже.',
       leaveConfirm:
         'Во время теста переход на другие страницы заблокирован. Чтобы завершить тест, перейдите на страницу результатов через нижнюю кнопку.',
       leaveConfirmTitle: 'Тест ещё продолжается',
