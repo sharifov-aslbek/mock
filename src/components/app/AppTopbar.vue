@@ -1,11 +1,14 @@
 <script setup>
 // Platform top bar: page title/greeting on the left; bell, tanga pill, buy
 // button and avatar menu on the right. From the approved mockup.
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useBalanceStore } from '@/stores/balance'
 import AppIcon from './AppIcon.vue'
 import CoinIcon from './CoinIcon.vue'
 
-defineProps({
+const props = defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
   user: { type: Object, required: true },
@@ -15,21 +18,39 @@ defineProps({
   backLabel: { type: String, default: '' },
 })
 
-const emit = defineEmits(['openMenu'])
+// Still declared: screens bind @open-menu on this component, and the drawer is
+// opened from the tab bar's "Ko'proq" instead of a button in this bar.
+defineEmits(['openMenu'])
 const isUserMenuOpen = ref(false)
+
+const router = useRouter()
+const authStore = useAuthStore()
+const balanceStore = useBalanceStore()
+
+// Was a hardcoded "S" — right by accident for "super admin", wrong for everyone
+// whose name starts with any other letter.
+const initial = computed(() => (props.user?.name || 'S').charAt(0).toUpperCase())
+
+// Signing out from here is deliberate rather than guarded: opening the menu and
+// picking "Chiqish" is already two steps, and nothing is lost — attempts and
+// results are server-side. The confirm on Sozlamalar covers the button that
+// sits in the open on a page.
+function signOut() {
+  isUserMenuOpen.value = false
+  authStore.logout()
+  balanceStore.reset()
+  router.push({ name: 'home' })
+}
 </script>
 
 <template>
-  <header class="flex flex-wrap items-center justify-between gap-4 pb-5 pt-6">
+  <!-- One line, even on a phone: the actions used to wrap under the greeting,
+       which put the balance and the account in the middle of the page instead
+       of the corner every screen keeps them in. -->
+  <header class="flex items-center justify-between gap-3 pb-5 pt-6 sm:flex-wrap sm:gap-4">
+    <!-- No menu button here any more: below lg the tab bar's "Ko'proq" opens the
+         drawer, and a second opener beside the greeting only ate title width. -->
     <div class="flex min-w-0 items-center gap-3">
-      <button
-        type="button"
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-ink lg:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
-        aria-label="Menyuni ochish"
-        @click="emit('openMenu')"
-      >
-        <AppIcon name="menu" :size="20" />
-      </button>
       <div class="min-w-0">
         <RouterLink
           v-if="backTo && backLabel"
@@ -41,18 +62,33 @@ const isUserMenuOpen = ref(false)
         </RouterLink>
         <!-- Wraps rather than truncates: a greeting cut to "Xush kelibsiz, super ad…"
              is worse than two lines. -->
-        <h1 class="text-[20px] font-bold leading-tight tracking-[-0.025em] text-app-ink sm:text-[23px] lg:text-[26px]">
+        <!-- 18px on a phone, where the title shares its line with the balance
+             and the account: at 20px a long greeting took three lines. -->
+        <h1
+          class="text-[18px] font-bold leading-tight tracking-[-0.025em] text-app-ink sm:text-[23px] lg:text-[26px]"
+        >
           {{ title }}
         </h1>
-        <p v-if="subtitle" class="mt-0.5 text-[14px] text-app-muted">{{ subtitle }}</p>
+        <!-- Hidden on a phone. Every one of these sentences restates its own
+             page title ("Testlar" → "Fanlardan test tanlang…"), and at this
+             width it wrapped to three lines of grey above the actual content.
+             It stays from sm up, where it costs one line and no scrolling. -->
+        <p v-if="subtitle" class="mt-0.5 hidden text-[14px] text-app-muted sm:block">
+          {{ subtitle }}
+        </p>
       </div>
     </div>
 
-    <div class="flex shrink-0 items-center gap-3">
+    <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+      <!-- Disabled until there is a notifications feed to open. It had no click
+           handler at all, so it looked live and did nothing. Hidden on a phone:
+           a dead control is the first thing that should give up its width. -->
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-app-surface text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
-        aria-label="Bildirishnomalar"
+        disabled
+        title="Bildirishnomalar — tez orada"
+        class="hidden h-10 w-10 cursor-not-allowed items-center justify-center rounded-full border border-app-border bg-app-surface text-app-muted opacity-70 sm:flex"
+        aria-label="Bildirishnomalar — tez orada"
       >
         <AppIcon name="bell" :size="18" />
       </button>
@@ -60,8 +96,8 @@ const isUserMenuOpen = ref(false)
       <!-- On phones the balance doubles as the way to top up, so tanga never
            disappears from the shell at small widths. -->
       <RouterLink
-        to="/narxlar"
-        class="inline-flex items-center gap-2 rounded-full border border-app-border bg-app-surface px-3.5 py-2 text-[14px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+        to="/tanga"
+        class="inline-flex items-center gap-1.5 rounded-full border border-app-border bg-app-surface px-2.5 py-1.5 text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-tile sm:gap-2 sm:px-3.5 sm:py-2 sm:text-[14px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
         :aria-label="`${user.tanga} tanga — tanga sotib olish`"
       >
         <CoinIcon :size="16" class="text-app-coin" />
@@ -69,7 +105,7 @@ const isUserMenuOpen = ref(false)
       </RouterLink>
 
       <RouterLink
-        to="/narxlar"
+        to="/tanga"
         class="hidden items-center rounded-full bg-app-ink px-4 py-2 text-[14px] font-semibold text-app-surface transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink sm:inline-flex"
       >
         Tanga sotib olish
@@ -84,12 +120,12 @@ const isUserMenuOpen = ref(false)
           @click="isUserMenuOpen = !isUserMenuOpen"
         >
           <span
-            class="flex h-9 w-9 items-center justify-center rounded-full bg-app-ink text-[14px] font-semibold text-app-surface"
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-app-ink text-[13px] font-semibold text-app-surface sm:h-9 sm:w-9 sm:text-[14px]"
           >
-            S
+            {{ initial }}
           </span>
           <span class="hidden text-[14px] font-medium text-app-ink sm:block">{{ user.name }}</span>
-          <AppIcon name="chevronDown" :size="16" class="text-app-muted" />
+          <AppIcon name="chevronDown" :size="15" class="text-app-muted" />
         </button>
 
         <div v-if="isUserMenuOpen" class="fixed inset-0 z-40" @click="isUserMenuOpen = false"></div>
@@ -98,22 +134,38 @@ const isUserMenuOpen = ref(false)
           class="absolute right-0 top-full z-50 mt-2 w-48 rounded-2xl border border-app-border bg-app-surface p-1.5 shadow-app-card"
           role="menu"
         >
+          <!-- "Profil" used to sit beside this, pointing at a second, older
+               account screen. Sozlamalar is now both. -->
           <RouterLink
             to="/sozlamalar"
-            class="block rounded-xl px-3 py-2.5 text-[15px] text-app-ink hover:bg-app-tile"
+            class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] text-app-ink hover:bg-app-tile"
             role="menuitem"
             @click="isUserMenuOpen = false"
           >
+            <AppIcon name="settings" :size="16" class="text-app-muted" />
             Sozlamalar
           </RouterLink>
           <RouterLink
-            to="/profile"
-            class="block rounded-xl px-3 py-2.5 text-[15px] text-app-ink hover:bg-app-tile"
+            to="/tanga"
+            class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] text-app-ink hover:bg-app-tile"
             role="menuitem"
             @click="isUserMenuOpen = false"
           >
-            Profil
+            <CoinIcon :size="16" class="text-app-coin" />
+            Hisobni to‘ldirish
           </RouterLink>
+
+          <div class="my-1 h-px bg-app-border"></div>
+
+          <button
+            type="button"
+            class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[15px] text-app-ink hover:bg-app-tile"
+            role="menuitem"
+            @click="signOut"
+          >
+            <AppIcon name="logout" :size="16" class="text-app-muted" />
+            Chiqish
+          </button>
         </div>
       </div>
     </div>

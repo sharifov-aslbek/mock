@@ -20,25 +20,45 @@ const entry = computed(
 </script>
 
 <template>
+  <!-- Two shapes, one card. On a phone it is a row — tile, text, chevron —
+       because a column of centred cards makes a reader scroll a screen per
+       subject and centred text is slower to scan down a list. From sm up, where
+       the cards sit side by side in a grid, it is the centred tile again. -->
   <RouterLink
     :to="`/testlar/${encodeURIComponent(subjectKey)}`"
-    class="group flex h-full flex-col items-center rounded-xl border border-app-border bg-app-surface px-4 py-6 text-center transition-colors hover:border-app-ink/15 hover:bg-app-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+    class="group flex h-full items-center gap-3.5 rounded-xl border border-app-border bg-app-surface p-3.5 text-left transition-colors hover:border-app-ink/15 hover:bg-app-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink sm:flex-col sm:items-center sm:gap-0 sm:px-4 sm:py-6 sm:text-center"
   >
+    <!-- Rounded square in the row, circle in the grid: DESIGN.md's own rule is
+         that a square marks a specific subject and a circle marks a category,
+         and in a list the mark is doing the former. -->
     <span
-      class="flex h-14 w-14 items-center justify-center rounded-full bg-app-tile text-app-ink transition-colors group-hover:bg-app-surface"
+      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-app-tile text-app-ink transition-colors group-hover:bg-app-surface sm:h-14 sm:w-14 sm:rounded-full"
     >
       <AppIcon :name="entry.icon" :size="24" />
     </span>
 
-    <p class="mt-4 text-[16px] font-bold tracking-[-0.01em] text-app-ink">{{ entry.label }}</p>
-    <p v-if="entry.description" class="mt-2 text-[12.5px] leading-[1.55] text-app-muted">
-      {{ entry.description }}
-    </p>
+    <!-- `sm:contents` dissolves this wrapper in the grid layout, so the name,
+         description and count become children of the card again and `mt-auto`
+         below can still pin the count to the card's foot. -->
+    <div class="min-w-0 flex-1 sm:contents">
+      <p class="text-[16px] font-bold tracking-[-0.01em] text-app-ink sm:mt-4">
+        {{ entry.label }}
+      </p>
+      <p v-if="entry.description" class="mt-1 text-[12.5px] leading-[1.55] text-app-muted sm:mt-2">
+        {{ entry.description }}
+      </p>
 
-    <!-- mt-auto keeps the count on the baseline of the tallest card in the row,
-         so the grid does not comb when descriptions run to different lengths. -->
-    <p v-if="count !== null" class="mt-auto pt-5 text-[13px] font-medium text-app-muted">
-      {{ count }} ta test
-    </p>
+      <!-- mt-auto keeps the count on the baseline of the tallest card in the row,
+           so the grid does not comb when descriptions run to different lengths. -->
+      <p
+        v-if="count !== null"
+        class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-app-tile px-2.5 py-1 text-[12px] font-medium text-app-muted sm:mt-auto sm:gap-0 sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0 sm:pt-5 sm:text-[13px]"
+      >
+        <AppIcon name="tests" :size="13" class="shrink-0 sm:hidden" />
+        {{ count }} ta test
+      </p>
+    </div>
+
+    <AppIcon name="chevronRight" :size="18" class="shrink-0 text-app-muted sm:hidden" />
   </RouterLink>
 </template>

@@ -1,10 +1,10 @@
 <script setup>
 // The platform shell — the redesigned logged-in product (docs/DESIGN.md).
 //
-// This is a *new* shell used by the redesigned screens. The pre-existing
-// platform pages (/test, /result-exam, /profile, /explanation) stay on
-// PlatformLayout with their current chrome until each one's screen is designed
-// and approved, so nothing that works today changes look before its turn.
+// This is a *new* shell used by the redesigned screens. What remains on
+// PlatformLayout is only the full-screen, chrome-less pair (/test and
+// /explanation), which by design has no shell around it. Natijalar, the essay
+// analysis and the account screen have all moved in here.
 //
 // It owns the same guard as PlatformLayout: the router's beforeEach and the
 // group's beforeEnter are the first two lines, and this layout re-checks on
@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
 import { useAppUser } from '@/composables/useAppUser'
 import AppSidebar from '@/components/app/AppSidebar.vue'
+import AppBottomNav from '@/components/app/AppBottomNav.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
 
 const route = useRoute()
@@ -61,10 +62,20 @@ watch(
     </aside>
 
     <div class="lg:pl-[240px]">
-      <div class="mx-auto max-w-[1360px] px-5 pb-16 sm:px-8 lg:px-10">
+      <!-- max-w 1600, not 1360: at 1360 a 1920 screen stranded ~190px of empty
+           gutter on each side of the content while squeezing the results row's
+           title column to 432px, so long test names wrapped to two lines. 1600
+           spends that space on the content and still caps the row length on an
+           ultrawide, where a full-bleed row would make the eye travel from the
+           title on the left to its action on the right. -->
+      <!-- The extra bottom padding below lg clears the tab bar, so the last row
+           of a list is never parked under it. -->
+      <div class="mx-auto max-w-[1600px] px-5 pb-[104px] sm:px-8 lg:px-10 lg:pb-16">
         <RouterView :user="user" @open-menu="isDrawerOpen = true" />
       </div>
     </div>
+
+    <AppBottomNav :drawer-open="isDrawerOpen" @open-menu="isDrawerOpen = true" />
 
     <Teleport to="body">
       <div v-if="isDrawerOpen" class="fixed inset-0 z-[200] lg:hidden">

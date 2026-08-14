@@ -1,11 +1,11 @@
 <script setup>
 // Narxlar — buying tanga, from inside the platform.
 //
-// Three real things, no invented ones:
-//   • the balance, from GET /api/balance (the balance store)
+// Two real things, no invented ones:
 //   • the plans, from the same i18n source the public pricing page reads, so
 //     a price cannot be right in one place and stale in the other
-//   • the transaction history, from GET /api/transaction
+//   • the balance, which lives in the top bar on every screen — this page does
+//     not repeat it
 //
 // Buying reuses PricingPaymentModal — the live manual-activation flow with the
 // real card number. Reimplementing that would risk showing a wrong account.
@@ -15,12 +15,8 @@ import AppTopbar from '@/components/app/AppTopbar.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
 import CoinIcon from '@/components/app/CoinIcon.vue'
-import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
-import EmptyState from '@/components/app/EmptyState.vue'
 import PricingPaymentModal from '@/components/PricingPaymentModal.vue'
 import { useBalanceStore } from '@/stores/balance'
-import { useAuthStore } from '@/stores/auth'
-import { apiFetch, getTestApiBaseUrl, isNetworkError } from '@/utils/api'
 
 defineProps({
   user: { type: Object, required: true },
@@ -29,10 +25,36 @@ defineEmits(['openMenu'])
 
 const { t, tm } = useI18n()
 const balanceStore = useBalanceStore()
-const authStore = useAuthStore()
 
-// Shared with the public pricing page — one source of truth for prices.
-const plans = computed(() => tm('pricing.plans'))
+const rawPlans = computed(() => tm('pricing.plans'))
+
+// The cheapest plan is the yardstick the others are measured against.
+const basePlan = computed(() =>
+  [...rawPlans.value].sort((a, b) => Number(a.tokens) - Number(b.tokens))[0] || null,
+)
+
+const plans = computed(() =>
+  rawPlans.value.map((plan, index) => {
+    const tokens = Number(plan.tokens) || 0
+    const baseTokens = Number(basePlan.value?.tokens) || 0
+    // How many times more tanga than the entry plan. The design's chip reads
+    // "better value", but 10 tanga for 35 000 against 5 for 20 000 is 2× the
+    // tanga at 1.75× the price — better value, though not by 2×. So the chip
+    // states the thing that is actually 2×: the tanga.
+    const ratio = baseTokens && tokens > baseTokens ? tokens / baseTokens : null
+    return {
+      ...plan,
+      index,
+      tokens,
+      ratio: ratio ? `${Number(ratio.toFixed(1))}x` : null,
+      badge: plan.highlighted
+        ? { label: t('pricing.popular'), solid: true }
+        : plan.bestValue
+          ? { label: t('pricing.bestValue'), solid: false }
+          : { label: 'Basic', solid: false },
+    }
+  }),
+)
 
 const selectedPlan = ref(null)
 const isPaymentOpen = ref(false)
@@ -42,69 +64,31 @@ const buy = (plan) => {
   isPaymentOpen.value = true
 }
 
-// ——— Transaction history (GET /api/transaction) ————————————————————————
-const transactions = ref([])
-const isLoadingHistory = ref(false)
-const historyError = ref('')
-
-async function fetchTransactions() {
-  const baseUrl = getTestApiBaseUrl()
-  if (!baseUrl || !authStore.isAuthenticated) return
-
-  isLoadingHistory.value = true
-  historyError.value = ''
-  try {
-    const response = await apiFetch(`${baseUrl}/transaction`, {
-      headers: { accept: '*/*', Authorization: `Bearer ${authStore.token}` },
-    })
-    const payload = await response.json()
-    if (!response.ok || payload?.code !== 200 || !Array.isArray(payload.data)) {
-      throw new Error(payload?.message || `HTTP ${response.status}`)
-    }
-    // Newest first — the API returns them in that order today, but the sort
-    // makes the screen independent of that.
-    transactions.value = [...payload.data].sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || b.id - a.id,
-    )
-  } catch (error) {
-    console.error(error)
-    historyError.value = isNetworkError(error)
-      ? 'Internetda uzilish bor.'
-      : 'Tarixni yuklab bo‘lmadi.'
-  } finally {
-    isLoadingHistory.value = false
-  }
-}
-
 onMounted(() => {
   balanceStore.refresh().catch(() => {})
-  fetchTransactions()
 })
 
-const HISTORY_PAGE = 8
-const visibleCount = ref(HISTORY_PAGE)
-const visibleTransactions = computed(() => transactions.value.slice(0, visibleCount.value))
-
-// DD.MM.YYYY, written out rather than via Intl: the uz-UZ locale formats as
-// 2026-08-06, which does not match how every other date in the product reads.
-const formatDate = (value) => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`
-}
-
-// The backend's descriptions are operator-facing English ("Purchase of test
-// 'maxsus test'"). Translate the shapes we know into Uzbek, and fall back to
-// the raw string rather than hiding a transaction we do not recognise.
-const describe = (entry) => {
-  const raw = String(entry.description || '')
-  const testMatch = /Purchase of test '(.+)'/i.exec(raw)
-  if (testMatch) return `Test sotib olindi — ${testMatch[1]}`
-  if (/essay review/i.test(raw)) return 'Insho tekshiruvi'
-  if (/admin/i.test(String(entry.type)) || /adjust/i.test(raw)) return 'Hisob to‘ldirildi'
-  return raw || 'Amaliyot'
-}
+// The three rules that govern tanga, stated once where they are being sold.
+const HOW_IT_WORKS = [
+  {
+    key: 'cost',
+    numeral: '1',
+    title: '1 tanga = 1 premium test',
+    description: 'Har bir premium testni boshlash uchun 1 tanga kerak bo‘ladi.',
+  },
+  {
+    key: 'expiry',
+    icon: 'infinity',
+    title: 'Tanga muddatsiz amal qiladi',
+    description: 'Sotib olgan tangalaringiz cheklanmagan muddatgacha saqlanadi.',
+  },
+  {
+    key: 'charge',
+    icon: 'play',
+    title: 'Faqat boshlaganda yechiladi',
+    description: 'Testni boshlamaguningizcha hech qanday tanga yechilmaydi.',
+  },
+]
 </script>
 
 <template>
@@ -115,182 +99,149 @@ const describe = (entry) => {
     @open-menu="$emit('openMenu')"
   />
 
-  <main class="space-y-4">
-    <!-- Balance -->
-    <AppCard>
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-3.5">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-app-tile text-app-coin">
-            <CoinIcon :size="24" />
-          </span>
-          <div>
-            <p class="text-[13px] text-app-muted">Hisobingizdagi tanga</p>
-            <p class="text-[32px] font-bold leading-[1.15] tracking-[-0.03em] text-app-ink">
-              {{ balanceStore.available }}
-            </p>
-          </div>
-        </div>
-        <p class="max-w-[420px] text-[13px] leading-[1.6] text-app-muted">
-          Tangalar muddatsiz — ular tugamaguncha amal qiladi. To‘lovdan so‘ng
-          tangalar hisobingizga qo‘lda faollashtiriladi.
-        </p>
-      </div>
-    </AppCard>
-
-    <!-- Plans -->
-    <section aria-labelledby="plans-heading">
-      <h2 id="plans-heading" class="sr-only">Ta'riflar</h2>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <article
-          v-for="(plan, index) in plans"
-          :key="index"
-          class="flex h-full flex-col rounded-2xl border p-5 shadow-app-card transition-colors"
-          :class="
-            plan.highlighted
-              ? 'border-app-ink bg-app-ink text-app-surface'
-              : 'border-app-border bg-app-surface hover:border-app-ink/15'
-          "
-        >
-          <div class="flex items-start justify-between gap-3">
-            <h3
-              class="text-[15px] font-bold tracking-[-0.01em]"
-              :class="plan.highlighted ? 'text-app-surface' : 'text-app-ink'"
-            >
-              {{ plan.name }}
-            </h3>
-            <span
-              v-if="plan.highlighted || plan.bestValue"
-              class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
-              :class="plan.highlighted ? 'bg-app-surface/15 text-app-surface' : 'bg-app-ink text-app-surface'"
-            >
-              {{ plan.highlighted ? t('pricing.popular') : t('pricing.bestValue') }}
-            </span>
-          </div>
-
-          <p
-            class="mt-4 text-[26px] font-bold leading-none tracking-[-0.03em]"
-            :class="plan.highlighted ? 'text-app-surface' : 'text-app-ink'"
-          >
-            {{ plan.price }}
+  <main>
+    <!-- One card holds the whole offer: the packages and the rules that govern
+         them. Splitting them into two surfaces made the rules read as an
+         unrelated footnote rather than part of what is being bought. -->
+    <!-- Below sm the outer surface drops away — the same rule Testlar follows.
+         Two nested borders cost ~40px of a 390px screen, and the plan cards
+         already group themselves. -->
+    <AppCard
+      class="max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">Tanga paketlari</h2>
+          <!-- Same rule as the topbar subtitle: on a phone this sentence only
+               restates the heading above it. -->
+          <p class="mt-0.5 hidden text-[13px] text-app-muted sm:block">
+            O‘zingizga mos paketni tanlang va premium testlarni cheksiz yeching.
           </p>
+        </div>
 
-          <span
-            class="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold"
-            :class="plan.highlighted ? 'bg-app-surface/10 text-app-surface' : 'bg-app-sunken text-app-ink'"
+        <a
+          href="#tanga-qanday-ishlaydi"
+          class="inline-flex shrink-0 items-center gap-2 rounded-lg text-[13px] font-medium text-app-muted transition-colors hover:text-app-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+        >
+          <AppIcon name="info" :size="16" />
+          Tanga qanday ishlaydi?
+        </a>
+      </div>
+
+      <!-- Plans -->
+      <section aria-labelledby="plans-heading" class="mt-5">
+        <h3 id="plans-heading" class="sr-only">Ta'riflar</h3>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <!-- All three cards share one surface. The popular plan used to get a
+               2px ink border, a white fill and a shadow, which made it read as a
+               different kind of thing — and the thicker border pushed its
+               features and button 1px out of line with its neighbours. The badge
+               is enough to mark it. -->
+          <article
+            v-for="plan in plans"
+            :key="plan.index"
+            class="flex h-full flex-col rounded-2xl border border-app-border bg-app-sunken p-5 transition-colors max-sm:bg-app-surface"
           >
-            <CoinIcon :size="14" :class="plan.highlighted ? 'text-app-coin' : 'text-app-coin'" />
-            {{ plan.tokens }} {{ t('pricing.tokenSuffix') }}
-          </span>
-
-          <ul class="mt-5 flex-1 space-y-2.5">
-            <li
-              v-for="(feature, fIndex) in plan.features"
-              :key="fIndex"
-              class="flex items-start gap-2.5 text-[13px] leading-[1.55]"
-              :class="plan.highlighted ? 'text-app-surface/80' : 'text-app-muted'"
-            >
+            <div class="flex items-start justify-between gap-3">
+              <h4 class="text-[15px] font-bold tracking-[-0.01em] text-app-ink">
+                {{ plan.name }}
+              </h4>
               <span
-                class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-                :class="plan.highlighted ? 'bg-app-surface/15 text-app-surface' : 'bg-app-sunken text-app-ink'"
+                class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                :class="
+                  plan.badge.solid
+                    ? 'bg-app-ink text-app-surface'
+                    : 'bg-app-tile text-app-muted'
+                "
               >
-                <AppIcon name="check" :size="10" />
+                {{ plan.badge.label }}
               </span>
-              {{ feature }}
-            </li>
-          </ul>
-
-          <button
-            type="button"
-            class="mt-6 w-full rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            :class="
-              plan.highlighted
-                ? 'bg-app-surface text-app-ink focus-visible:outline-app-surface'
-                : 'bg-app-ink text-app-surface focus-visible:outline-app-ink'
-            "
-            @click="buy(plan)"
-          >
-            {{ t('pricing.buy') }}
-          </button>
-        </article>
-      </div>
-    </section>
-
-    <!-- History -->
-    <AppCard>
-      <div class="flex items-center justify-between gap-4">
-        <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">Tanga tarixi</h2>
-        <p v-if="transactions.length" class="text-[13px] text-app-muted">
-          {{ transactions.length }} ta amaliyot
-        </p>
-      </div>
-
-      <div v-if="isLoadingHistory && !transactions.length" class="mt-2 divide-y divide-app-border" aria-hidden="true">
-        <div v-for="n in 4" :key="n" class="flex items-center gap-3 py-3.5">
-          <SkeletonBlock class="h-9 w-9 shrink-0 !rounded-full" />
-          <div class="flex-1">
-            <SkeletonBlock class="h-4 w-[min(240px,60%)]" />
-            <SkeletonBlock class="mt-2 h-3 w-24" />
-          </div>
-          <SkeletonBlock class="h-4 w-12 shrink-0" />
-        </div>
-      </div>
-
-      <EmptyState
-        v-else-if="historyError"
-        icon="close"
-        title="Tarixni yuklab bo‘lmadi"
-        :description="historyError"
-      />
-
-      <EmptyState
-        v-else-if="!transactions.length"
-        icon="coins"
-        title="Hozircha amaliyot yo‘q"
-        description="Tanga sotib olganingizda va sarflaganingizda, bu yerda ko‘rinadi."
-      />
-
-      <template v-else>
-        <ul class="mt-2 divide-y divide-app-border">
-          <li
-            v-for="entry in visibleTransactions"
-            :key="entry.id"
-            class="flex items-center gap-3 py-3.5"
-          >
-            <!-- Direction is the meaning here, so it carries the colour -->
-            <span
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-              :class="entry.amount >= 0 ? 'bg-app-good-bg text-app-good' : 'bg-app-tile text-app-muted'"
-            >
-              <AppIcon :name="entry.amount >= 0 ? 'arrowUp' : 'arrowRight'" :size="16" />
-            </span>
-
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-[14px] font-semibold text-app-ink">{{ describe(entry) }}</p>
-              <p class="mt-0.5 text-[12px] text-app-muted">{{ formatDate(entry.createdAt) }}</p>
             </div>
 
-            <div class="shrink-0 text-right">
-              <p
-                class="text-[14px] font-bold"
-                :class="entry.amount >= 0 ? 'text-app-good' : 'text-app-ink'"
+            <p class="mt-4 text-[26px] font-bold leading-none tracking-[-0.03em] text-app-ink">
+              {{ plan.price }}
+            </p>
+
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                class="inline-flex items-center gap-1.5 rounded-full bg-app-tile px-3 py-1 text-[13px] font-semibold text-app-ink"
               >
-                {{ entry.amount >= 0 ? '+' : '' }}{{ entry.amount }}
-              </p>
-              <p class="mt-0.5 text-[11px] text-app-muted">{{ entry.balanceAfter }} tanga</p>
+                <CoinIcon :size="14" class="text-app-coin" />
+                {{ plan.tokens }} {{ t('pricing.tokenSuffix') }}
+              </span>
+              <span
+                v-if="plan.ratio"
+                class="inline-flex items-center rounded-full bg-app-tile px-3 py-1 text-[13px] font-medium text-app-muted"
+              >
+                {{ plan.ratio }} ko‘proq tanga
+              </span>
             </div>
-          </li>
-        </ul>
 
-        <div v-if="visibleCount < transactions.length" class="mt-4 flex justify-center">
-          <button
-            type="button"
-            class="rounded-full border border-app-border bg-app-surface px-5 py-2 text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
-            @click="visibleCount += HISTORY_PAGE"
-          >
-            Yana ko‘rsatish
-          </button>
+            <!-- mb here, not mt on the button: the button uses mt-auto to sit on
+                 the card's baseline, and mt-auto would collapse that gap. -->
+            <div class="mb-6 mt-5 border-t border-app-border pt-5">
+              <ul class="space-y-2.5">
+                <li
+                  v-for="(feature, fIndex) in plan.features"
+                  :key="fIndex"
+                  class="flex items-start gap-2.5 text-[13px] leading-[1.55] text-app-ink"
+                >
+                  <AppIcon name="checkCircle" :size="16" class="mt-0.5 shrink-0 text-app-muted" />
+                  {{ feature }}
+                </li>
+              </ul>
+            </div>
+
+            <!-- mt-auto keeps the three buttons on one baseline when the plans
+                 list different numbers of features. -->
+            <button
+              type="button"
+              class="mt-auto w-full rounded-lg bg-app-ink px-4 py-3 text-[13px] font-semibold text-app-surface transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink"
+              @click="buy(plan)"
+            >
+              {{ plan.tokens }} {{ t('pricing.tokenSuffix') }} {{ t('pricing.buy').toLowerCase() }}
+            </button>
+          </article>
         </div>
-      </template>
+      </section>
+
+      <!-- How tanga works -->
+      <section
+        id="tanga-qanday-ishlaydi"
+        class="mt-4 rounded-2xl border border-app-border bg-app-sunken p-5 max-sm:bg-app-surface"
+        aria-labelledby="how-heading"
+      >
+        <h3 id="how-heading" class="text-[15px] font-bold tracking-[-0.01em] text-app-ink">
+          Tanga qanday ishlaydi?
+        </h3>
+
+        <dl class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-6">
+          <div
+            v-for="(item, index) in HOW_IT_WORKS"
+            :key="item.key"
+            class="flex items-start gap-3"
+            :class="index ? 'md:border-l md:border-app-border md:pl-6' : ''"
+          >
+            <span
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-app-tile text-app-ink"
+              aria-hidden="true"
+            >
+              <AppIcon v-if="item.icon" :name="item.icon" :size="17" />
+              <span v-else class="text-[14px] font-bold">{{ item.numeral }}</span>
+            </span>
+            <div class="min-w-0">
+              <dt class="text-[14px] font-semibold text-app-ink">{{ item.title }}</dt>
+              <dd class="mt-1 text-[12.5px] leading-[1.6] text-app-muted">
+                {{ item.description }}
+              </dd>
+            </div>
+          </div>
+        </dl>
+
+        <p class="mt-5 border-t border-app-border pt-4 text-[12.5px] text-app-muted">
+          {{ t('pricing.billingNote') }}.
+        </p>
+      </section>
     </AppCard>
 
     <!-- The live payment flow, reused as-is -->

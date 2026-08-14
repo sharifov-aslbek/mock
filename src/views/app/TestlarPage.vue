@@ -46,8 +46,19 @@ const errorCopy = computed(() =>
   />
 
   <main>
-    <AppCard>
-      <h2 class="text-[18px] font-bold tracking-[-0.015em] text-app-ink">Fanlar</h2>
+    <!-- Below sm the panel drops its own surface: a card of cards spent 40px of
+         a 390px screen on two nested borders, and the subject rows already read
+         as a group. The heading stays; the box around it goes. -->
+    <AppCard
+      class="max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none"
+    >
+      <!-- On a phone the page title is already "Testlar" and the list below is
+           plainly the subjects, so this second heading only pushed them down.
+           It stays in the accessibility tree, and returns visibly from sm up
+           where it labels the panel it sits in. -->
+      <h2 class="sr-only text-[18px] font-bold tracking-[-0.015em] text-app-ink sm:not-sr-only">
+        Fanlar
+      </h2>
 
       <!-- Loading: the grid's own shape, so nothing shifts when the data lands -->
       <template v-if="catalog.isLoading && !catalog.hasLoaded">
@@ -85,7 +96,12 @@ const errorCopy = computed(() =>
         description="Testlar qo‘shilgach, fanlar shu yerda ro‘yxatga chiqadi."
       />
 
-      <div v-else class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <!-- Tighter gap in the phone's single column: the cards are rows there,
+           and a 16px gutter between rows read as four separate blocks. -->
+      <div
+        v-else
+        class="mt-3.5 grid grid-cols-1 gap-2.5 sm:mt-5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"
+      >
         <SubjectCard
           v-for="entry in subjects"
           :key="entry.key"

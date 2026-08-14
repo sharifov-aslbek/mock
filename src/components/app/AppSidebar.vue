@@ -18,14 +18,22 @@ defineProps({
 const emit = defineEmits(['navigate'])
 const route = useRoute()
 
+// Every destination is the platform's own path, never one that redirects here:
+// /narxlar and /natijalar both bounce a signed-in user to /tanga and
+// /natijalarim, and isActive() compares against the *current* path — so linking
+// to the public path meant the item could never highlight as current.
 const navItems = [
   { label: 'Bosh sahifa', icon: 'home', to: '/dashboard' },
   { label: 'Testlar', icon: 'tests', to: '/testlar' },
   { label: 'Essay tekshirish', icon: 'essay', to: '/essay' },
-  { label: 'Natijalar', icon: 'results', to: '/result-exam' },
-  { label: 'Narxlar', icon: 'coins', to: '/narxlar' },
-  { label: 'Yordam', icon: 'help', to: '/yordam' },
-  { label: 'Sozlamalar', icon: 'settings', to: '/sozlamalar' },
+  { label: 'Natijalar', icon: 'results', to: '/natijalarim' },
+  { label: 'Kurslar', icon: 'cap', to: '/kurslarim' },
+  { label: 'Statistika', icon: 'stats', to: '/statistika' },
+  { label: 'Narxlar', icon: 'coins', to: '/tanga' },
+  // Yordam and Sozlamalar are deliberately not here. Sozlamalar is the user
+  // card at the foot of this sidebar and the topbar avatar menu — a third entry
+  // for it was the duplication the /profile merge set out to remove. Both routes
+  // still resolve; they are just not nav destinations.
   { label: 'Community', icon: 'community', to: '/community', promoted: true },
 ]
 

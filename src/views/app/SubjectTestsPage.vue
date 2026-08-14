@@ -9,6 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppTopbar from '@/components/app/AppTopbar.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppSelect from '@/components/app/AppSelect.vue'
 import TestCard from '@/components/app/TestCard.vue'
 import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
 import EmptyState from '@/components/app/EmptyState.vue'
@@ -114,23 +115,28 @@ const visibleTests = computed(() => {
     return true
   })
 
-  const sorted = [...filtered]
-  if (sort.value === 'popular') {
-    sorted.sort((a, b) => b.attemptCount - a.attemptCount || b.id - a.id)
-  } else {
+  // Free tests lead, whatever the chosen sort. stores/testCatalog.js already
+  // orders them this way "so a newcomer starts on the free ones before meeting
+  // a paywall", but re-sorting here used to discard that — a student opening
+  // Matematika met five PREMIUM cards before reaching either free test. The
+  // sort the user picked still decides the order *within* each group.
+  const byOrder = (a, b) => {
+    if (sort.value === 'popular') return b.attemptCount - a.attemptCount || b.id - a.id
+
     // Tests with no parseable date sort after the dated ones rather than
     // pretending to be the oldest or the newest.
     const direction = sort.value === 'old' ? -1 : 1
-    sorted.sort((a, b) => {
-      const at = examTime(a)
-      const bt = examTime(b)
-      if (at === null && bt === null) return b.id - a.id
-      if (at === null) return 1
-      if (bt === null) return -1
-      return (bt - at) * direction || b.id - a.id
-    })
+    const at = examTime(a)
+    const bt = examTime(b)
+    if (at === null && bt === null) return b.id - a.id
+    if (at === null) return 1
+    if (bt === null) return -1
+    return (bt - at) * direction || b.id - a.id
   }
-  return sorted
+
+  return [...filtered].sort(
+    (a, b) => Number(a.isPremium) - Number(b.isPremium) || byOrder(a, b),
+  )
 })
 
 const pageCount = computed(() => Math.max(1, Math.ceil(visibleTests.value.length / PAGE_SIZE)))
@@ -191,8 +197,11 @@ const errorCopy = computed(() =>
     : { title: 'Testlarni yuklab bo‘lmadi', description: 'Biroz kuting va qayta urinib ko‘ring.' },
 )
 
-const selectClass =
-  'cursor-pointer appearance-none rounded-full border border-app-border bg-app-surface py-2 pl-9 pr-8 text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-tile focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink'
+// AppSelect speaks {value,label}; these lists are keyed by `key` because the
+// keys are also the filter's own vocabulary elsewhere in this file.
+const asOptions = (list) => list.map((item) => ({ value: item.key, label: item.label }))
+const typeOptions = asOptions(TYPE_FILTERS)
+const sortOptions = asOptions(SORTS)
 </script>
 
 <template>
@@ -273,26 +282,21 @@ const selectClass =
             />
           </label>
 
-          <div class="relative">
-            <AppIcon
-              name="filter"
-              :size="15"
-              class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted"
-            />
-            <select v-model="typeFilter" :class="selectClass" aria-label="Test turi">
-              <option v-for="option in TYPE_FILTERS" :key="option.key" :value="option.key">
-                {{ option.label }}
-              </option>
-            </select>
-            <AppIcon
-              name="chevronDown"
-              :size="15"
-              class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-app-muted"
-            />
-          </div>
+          <!-- Sifting is a desktop job here. On a phone the four controls
+               stacked into a column of pills taller than the first test card,
+               and a subject rarely holds enough mocks to need them: search
+               stays, the rest appear from sm up at their defaults (all tests,
+               every state, newest first). -->
+          <AppSelect
+            v-model="typeFilter"
+            :options="typeOptions"
+            icon="filter"
+            aria-label="Test turi"
+            class="hidden sm:block sm:w-[180px]"
+          />
         </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="hidden flex-wrap items-center justify-between gap-3 sm:flex">
           <div class="flex flex-wrap gap-2">
             <button
               v-for="filter in STATE_FILTERS"
@@ -311,23 +315,13 @@ const selectClass =
             </button>
           </div>
 
-          <div class="relative">
-            <AppIcon
-              name="sort"
-              :size="15"
-              class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-app-muted"
-            />
-            <select v-model="sort" :class="selectClass" aria-label="Tartiblash">
-              <option v-for="option in SORTS" :key="option.key" :value="option.key">
-                {{ option.label }}
-              </option>
-            </select>
-            <AppIcon
-              name="chevronDown"
-              :size="15"
-              class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-app-muted"
-            />
-          </div>
+          <AppSelect
+            v-model="sort"
+            :options="sortOptions"
+            icon="sort"
+            aria-label="Tartiblash"
+            class="sm:w-[230px]"
+          />
         </div>
       </div>
 
