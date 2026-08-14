@@ -1,8 +1,8 @@
 // Saved essay checkings ("Insho tekshirish" history).
 //
-// The standalone essay centre (components/onatili/OnaTiliEssayCenter.vue) has no
-// backend of its own yet — unlike mock tests, whose attempts live server-side
-// (stores/test.js) and list on ResultExamPage.vue. So checkings are persisted
+// The essay centre has no backend of its own yet — unlike mock tests, whose
+// attempts live server-side (stores/test.js) and list on the Testlar tab of
+// views/app/NatijalarPage.vue. So checkings are persisted
 // client-side here, per device, mirroring how the centre already keeps its
 // custom topics in localStorage. When the grading endpoint lands, the same
 // entry shape carries the real AI payload instead of the sample, and this store

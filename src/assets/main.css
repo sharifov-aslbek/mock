@@ -45,6 +45,11 @@
   --color-app-info-bg: #efeafc;
   --color-app-coin: #f5c23b;
 
+  /* The progress line on Bosh sahifa. Warm taupe rather than ink: the chart is
+     the largest object on the screen, and drawn in black it out-shouted the
+     figures it exists to explain. */
+  --color-app-chart: #b3a695;
+
   /* Cards sit calmly on the background — a hairline plus a whisper of lift,
      not a raised slab. */
   --shadow-app-card: 0 1px 2px rgba(16, 15, 14, 0.03), 0 4px 14px -10px rgba(16, 15, 14, 0.07);
@@ -103,6 +108,54 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-fade-up-late {
+    animation-name: none;
+  }
+}
+
+/* Fikrlar wall. Each column holds two identical copies of its cards and travels
+   exactly one copy's height, so the loop has no seam.
+   The offset is `-50% - gap/2`, not a flat -50%: the track's own gap sits
+   between the two copies, so half the track height overshoots by half a gap and
+   the cards would drift on every lap. */
+.testimonial-track {
+  --testimonial-gap: 16px;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes testimonialUp {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-50% - var(--testimonial-gap) / 2));
+  }
+}
+
+@keyframes testimonialDown {
+  from {
+    transform: translateY(calc(-50% - var(--testimonial-gap) / 2));
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.testimonial-track--up {
+  animation-name: testimonialUp;
+}
+
+.testimonial-track--down {
+  animation-name: testimonialDown;
+}
+
+/* Reading a quote should not be a race — hovering anywhere in a column stops it. */
+.testimonial-column:hover .testimonial-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-track {
     animation-name: none;
   }
 }

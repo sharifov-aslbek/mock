@@ -8,7 +8,17 @@ function formatScore(value) {
   return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2)
 }
 
-function gradeFromPercentage(percentage) {
+// The lowest percentage that still earns a certificate. Below this there is no
+// letter at all — the certificate says the student was not recommended for one.
+export const CERTIFICATE_PASS_PERCENT = 46
+
+export const NO_CERTIFICATE_TEXT = 'Sertifikatga tavsiya etilmadingiz'
+
+// The official band table — the one printed on the certificate. Exported so
+// every screen that shows a test grade reads the same thresholds instead of
+// inventing its own; a result page that called 0% a "C" would be promising a
+// certificate the student is not getting.
+export function gradeFromPercentage(percentage) {
   if (percentage >= 70) {
     return 'A+'
   }
@@ -25,12 +35,16 @@ function gradeFromPercentage(percentage) {
     return 'B'
   }
 
-  if (percentage >= 46) {
+  if (percentage >= CERTIFICATE_PASS_PERCENT) {
     return 'C'
   }
 
-  return 'Sertifikatga tavsiya etilmadingiz'
+  return NO_CERTIFICATE_TEXT
 }
+
+// True when the percentage earns a letter grade at all.
+export const hasCertificateGrade = (percentage) =>
+  Number(percentage) >= CERTIFICATE_PASS_PERCENT
 
 // Deterministic per-account personal code. The same user always gets the same
 // 14-digit code (derived from their stable account id/username/email), so it is

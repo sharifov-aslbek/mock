@@ -8,6 +8,7 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
+import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -79,10 +80,12 @@ const redirectQuery = computed(() =>
 )
 
 const redirectAfterAuth = () => {
+  // Same default as Login/Register: finishing verification is entering the
+  // product, so it lands in the platform rather than on the public catalogue.
   const redirectTarget =
     typeof route.query.redirect === 'string' && route.query.redirect
       ? route.query.redirect
-      : '/math'
+      : PLATFORM_HOME
   return router.push(redirectTarget)
 }
 

@@ -12,7 +12,15 @@ const paths = {
   tests: ['M8 4h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z', 'M10 9h4', 'M10 13h4', 'M10 17h2'],
   essay: ['M12 20h8', 'M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z'],
   results: ['M5 20V12', 'M12 20V5', 'M19 20v-5'],
-  coins: ['M12 21c4.97 0 9-1.79 9-4V7c0-2.21-4.03-4-9-4S3 4.79 3 7v10c0 2.21 4.03 4 9 4Z', 'M21 12c0 2.21-4.03 4-9 4s-9-1.79-9-4'],
+  // Statistika, not Natijalar: bars *inside* an axis frame, so the two
+  // bar-chart items in the sidebar cannot be mistaken for each other.
+  stats: ['M4.5 4v14.5a1 1 0 0 0 1 1H20', 'M8.6 16v-3.4', 'M12.6 16V8.5', 'M16.6 16v-5.6'],
+  // A dollar mark, not the stacked-disc "database" cylinder it used to be —
+  // that read as storage rather than money.
+  coins: [
+    'M12 3.2v17.6',
+    'M16.6 7.4c-.8-1.3-2.6-2.1-4.6-2.1-2.5 0-4.4 1.2-4.4 3s1.8 2.7 4.4 3.3c2.9.7 4.8 1.5 4.8 3.4 0 2-2.1 3.1-4.8 3.1-2.3 0-4.1-.9-4.8-2.2',
+  ],
   help: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.7-2.6 2.7', 'M12 17.2h.01'],
   settings: ['M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z', 'M19.1 14.6a1.6 1.6 0 0 0 .32 1.76l.06.06a1.9 1.9 0 1 1-2.7 2.7l-.05-.06a1.6 1.6 0 0 0-2.72 1.14v.17a1.9 1.9 0 1 1-3.8 0v-.09a1.6 1.6 0 0 0-2.8-1.1l-.06.06a1.9 1.9 0 1 1-2.7-2.7l.07-.06a1.6 1.6 0 0 0-1.14-2.72h-.17a1.9 1.9 0 1 1 0-3.8h.09a1.6 1.6 0 0 0 1.1-2.8l-.06-.06a1.9 1.9 0 1 1 2.7-2.7l.05.06a1.6 1.6 0 0 0 2.72-1.14v-.17a1.9 1.9 0 1 1 3.8 0v.09a1.6 1.6 0 0 0 2.8 1.1l.05-.06a1.9 1.9 0 1 1 2.7 2.7l-.06.05a1.6 1.6 0 0 0 1.14 2.72h.17a1.9 1.9 0 1 1 0 3.8h-.09a1.6 1.6 0 0 0-1.47.98Z'],
   community: ['M16.5 20v-1.7a3.4 3.4 0 0 0-3.4-3.4H6.9a3.4 3.4 0 0 0-3.4 3.4V20', 'M10 11.6a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z', 'M20.5 20v-1.7a3.4 3.4 0 0 0-2.6-3.3', 'M15.5 4.9a3.4 3.4 0 0 1 0 6.6'],
@@ -40,45 +48,66 @@ const paths = {
   search: ['M11 18.5a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Z', 'm20.5 20.5-4.2-4.2'],
   menu: ['M4 7h16', 'M4 12h16', 'M4 17h16'],
   close: ['M18 6 6 18', 'M6 6l12 12'],
+  logout: ['M9.5 20H5.5a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 5.5 4h4', 'M15.5 16.5 20 12l-4.5-4.5', 'M20 12H9.5'],
+  refresh: ['M20 11.5a8 8 0 0 0-13.7-5.2L3 9.5', 'M3 5v4.5h4.5', 'M4 12.5a8 8 0 0 0 13.7 5.2L21 14.5', 'M21 19v-4.5h-4.5'],
+  chevronRight: ['m9.5 6 6 6-6 6'],
+  send: ['M20.5 3.5 11 13', 'M20.5 3.5 14.5 20.5l-3.5-7.5-7.5-3.5Z'],
+  cap: ['M12 4 2.5 8.7 12 13.4l9.5-4.7L12 4Z', 'M6.5 11v4.6c0 .5.3 1 .8 1.2a10.6 10.6 0 0 0 9.4 0c.5-.2.8-.7.8-1.2V11'],
+  info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 11.2v5', 'M12 7.9h.01'],
+  infinity: [
+    'M7 8.5a3.5 3.5 0 1 0 0 7c1.6 0 2.7-1 3.6-2l2.8-3c.9-1 2-2 3.6-2a3.5 3.5 0 0 1 0 7c-1.6 0-2.7-1-3.6-2l-2.8-3c-.9-1-2-2-3.6-2Z',
+  ],
+  checkCircle: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'm8.4 12.2 2.5 2.5 4.7-4.9'],
+  calendar: ['M7 3.5V6', 'M17 3.5V6', 'M4.5 9.2h15', 'M5.5 5h13a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5Z'],
+  user: ['M19 20v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4V20', 'M12 10.6a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z'],
 
   // Subject icons. Same 24 grid and 1.7 stroke as everything above, so a grid of
   // mixed subjects reads as one system rather than assorted marks. One icon per
   // subject, referenced from components/app/subjects.js — never inline.
+  // Keys are dashes, not dots: a `h.01` dot renders at the stroke width, which
+  // is 1.4px once a 24-grid icon is drawn at 20 — visible as grey specks rather
+  // than keys. The screen keeps 2.1 units of interior for the same reason; at
+  // 3 units the stroke closes over it and it reads as a filled bar.
   calculator: [
-    'M7 3h10a1.5 1.5 0 0 1 1.5 1.5v15a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5v-15A1.5 1.5 0 0 1 7 3Z',
-    'M8.7 6.5h6.6v3H8.7Z',
-    'M9 13.2h.01',
-    'M12 13.2h.01',
-    'M15 13.2h.01',
-    'M9 16.9h.01',
-    'M12 16.9h.01',
-    'M15 16.9h.01',
+    'M7.2 3.4h9.6a1.8 1.8 0 0 1 1.8 1.8v13.6a1.8 1.8 0 0 1-1.8 1.8H7.2a1.8 1.8 0 0 1-1.8-1.8V5.2a1.8 1.8 0 0 1 1.8-1.8Z',
+    'M8.6 6.5h6.8v3.8H8.6Z',
+    'M8.7 13.7h1.2',
+    'M11.4 13.7h1.2',
+    'M14.1 13.7h1.2',
+    'M8.7 17.1h1.2',
+    'M11.4 17.1h1.2',
+    'M14.1 17.1h1.2',
   ],
-  // Two orbits at ±45° drawn as rotated-ellipse arcs, nucleus in the middle.
+  // Two orbits at ±45°, nucleus in the middle. The orbits are Béziers with the
+  // rotation baked in: an `A` arc across the ellipse's own major axis is a
+  // degenerate 180° case, and the large-arc flag sent it the long way round —
+  // which is why this used to render as a rounded blob instead of an atom.
   atom: [
-    'M12 13.6a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z',
-    'M18.7 18.7A9.5 4 45 1 1 5.3 5.3 9.5 4 45 1 1 18.7 18.7Z',
-    'M18.7 5.3A9.5 4 -45 1 1 5.3 18.7 9.5 4 -45 1 1 18.7 5.3Z',
+    'M12 13.7a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4Z',
+    'M18.79 18.79C17.19 20.39 12.85 18.65 9.1 14.9C5.35 11.15 3.61 6.81 5.21 5.21C6.81 3.61 11.15 5.35 14.9 9.1C18.65 12.85 20.39 17.19 18.79 18.79Z',
+    'M18.79 5.21C20.39 6.81 18.65 11.15 14.9 14.9C11.15 18.65 6.81 20.39 5.21 18.79C3.61 17.19 5.35 12.85 9.1 9.1C12.85 5.35 17.19 3.61 18.79 5.21Z',
   ],
   flask: [
     'M9 3h6',
     'M10 3v6.6a2 2 0 0 1-.28 1.02l-4.4 7.4A1.5 1.5 0 0 0 6.6 20.3h10.8a1.5 1.5 0 0 0 1.28-2.28l-4.4-7.4A2 2 0 0 1 14 9.6V3',
     'M7.7 15.2h8.6',
   ],
+  // Three columns, not four: at four the 3.7-unit gaps close up to barely a
+  // pixel at 20px and the portico turns into a smudge.
   landmark: [
-    'M12 3.5 19.6 8.2H4.4Z',
-    'M4 10.6h16',
-    'M6.4 10.6v6.9',
-    'M10.1 10.6v6.9',
-    'M13.9 10.6v6.9',
-    'M17.6 10.6v6.9',
-    'M3.4 20.4h17.2',
+    'M12 3.4 20.2 8.2H3.8Z',
+    'M4.6 10.9h14.8',
+    'M7.4 11.2v6.3',
+    'M12 11.2v6.3',
+    'M16.6 11.2v6.3',
+    'M3.6 20.2h16.8',
   ],
+  // Equator and one meridian. The second latitude line crowded the lower third
+  // of the sphere and bought no extra meaning.
   globe: [
     'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
-    'M3.4 9.2h17.2',
-    'M3.4 14.8h17.2',
-    'M12 3a14 14 0 0 1 3.6 9 14 14 0 0 1-3.6 9 14 14 0 0 1-3.6-9 14 14 0 0 1 3.6-9Z',
+    'M3.2 12h17.6',
+    'M12 3a13.5 13.5 0 0 1 3.5 9 13.5 13.5 0 0 1-3.5 9 13.5 13.5 0 0 1-3.5-9A13.5 13.5 0 0 1 12 3Z',
   ],
   languages: [
     'M2.6 6.2h10.8',

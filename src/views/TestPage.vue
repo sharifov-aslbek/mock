@@ -1100,7 +1100,7 @@ const loadTest = async (testId) => {
         shouldPersistProgress.value = false
         if (/insufficient/i.test(error?.message || '')) {
           testStore.clearCurrentTest()
-          await router.replace('/narxlar')
+          await router.replace('/tanga')
         }
         return
       }

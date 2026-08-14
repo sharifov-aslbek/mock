@@ -14,6 +14,8 @@ import { useRouter } from 'vue-router'
 import { NModal, NCard } from 'naive-ui'
 import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
+import FileDropOverlay from '@/components/app/FileDropOverlay.vue'
+import { useWindowFileDrop } from '@/composables/useWindowFileDrop'
 import { useAuthStore } from '@/stores/auth'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { ESSAY_BAND_MAX } from '@/utils/essayAnalysis'
@@ -189,7 +191,6 @@ const textareaPlaceholder = 'Inshoingizni shu yerda yozing…'
 
 // ——— Photo upload ——————————————————————————————————————————————————————
 const fileInput = ref(null)
-const isDragging = ref(false)
 const openFilePicker = () => fileInput.value?.click()
 
 const readFiles = (fileList) => {
@@ -220,10 +221,20 @@ const onFileChange = (event) => {
   readFiles(event.target.files)
   event.target.value = '' // allow re-selecting the same file
 }
-const onDrop = (event) => {
-  isDragging.value = false
-  readFiles(event.dataTransfer?.files)
-}
+
+// Whole-window drop and paste, same as the platform essay centre — see
+// composables/useWindowFileDrop. A photo dropped on the Yozish tab means the
+// student meant to upload, so the tab follows the file.
+const { isDragging } = useWindowFileDrop(
+  (files) => {
+    if (mode.value !== 'upload') setMode('upload')
+    readFiles(files)
+  },
+  () => view.value === 'writer' && !isReviewing.value,
+  (message) => {
+    submitError.value = message
+  },
+)
 const removeUpload = (id) => {
   uploads.value = uploads.value.filter((upload) => upload.id !== id)
 }
@@ -594,9 +605,6 @@ const SKELETON_COUNT = 6
         <div v-else class="mt-6">
           <div
             @click="openFilePicker"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="onDrop"
             class="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-[20px] border border-dashed bg-[#faf9f6] px-6 py-10 text-center transition"
             :class="isDragging ? 'border-[#1a1814] bg-white' : 'border-[#c9c4b8] hover:border-[#1a1814] hover:bg-white'"
           >
@@ -606,9 +614,12 @@ const SKELETON_COUNT = 6
                 <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            <p class="text-[15px] font-semibold text-[#1a1814]">Insho rasmini shu yerga tashlang</p>
+            <p class="text-[15px] font-semibold text-[#1a1814]">Insho rasmini tashlang</p>
             <p class="mt-1 text-[13px] text-[#8a857c]">
-              yoki fayl tanlash uchun bosing · JPG, PNG, WEBP · ko‘pi bilan {{ MAX_IMAGE_COUNT }} ta
+              Sahifaning istalgan joyiga tashlang, bosing yoki Ctrl+V bilan qo‘ying
+            </p>
+            <p class="mt-1 text-[13px] text-[#8a857c]">
+              JPG, PNG, WEBP · ko‘pi bilan {{ MAX_IMAGE_COUNT }} ta
             </p>
           </div>
           <input
@@ -722,6 +733,12 @@ const SKELETON_COUNT = 6
 
     <!-- ═══════════════ AI-checking takeover ═══════════════ -->
     <EssayProcessingOverlay v-if="isReviewing" mode="checking" />
+
+    <FileDropOverlay
+      :show="isDragging"
+      title="Insho rasmini tashlang"
+      :hint="`JPG, PNG, WEBP · ko‘pi bilan ${MAX_IMAGE_COUNT} ta`"
+    />
 
     <!-- ═══════════════ Insufficient balance ═══════════════ -->
     <NModal v-model:show="balanceModalOpen">

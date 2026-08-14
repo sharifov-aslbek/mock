@@ -8,6 +8,7 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
+import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -61,10 +62,12 @@ const redirectQuery = computed(() =>
 )
 
 const redirectAfterAuth = () => {
+  // Same as Login: finishing registration lands the student in the platform,
+  // not back on the public catalogue.
   const redirectTarget =
     typeof route.query.redirect === 'string' && route.query.redirect
       ? route.query.redirect
-      : '/math'
+      : PLATFORM_HOME
   return router.push(redirectTarget)
 }
 

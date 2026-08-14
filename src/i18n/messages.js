@@ -183,7 +183,7 @@ const messages = {
         {
           name: "Premium Ta'rifi",
           price: "70 000 so'm",
-          tokens: 22,
+          tokens: 25,
           highlighted: false,
           bestValue: true,
           features: ['Barcha fanlar testlari', 'Yechimlar va batafsil tahlil', 'Natijalar statistikasi', 'Test sertifikati', 'Tangalar muddatsiz amal qiladi']
@@ -718,7 +718,7 @@ const messages = {
         {
           name: 'Тариф Premium',
           price: "70 000 so'm",
-          tokens: 22,
+          tokens: 25,
           highlighted: false,
           bestValue: true,
           features: ['Тесты по всем предметам', 'Решения и подробный разбор', 'Статистика результатов', 'Сертификат теста', 'Токены не сгорают']

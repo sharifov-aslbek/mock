@@ -235,10 +235,12 @@ byte-for-byte. Both images were therefore derived from the sources in
   bounding box there is 820×195 at (130, 442); the design's asset is 836×211,
   i.e. that box with 8px padding, so those exact bounds were used. White was
   converted to alpha over a black fill, which preserves the antialiased edges.
-- `dashboard-figure.png` — the raw render carried 150px of dead backdrop on the
-  left and its backdrop (`#F9F8F5`) sat *behind* the design's
-  `drop-shadow(...)`, so the shadow traced a rectangle instead of the plate.
-  Cropped to content (1318×928) and the flat backdrop keyed to transparent.
+- `dashboard-figure.png` — the raw render carries dead backdrop around the plate
+  and that backdrop sits *behind* the design's `drop-shadow(...)`, so the shadow
+  would trace a rectangle instead of the plate. Cropped to content and the flat
+  backdrop keyed to transparent. **Replaced 2026-08-08** with a render of the
+  rebuilt Bosh sahifa (stats → chart → kurslar → So'nggi testlar); now 1532×925,
+  backdrop `#F6F3F0`.
   The key marches in from each row's ends and stops at the first sustained run
   of plate-bright pixels — a plain threshold combs the near-white sidebar, and
   a flood fill leaks through the plate's dark border. Row boundaries are then

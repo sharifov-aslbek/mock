@@ -346,7 +346,8 @@ export function useEssayCenter() {
 
   const goToTopUp = async () => {
     needsTopUp.value = false
-    await router.push('/narxlar')
+    // Signed-in flow, so straight to the platform's own pricing screen.
+    await router.push('/tanga')
   }
 
   const wordCount = computed(() =>

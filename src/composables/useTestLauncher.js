@@ -120,7 +120,10 @@ export function useTestLauncher() {
 
   const goToTopUp = async () => {
     close()
-    await router.push('/narxlar')
+    // /tanga, not /narxlar: this composable only runs on platform screens, where
+    // the user is signed in. /narxlar would bounce through the guard to the same
+    // place, but the marketing page is not this flow's destination.
+    await router.push('/tanga')
   }
 
   return {

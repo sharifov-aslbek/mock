@@ -14,12 +14,14 @@ import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
 import EmptyState from '@/components/app/EmptyState.vue'
 import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
+import FileDropOverlay from '@/components/app/FileDropOverlay.vue'
 import {
   MAX_ESSAY_LENGTH,
   MAX_IMAGE_COUNT,
   MAX_TOPIC_LENGTH,
   useEssayCenter,
 } from '@/composables/useEssayCenter'
+import { useWindowFileDrop } from '@/composables/useWindowFileDrop'
 
 defineProps({
   user: { type: Object, required: true },
@@ -78,16 +80,26 @@ const saveTopic = async () => {
 
 // ——— Uploads ——————————————————————————————————————————————————————————
 const fileInput = ref(null)
-const isDragging = ref(false)
 
 const onFileChange = (event) => {
   addFiles(event.target.files)
   event.target.value = '' // let the same file be picked again
 }
-const onDrop = (event) => {
-  isDragging.value = false
-  addFiles(event.dataTransfer?.files)
-}
+
+// The whole window is the drop target while a topic is open — and Ctrl+V works
+// too. The dashed box says where, it isn't the only place that takes a file.
+// Dropping a photo while the Yozish tab is showing means the student meant to
+// upload after all, so the page switches for them; the draft is left alone.
+const { isDragging } = useWindowFileDrop(
+  (files) => {
+    if (mode.value !== 'upload') mode.value = 'upload'
+    addFiles(files)
+  },
+  () => view.value === 'writer' && !isReviewing.value,
+  (message) => {
+    submitError.value = message
+  },
+)
 </script>
 
 <template>
@@ -274,18 +286,18 @@ const onDrop = (event) => {
             @click="fileInput?.click()"
             @keydown.enter.prevent="fileInput?.click()"
             @keydown.space.prevent="fileInput?.click()"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="onDrop"
           >
             <span class="flex h-12 w-12 items-center justify-center rounded-full bg-app-tile text-app-ink">
               <AppIcon name="upload" :size="22" />
             </span>
             <p class="mt-3 text-[14px] font-semibold text-app-ink">
-              Insho rasmini shu yerga tashlang
+              Insho rasmini tashlang
             </p>
             <p class="mt-1 text-[12.5px] text-app-muted">
-              yoki bosing · JPG, PNG, WEBP · ko‘pi bilan {{ MAX_IMAGE_COUNT }} ta
+              Sahifaning istalgan joyiga tashlang, bosing yoki Ctrl+V bilan qo‘ying
+            </p>
+            <p class="mt-1 text-[12.5px] text-app-muted">
+              JPG, PNG, WEBP · ko‘pi bilan {{ MAX_IMAGE_COUNT }} ta
             </p>
           </div>
           <input
@@ -415,6 +427,12 @@ const onDrop = (event) => {
 
     <!-- AI is grading — the same takeover the test essay flow uses -->
     <EssayProcessingOverlay v-if="isReviewing" mode="checking" />
+
+    <FileDropOverlay
+      :show="isDragging"
+      title="Insho rasmini tashlang"
+      :hint="`JPG, PNG, WEBP · ko‘pi bilan ${MAX_IMAGE_COUNT} ta`"
+    />
 
     <!-- Add a topic -->
     <Teleport to="body">

@@ -49,7 +49,9 @@ const navItems = computed(() => [
   // { label: t('navbar.items.biology'), to: '/biologiya' },
   // Mashq page hidden until it's finished — re-enable when complete
   // { label: t('navbar.items.mashq'), to: '/mashq' },
-  { label: t('navbar.result'), to: '/result-exam' },
+  // Both of these now live in the platform shell. A signed-in visitor on a
+  // public subject page clicking them is meant to be pulled into the shell.
+  { label: t('navbar.result'), to: '/natijalarim' },
   { label: t('navbar.pricing'), to: '/narxlar' },
 ])
 
@@ -80,7 +82,7 @@ const isActiveItem = (item: { to?: string | Record<string, unknown>; label: stri
   }
 
   if (item.label === t('navbar.result')) {
-    return route.path === '/result-exam'
+    return route.path === '/natijalarim'
   }
 
   return false
@@ -210,7 +212,7 @@ onBeforeUnmount(() => {
             class="absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] py-1 shadow-xl"
           >
             <router-link
-              to="/profile"
+              to="/sozlamalar"
               class="block px-4 py-2.5 text-[14px] text-[#e0e0e0] transition hover:bg-white/5"
               @click="isUserMenuOpen = false"
             >
@@ -229,7 +231,7 @@ onBeforeUnmount(() => {
 
         <router-link
           v-if="authStore.userInfo"
-          to="/profile"
+          to="/sozlamalar"
           class="flex h-9 w-9 items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold uppercase text-white sm:hidden"
         >
           {{ userInitial }}

@@ -749,6 +749,7 @@ const hasUserEssay = computed(
           :analysis="sampleEssayAnalysis"
           :essay-text="sampleEssayText"
           :band-total="sampleEssayBandTotal"
+          section-label="IV"
           sample
         >
 

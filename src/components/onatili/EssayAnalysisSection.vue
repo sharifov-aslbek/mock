@@ -17,6 +17,11 @@
 // by category, and cross-linked with the issue inspector on the right.
 // Quotes that don't match (e.g. OCR drift) still appear in the inspector —
 // they just have no inline anchor, so nothing breaks.
+//
+// Styling is the platform's (docs/DESIGN.md): app-* tokens, AppCard surfaces,
+// one border weight. The per-category colours stay — they are the only thing
+// tying a highlight in the essay to its card in the inspector, so they are
+// structural here rather than decoration.
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ESSAY_BAND_MAX, ESSAY_SCALED_MAX, catMeta, normalizeEssayAnalysis } from '@/utils/essayAnalysis'
 
@@ -30,6 +35,10 @@ const props = defineProps({
   bandMax: { type: Number, default: ESSAY_BAND_MAX },
   // Design-demo mode: shows the "Namuna" badge + explanatory note.
   sample: { type: Boolean, default: false },
+  // Section numeral, e.g. "IV" on the demo results page where this is the
+  // fourth block. Empty everywhere else: on a page that has no sections I, II
+  // and III, a lone "IV" beside the heading is a label for nothing.
+  sectionLabel: { type: String, default: '' },
 })
 
 const normalized = computed(() => normalizeEssayAnalysis(props.analysis))
@@ -163,13 +172,40 @@ const flashError = (id) => {
     if (activeErrorId.value === id) activeErrorId.value = ''
   }, 1500)
 }
+// The two panes scroll inside themselves (see the template), so jumping between
+// a highlight and its comment must move the pane, not the document.
+// `scrollIntoView` walks every scrollable ancestor including the window, which
+// scrolled the page out from under the other pane — the thing this layout
+// exists to prevent. Below lg the panes do not scroll, so there we fall back to
+// the browser's own behaviour, and only when the target is actually off screen.
+const essayPane = ref(null)
+const inspectorPane = ref(null)
+
+const revealIn = (el, pane) => {
+  if (!el) return
+
+  if (pane && pane.scrollHeight > pane.clientHeight + 2) {
+    const elRect = el.getBoundingClientRect()
+    const paneRect = pane.getBoundingClientRect()
+    const top =
+      pane.scrollTop + (elRect.top - paneRect.top) - (pane.clientHeight - elRect.height) / 2
+    pane.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    return
+  }
+
+  const rect = el.getBoundingClientRect()
+  if (rect.top < 0 || rect.bottom > window.innerHeight) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
+
 const jumpToIssue = (id) => {
   if (!isCatActive(flatErrors.value.find((error) => error.id === id)?.cat)) return
-  issueEls[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  revealIn(issueEls[id], inspectorPane.value)
   flashError(id)
 }
 const jumpToMark = (id) => {
-  markEls[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  revealIn(markEls[id], essayPane.value)
   flashError(id)
 }
 
@@ -222,98 +258,117 @@ const quoteMarkStyle = (error) => {
 </script>
 
 <template>
-  <section class="mt-12">
-    <!-- Section header with the essay stats as one quiet typographic strip -->
-    <div class="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="font-mono-custom text-[11px] font-semibold tracking-[0.18em] text-[#bcb6a9]">IV</span>
-          <h2 class="text-xl font-bold tracking-[-0.01em] text-[#1a1814]">Insho tahlili</h2>
-          <span class="font-mono-custom rounded-full border border-[#d8d3ca] bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8a857c]">
-            AI tekshiruvi<template v-if="sample"> &bull; Namuna</template>
+  <section class="mt-2">
+    <!-- Everything above the essay is one strip.
+         This header used to be a heading, a badge, a demo note, two verdict
+         ticks, four 30px figures, a boxed summary and a second heading — ten
+         blocks before a student reached a single word of their own writing.
+         The score, the verdicts and the AI's summary survive because they are
+         the analysis; the labels around them were furniture. -->
+    <!-- items-end so every caption sits on one line despite the figures above
+         them being three different sizes. -->
+    <div class="flex flex-wrap items-end gap-x-7 gap-y-4 border-b border-app-border pb-5">
+      <!-- The band score is the answer to "how did I do", so it is twice the
+           size of the figures that qualify it. -->
+      <div class="shrink-0">
+        <p class="flex items-baseline gap-1">
+          <span class="text-[44px] font-bold leading-none tracking-[-0.04em] tabular-nums text-app-ink">
+            {{ bandTotal ?? '—' }}
           </span>
-        </div>
-        <p v-if="sample" class="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#8a857c]">
-          Demo rejimida tahlil namunaviy insho ustida ko‘rsatilmoqda — haqiqiy imtihonda AI aynan shu ko‘rinishda sizning inshoingizni tekshiradi.
+          <span class="text-[20px] font-semibold leading-none tabular-nums text-app-muted">
+            /{{ bandMax }}
+          </span>
         </p>
+        <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
+          Insho balli
+        </p>
+      </div>
 
-        <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
-          <span class="flex items-center gap-1.5 text-[12px] font-medium text-[#6b6760]">
-            <svg v-if="normalized.onTopic" class="h-3.5 w-3.5 text-[#4f7a55]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-              <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <svg v-else class="h-3.5 w-3.5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-              <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
-            </svg>
-            {{ normalized.onTopic ? 'Mavzuga mos' : 'Mavzudan chetlashgan' }}
-          </span>
-          <span class="flex items-center gap-1.5 text-[12px] font-medium text-[#6b6760]">
-            <svg v-if="!normalized.copiedSuspected" class="h-3.5 w-3.5 text-[#4f7a55]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-              <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <svg v-else class="h-3.5 w-3.5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-              <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
-            </svg>
-            {{ normalized.copiedSuspected ? 'Ko‘chirma gumoni bor' : 'Ko‘chirmakashlik aniqlanmadi' }}
-          </span>
+      <span class="hidden h-12 w-px shrink-0 self-end bg-app-border sm:block"></span>
+
+      <div class="flex flex-wrap items-end gap-x-7 gap-y-4">
+        <div>
+          <p class="flex items-baseline gap-0.5">
+            <span class="text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-app-ink">
+              {{ scaledBandTotal ?? '—' }}
+            </span>
+            <span class="text-[14px] font-semibold leading-none tabular-nums text-app-muted">
+              /{{ ESSAY_SCALED_MAX }}
+            </span>
+          </p>
+          <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
+            Shkala
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-app-ink">
+            {{ essayWordCount }}
+          </p>
+          <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
+            So‘z
+          </p>
+        </div>
+
+        <div>
+          <p class="text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-app-ink">
+            {{ flatErrors.length }}
+          </p>
+          <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
+            Xato
+          </p>
         </div>
       </div>
 
-      <div class="flex shrink-0 items-center gap-5 sm:gap-7">
-        <div>
-          <p class="text-[30px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">
-            {{ bandTotal ?? '—' }}<span class="text-[16px] font-semibold text-[#a39e94]">/{{ bandMax }}</span>
-          </p>
-          <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">Insho balli</p>
-        </div>
-        <span class="h-9 w-px bg-[#d8d3ca]"></span>
-        <div>
-          <p class="text-[30px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">
-            {{ scaledBandTotal ?? '—' }}<span class="text-[16px] font-semibold text-[#a39e94]">/{{ ESSAY_SCALED_MAX }}</span>
-          </p>
-          <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">75 ballik shkala</p>
-        </div>
-        <span class="h-9 w-px bg-[#d8d3ca]"></span>
-        <div>
-          <p class="text-[30px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">{{ essayWordCount }}</p>
-          <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">So‘z</p>
-        </div>
-        <span class="h-9 w-px bg-[#d8d3ca]"></span>
-        <div>
-          <p class="text-[30px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#1a1814]">{{ flatErrors.length }}</p>
-          <p class="font-mono-custom mt-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">Xato</p>
-        </div>
-      </div>
+      <span class="flex flex-wrap items-center gap-x-4 gap-y-1.5 sm:ml-auto">
+        <span class="flex items-center gap-1.5 text-[13px] text-app-muted">
+          <svg v-if="normalized.onTopic" class="h-3.5 w-3.5 shrink-0 text-app-good" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else class="h-3.5 w-3.5 shrink-0 text-app-bad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
+          </svg>
+          {{ normalized.onTopic ? 'Mavzuga mos' : 'Mavzudan chetlashgan' }}
+        </span>
+        <span class="flex items-center gap-1.5 text-[13px] text-app-muted">
+          <svg v-if="!normalized.copiedSuspected" class="h-3.5 w-3.5 shrink-0 text-app-good" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else class="h-3.5 w-3.5 shrink-0 text-app-bad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
+          </svg>
+          {{ normalized.copiedSuspected ? 'Ko‘chirma gumoni bor' : 'Ko‘chirmakashlik aniqlanmadi' }}
+        </span>
+        <span
+          v-if="sample"
+          class="rounded-full border border-app-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-app-muted"
+        >
+          Namuna
+        </span>
+      </span>
     </div>
 
-    <!-- AI overall verdict (global_notes) — when the essay is off-topic or
-         ungradable this is the only place the AI explains why. -->
-    <div
+    <!-- The AI's overall verdict. On an off-topic or ungradable essay this is
+         the only place it explains why, so it stays — as text, not a card. -->
+    <p
       v-if="normalized.globalNotes"
-      class="mb-8 rounded-[18px] bg-white px-5 py-4 ring-1 ring-[#eeeae2] shadow-[0_10px_30px_rgba(26,24,20,0.05)] sm:px-6"
+      class="mt-4 max-w-[900px] text-[14px] leading-[1.7] text-app-muted"
     >
-      <p class="font-mono-custom mb-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a857c]">Umumiy xulosa</p>
-      <p class="text-[13.5px] leading-relaxed text-[#3a362f]">{{ normalized.globalNotes }}</p>
-    </div>
-
-    <!-- Error analysis -->
-    <div class="mb-4 flex flex-wrap items-baseline gap-3">
-      <h3 class="text-[16px] font-bold tracking-[-0.01em] text-[#1a1814]">Xatolar tahlili</h3>
-      <span class="text-[11.5px] font-medium tabular-nums text-[#a39e94]">{{ visibleErrorCount }} ta xato ko‘rsatilmoqda</span>
-    </div>
+      {{ normalized.globalNotes }}
+    </p>
 
     <!-- Filter chips -->
-    <div class="mb-3 flex flex-wrap gap-2">
+    <div class="mb-4 mt-5 flex flex-wrap items-center gap-2">
       <button
         type="button"
         @click="toggleAllCats"
         class="inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition active:scale-[0.98]"
         :class="allCatsActive
-          ? 'border-[#1a1814] bg-[#1a1814] text-white'
-          : 'border-[#d8d3ca] bg-white text-[#6b6760] hover:border-[#1a1814] hover:text-[#1a1814]'"
+          ? 'border-app-ink bg-app-ink text-app-surface'
+          : 'border-app-border bg-app-surface text-app-muted hover:border-app-ink hover:text-app-ink'"
       >
         Barchasi
-        <span class="tabular-nums" :class="allCatsActive ? 'text-white/60' : 'text-[#bcb6a9]'">{{ flatErrors.length }}</span>
+        <span class="tabular-nums" :class="allCatsActive ? 'text-app-surface/60' : 'text-app-muted'">{{ flatErrors.length }}</span>
       </button>
       <button
         v-for="cat in errorCatsWithHits"
@@ -323,35 +378,47 @@ const quoteMarkStyle = (error) => {
         :aria-pressed="isCatActive(cat)"
         class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition active:scale-[0.98]"
         :class="isCatActive(cat)
-          ? 'border-[#d8d3ca] bg-white text-[#3a362f]'
-          : 'border-[#e5e2dc] bg-transparent text-[#b3ada2] opacity-70'"
+          ? 'border-app-border bg-app-surface text-app-ink'
+          : 'border-app-border bg-transparent text-app-muted opacity-70'"
       >
         <span
           class="inline-block h-2.5 w-2.5 rounded-[3px]"
-          :style="{ backgroundColor: isCatActive(cat) ? catMeta(cat).color : '#d8d3ca' }"
+          :style="{ backgroundColor: isCatActive(cat) ? catMeta(cat).color : 'var(--color-app-border)' }"
         ></span>
         {{ catMeta(cat).label }}
-        <span class="tabular-nums text-[#bcb6a9]">{{ catCount(cat) }}</span>
+        <span class="tabular-nums text-app-muted">{{ catCount(cat) }}</span>
       </button>
+
+      <!-- What came back clean, inline on the same row rather than as its own
+           line: it belongs with the categories it is the counterpart to. -->
+      <span
+        v-if="cleanCats.length"
+        class="flex items-center gap-1.5 text-[12px] text-app-muted sm:ml-2"
+      >
+        <svg class="h-3.5 w-3.5 shrink-0 text-app-good" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+          <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Xato topilmadi: {{ cleanCats.map((cat) => catMeta(cat).label).join(', ') }}
+      </span>
     </div>
 
-    <!-- Clean criteria note -->
-    <p v-if="cleanCats.length" class="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#a39e94]">
-      <svg class="h-3.5 w-3.5 text-[#4f7a55]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-        <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-      Xato topilmadi:
-      <span class="font-semibold text-[#8a857c]">{{ cleanCats.map((cat) => catMeta(cat).label).join(', ') }}</span>
-    </p>
-
+    <!-- Both panes are capped at the viewport and scroll inside themselves, so
+         the essay and its feedback are on screen together. Left as two natural
+         columns, the inspector outran the essay and scrolling to read a comment
+         carried the text it refers to off the top of the page.
+         Below lg they stack and scroll with the page — two nested scroll areas
+         on a phone is worse than the problem. -->
     <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <!-- Annotated essay -->
-      <article class="rounded-[22px] bg-white p-6 ring-1 ring-[#eeeae2] shadow-[0_26px_54px_-26px_rgba(26,24,20,0.22)] sm:p-8">
-        <h4 class="text-[16px] font-bold tracking-[-0.01em] text-[#1a1814]">O‘quvchi inshosi</h4>
-        <p class="font-mono-custom mb-5 mt-1 text-[10px] font-normal uppercase tracking-[0.14em] text-[#a39e94]">
+      <article
+        ref="essayPane"
+        class="rounded-2xl bg-app-surface p-6 border border-app-border shadow-app-card sm:p-8 lg:max-h-[76vh] lg:overflow-y-auto lg:[scrollbar-width:thin]"
+      >
+        <h4 class="text-[16px] font-bold tracking-[-0.01em] text-app-ink">O‘quvchi inshosi</h4>
+        <p class="mb-5 mt-1 text-[10px] font-normal uppercase tracking-[0.14em] text-app-muted">
           Belgilangan joyni bosing — o‘ngdagi izoh bilan bog‘lanadi
         </p>
-        <div class="space-y-3 text-[15px] leading-[2] text-[#3a362f]">
+        <div class="space-y-3 text-[15px] leading-[2] text-app-ink">
           <p v-for="(segments, pIndex) in segmentedParagraphs" :key="pIndex">
             <template v-for="(segment, sIndex) in segments" :key="sIndex">
               <!-- Sentence-level (structure) block -->
@@ -395,12 +462,16 @@ const quoteMarkStyle = (error) => {
       </article>
 
       <!-- Issue inspector -->
-      <aside class="flex flex-col gap-2 lg:sticky lg:top-6">
+      <!-- pr-1 keeps the cards' shadow off the scrollbar gutter. -->
+      <aside
+        ref="inspectorPane"
+        class="flex flex-col gap-2 lg:max-h-[76vh] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
+      >
         <div v-for="group in inspectorGroups" :key="group.cat" v-show="isCatActive(group.cat)">
           <div class="mb-2 mt-1.5 flex items-center gap-2 px-0.5">
             <span class="inline-block h-2.5 w-2.5 rounded-[3px]" :style="{ backgroundColor: group.meta.color }"></span>
-            <span class="text-[12px] font-bold text-[#1a1814]">{{ group.meta.label }}</span>
-            <span class="text-[11px] font-semibold tabular-nums text-[#a39e94]">{{ group.errors.length }}</span>
+            <span class="text-[12px] font-bold text-app-ink">{{ group.meta.label }}</span>
+            <span class="text-[11px] font-semibold tabular-nums text-app-muted">{{ group.errors.length }}</span>
           </div>
           <button
             v-for="error in group.errors"
@@ -411,12 +482,12 @@ const quoteMarkStyle = (error) => {
             @mouseenter="setActiveError(error.id)"
             @mouseleave="clearActiveError(error.id)"
             @click="jumpToMark(error.id)"
-            class="mb-2.5 block w-full rounded-[14px] bg-white px-4 py-3.5 text-left ring-1 ring-[#eeeae2] shadow-[0_10px_30px_rgba(26,24,20,0.05)] transition duration-150"
+            class="mb-2.5 block w-full rounded-xl bg-app-surface px-4 py-3.5 text-left border border-app-border shadow-app-card transition duration-150"
           >
-            <p class="text-[13px] font-semibold leading-[1.5] text-[#1a1814]">
+            <p class="text-[13px] font-semibold leading-[1.5] text-app-ink">
               <span :style="quoteMarkStyle(error)" class="px-0.5">{{ error.quote.length > 90 ? `${error.quote.slice(0, 90)}…` : error.quote }}</span>
             </p>
-            <p class="mt-2 flex gap-2 text-[12px] leading-[1.55] text-[#6b6760]">
+            <p class="mt-2 flex gap-2 text-[12px] leading-[1.55] text-app-muted">
               <svg class="mt-0.5 h-3.5 w-3.5 shrink-0" :style="{ color: catMeta(error.cat).color }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 8v4m0 3h.01" stroke-linecap="round" />
