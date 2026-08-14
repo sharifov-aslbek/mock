@@ -43,14 +43,27 @@ const routes = [
         path: 'natijalar',
         name: 'natijalar',
         // Public student success stories — proof for visitors who have never
-        // registered. Deliberately NOT /result-exam, which is a logged-in
-        // user's own results page.
+        // registered. A signed-in student asking for "natijalar" means their
+        // own results, so the guard below sends them to /natijalarim; this page
+        // stays the indexed marketing one for everybody else.
         component: () => import('@/views/marketing/NatijalarPage.vue'),
         meta: {
           seo: {
             title: 'Natijalar',
             description:
               'MilliyMock o‘quvchilarining milliy sertifikat imtihonlaridagi natijalari va muvaffaqiyat hikoyalari.',
+          },
+        },
+      },
+      {
+        path: 'fikrlar',
+        name: 'fikrlar',
+        component: () => import('@/views/marketing/FikrlarPage.vue'),
+        meta: {
+          seo: {
+            title: 'Fikrlar',
+            description:
+              'MilliyMock bilan milliy sertifikatga tayyorlangan o‘quvchilarning fikrlari va tajribalari.',
           },
         },
       },
@@ -67,17 +80,34 @@ const routes = [
         },
       },
       {
-        path: 'ai-tekshiruv',
-        name: 'ai-tekshiruv',
-        component: () => import('@/views/marketing/AiTekshiruvPage.vue'),
+        // Courses are not built yet; the page says so rather than the nav item
+        // pointing at a four-word feature column that implies they exist.
+        path: 'kurslar',
+        name: 'marketing-kurslar',
+        component: () => import('@/views/marketing/KurslarPage.vue'),
         meta: {
           seo: {
-            title: 'AI tekshiruv',
+            title: 'Kurslar',
+            description:
+              'MilliyMock kurslari tayyorlanmoqda: video darslar, mavzu bo‘yicha mashqlar va kurs ichida natija kuzatuvi.',
+          },
+        },
+      },
+      {
+        // The essay analysis screen, which used to be a tab inside /platforma.
+        path: 'essay-tekshirish',
+        name: 'essay-tekshirish',
+        component: () => import('@/views/marketing/EssayTekshirishPage.vue'),
+        meta: {
+          seo: {
+            title: 'Essay tekshirish',
             description:
               'Insho va yozma ishlaringizni sun’iy intellekt tekshiradi: xatolar, baho va aniq tavsiyalar.',
           },
         },
       },
+      // The old placeholder address for the same subject.
+      { path: 'ai-tekshiruv', redirect: { name: 'essay-tekshirish' } },
     ],
   },
 
@@ -257,15 +287,54 @@ const routes = [
         meta: { requiresAuth: true, appTitle: 'Essay tekshirish', appIcon: 'essay', seo: { title: 'Essay tekshirish', robots: 'noindex, nofollow' } },
       },
       {
+        // The student's own results — mock attempts and saved essay checkings.
+        // `/natijalar` is the public marketing page of the same name, so this
+        // one is "natijalarim", mirroring how /narxlar and /tanga split.
+        path: 'natijalarim',
+        name: 'natijalarim',
+        component: () => import('@/views/app/NatijalarPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Natijalar', appIcon: 'results', seo: { title: 'Natijalar', robots: 'noindex, nofollow' } },
+      },
+      {
+        // One saved essay checking's analysis. Persisted client-side — see
+        // utils/essayCheckingStorage.js.
+        path: 'natijalarim/insho/:id',
+        name: 'essay-analysis',
+        component: () => import('@/views/app/EssayAnalysisPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Insho natijasi', appIcon: 'essay', seo: { title: 'Insho natijasi', robots: 'noindex, nofollow' } },
+      },
+      {
+        // Not designed yet. Bosh sahifa's "Davom etayotgan kurslar" rows do not
+        // point here — they lead to the subject's own test list, which is the
+        // thing a student can actually continue today.
+        //
+        // `kurslarim`, not `kurslar`: the public /kurslar page is the marketing
+        // one, exactly as /natijalar is public and /natijalarim is the student's
+        // own. Both layouts mount at '/', so the marketing child would otherwise
+        // shadow this one.
+        path: 'kurslarim',
+        name: 'kurslar',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Kurslar', appIcon: 'cap', seo: { title: 'Kurslar', robots: 'noindex, nofollow' } },
+      },
+      {
+        path: 'statistika',
+        name: 'statistika',
+        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        meta: { requiresAuth: true, appTitle: 'Statistika', appIcon: 'stats', seo: { title: 'Statistika', robots: 'noindex, nofollow' } },
+      },
+      {
         path: 'yordam',
         name: 'yordam',
         component: () => import('@/views/app/AppPlaceholderPage.vue'),
         meta: { requiresAuth: true, appTitle: 'Yordam', appIcon: 'help', seo: { title: 'Yordam', robots: 'noindex, nofollow' } },
       },
       {
+        // Account settings *and* profile: one destination, not the three
+        // competing ones (sidebar card, topbar menu, /profile) there used to be.
         path: 'sozlamalar',
         name: 'sozlamalar',
-        component: () => import('@/views/app/AppPlaceholderPage.vue'),
+        component: () => import('@/views/app/SozlamalarPage.vue'),
         meta: { requiresAuth: true, appTitle: 'Sozlamalar', appIcon: 'settings', seo: { title: 'Sozlamalar', robots: 'noindex, nofollow' } },
       },
       {
@@ -290,31 +359,10 @@ const routes = [
     },
     children: [
       {
-        path: 'result-exam',
-        name: 'result-exam',
-        component: () => import('@/views/ResultExamPage.vue'),
-        meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } },
-      },
-      {
-        // A single saved essay checking's analysis (opened from the Insholar tab
-        // of the Natijalar page). Persisted client-side — see
-        // utils/essayCheckingStorage.js.
-        path: 'result-exam/essay/:id',
-        name: 'essay-result',
-        component: () => import('@/views/EssayResultPage.vue'),
-        meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } },
-      },
-      {
         path: 'test',
         name: 'test',
         component: () => import('@/views/TestPage.vue'),
         meta: { requiresAuth: true, chrome: false, support: false, seo: { robots: 'noindex, nofollow' } },
-      },
-      {
-        path: 'profile',
-        name: 'profile',
-        component: () => import('@/views/ProfilePage.vue'),
-        meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } },
       },
       {
         path: 'explanation',
@@ -352,6 +400,18 @@ const routes = [
       },
     ],
   },
+
+  // ── retired paths ────────────────────────────────────────────────────────
+  // These screens moved into the platform shell. Kept as redirects rather than
+  // deleted: they are in browser history, and in links students send each
+  // other. Outside any layout group, so only the target's own guard runs.
+  { path: '/result-exam', redirect: (to) => ({ name: 'natijalarim', query: to.query }) },
+  {
+    path: '/result-exam/essay/:id',
+    redirect: (to) => ({ name: 'essay-analysis', params: { id: to.params.id } }),
+  },
+  // Profile and settings were two screens for one thing; settings is now both.
+  { path: '/profile', redirect: { name: 'sozlamalar' } },
 ]
 
 const router = createRouter({
@@ -378,6 +438,14 @@ router.beforeEach((to) => {
   // get /narxlar, which stays indexed.
   if (to.path === '/narxlar' && useAuthStore().isAuthenticated) {
     return { name: 'tanga', query: to.query }
+  }
+
+  // Same split for results: /natijalar is the public success-stories page, but
+  // a signed-in student typing it means their own results. Without this they
+  // would land on the marketing page — carrying the marketing navbar, which
+  // drops them out of the platform shell.
+  if (to.path === '/natijalar' && useAuthStore().isAuthenticated) {
+    return { name: 'natijalarim', query: to.query }
   }
 
   if (!to.meta?.requiresAuth) {

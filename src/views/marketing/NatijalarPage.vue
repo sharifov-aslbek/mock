@@ -2,8 +2,8 @@
 // PLACEHOLDER — the design for this page has not been supplied yet.
 //
 // "Natijalar" here means *public student success stories*: proof for visitors
-// who have never registered. It is NOT /result-exam, which is a logged-in
-// user's own results page and stays behind auth.
+// who have never registered. It is NOT /natijalarim, the logged-in student's
+// own results — the router sends signed-in users there instead of here.
 </script>
 
 <template>
