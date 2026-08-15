@@ -75,12 +75,18 @@ watch(
       </div>
     </div>
 
-    <AppBottomNav :drawer-open="isDrawerOpen" @open-menu="isDrawerOpen = true" />
+    <!-- Toggle, not open: "Ko'proq" highlights while the drawer is up, so
+         pressing it again has to be the way back out. -->
+    <AppBottomNav :drawer-open="isDrawerOpen" @toggle-menu="isDrawerOpen = !isDrawerOpen" />
 
     <Teleport to="body">
       <div v-if="isDrawerOpen" class="fixed inset-0 z-[200] lg:hidden">
         <div class="absolute inset-0 bg-black/40" @click="isDrawerOpen = false"></div>
-        <aside class="absolute inset-y-0 left-0 w-[272px] max-w-[86vw] border-r border-app-border">
+        <!-- The tab bar sits above this overlay so "Ko'proq" can close it, so
+             the drawer keeps that strip clear of its own content. -->
+        <aside
+          class="absolute inset-y-0 left-0 w-[272px] max-w-[86vw] border-r border-app-border pb-[calc(64px+env(safe-area-inset-bottom))]"
+        >
           <button
             type="button"
             class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full text-app-muted hover:bg-app-tile"

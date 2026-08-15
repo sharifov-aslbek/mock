@@ -18,9 +18,9 @@ const { start } = usePlatformEntry()
     <div
       class="flex animate-fade-up flex-col items-start lg:col-start-1 lg:row-start-1"
     >
-      <!-- DM Sans, not the Playfair `font-display`: the serif set the headline
-           apart from every other heading on the site, including the one on
-           /platforma directly under it in the nav. -->
+      <!-- DM Sans, not the Playfair `font-display`. The rule across the
+           marketing site is now: page titles are sans, section headings inside
+           a page keep the serif. -->
       <h1
         class="mb-[28px] text-[40px] font-bold leading-[1.08] tracking-[-0.025em] sm:text-[56px] lg:text-[72px]"
       >

@@ -99,8 +99,11 @@ const testimonials = [
     >
       <p class="mb-[16px] text-[14px] font-medium tracking-[0.04em] text-muted">— Fikrlar</p>
 
+      <!-- DM Sans, like every other page title on the site (the hero,
+           /platforma, /kurslar). Playfair stays on section headings inside a
+           page; it is no longer what a page announces itself in. -->
       <h1
-        class="mx-auto mb-[20px] max-w-[760px] font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.015em] sm:text-[44px] lg:text-[54px]"
+        class="mx-auto mb-[20px] max-w-[760px] text-[34px] font-bold leading-[1.1] tracking-[-0.025em] sm:text-[44px] lg:text-[54px]"
       >
         O‘quvchilar nima deydi
       </h1>

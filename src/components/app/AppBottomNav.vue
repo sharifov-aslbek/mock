@@ -19,7 +19,7 @@ defineProps({
   drawerOpen: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['openMenu'])
+const emit = defineEmits(['toggleMenu'])
 const route = useRoute()
 
 // Same paths as the sidebar — the platform's own, never one that redirects
@@ -36,7 +36,7 @@ const isActive = (to) => route.path === to || route.path.startsWith(`${to}/`)
 
 <template>
   <nav
-    class="fixed inset-x-0 bottom-0 z-[100] border-t border-app-border bg-app-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+    class="fixed inset-x-0 bottom-0 z-[210] border-t border-app-border bg-app-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
     aria-label="Asosiy bo‘limlar"
   >
     <div class="mx-auto flex max-w-[520px] items-stretch">
@@ -61,7 +61,7 @@ const isActive = (to) => route.path === to || route.path.startsWith(`${to}/`)
         class="flex flex-1 flex-col items-center gap-1 px-1 pb-2 pt-2.5 text-[11px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-app-ink"
         :class="drawerOpen ? 'font-semibold text-app-ink' : 'font-medium text-app-muted'"
         :aria-expanded="drawerOpen"
-        @click="emit('openMenu')"
+        @click="emit('toggleMenu')"
       >
         <AppIcon name="menu" :size="21" />
         <span>Ko‘proq</span>
