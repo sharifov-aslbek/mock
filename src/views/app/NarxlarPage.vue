@@ -72,9 +72,9 @@ onMounted(() => {
 const HOW_IT_WORKS = [
   {
     key: 'cost',
-    numeral: '1',
-    title: '1 tanga = 1 premium test',
-    description: 'Har bir premium testni boshlash uchun 1 tanga kerak bo‘ladi.',
+    numeral: '2',
+    title: '2 tanga = 1 premium test',
+    description: 'Har bir premium testni boshlash uchun 2 tanga kerak bo‘ladi.',
   },
   {
     key: 'expiry',
