@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
 import { isPremiumTest, isTestPurchased, testTokenCost } from '@/utils/premium'
 import { subjectIcon } from '@/utils/subjects'
-import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
+import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
 
 const props = defineProps({
   test: {
@@ -189,8 +189,9 @@ const openTest = async () => {
     console.error(error)
     // start-test is the one endpoint gated on a confirmed phone. Rather than
     // showing that 403 as an error, hand the user the form that fixes it and
-    // bring them back to this test afterwards.
-    if (error?.phoneNotConfirmed) {
+    // bring them back to this test afterwards. (TEMP: skipped while SMS is
+    // down — flag in utils/postAuth.js; the error shows inline instead.)
+    if (PHONE_VERIFY_REDIRECTS_ENABLED && error?.phoneNotConfirmed) {
       await router.push({
         path: COMPLETE_PROFILE_PATH,
         query: { redirect: route.fullPath },

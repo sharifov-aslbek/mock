@@ -7,7 +7,7 @@ import { onMounted, ref } from 'vue'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
-import { resolvePostAuthRoute } from '@/utils/postAuth'
+import { PHONE_VERIFY_REDIRECTS_ENABLED, resolvePostAuthRoute } from '@/utils/postAuth'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -65,7 +65,9 @@ const submitPasswordLogin = async () => {
   } catch (error: any) {
     // An account whose phone was never OTP-confirmed can't log in — hand the
     // user to the verify flow with the number they just tried prefilled.
-    if (error?.phoneNotVerified) {
+    // (TEMP: skipped while SMS is down — the flag lives in utils/postAuth.js;
+    // the localized error stays on screen instead.)
+    if (PHONE_VERIFY_REDIRECTS_ENABLED && error?.phoneNotVerified) {
       const digits = identifier.value.replace(/\D/g, '')
       await router.push({
         path: '/verify-phone',

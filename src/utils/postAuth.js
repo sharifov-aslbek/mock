@@ -3,6 +3,20 @@ import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 
 export const COMPLETE_PROFILE_PATH = '/complete-profile'
 
+// TEMP (2026-08-16): the SMS provider is down again, so nothing that ends in an
+// OTP can complete — /complete-profile (verify-my-phone) and /verify-phone are
+// dead ends right now. While this is false, no flow redirects INTO phone
+// verification: post-auth routing goes straight to the destination (a Google /
+// Telegram session included), start-test's "verify your phone" 403 falls
+// through as a plain error, and login's "verify first" hand-off is skipped. The
+// backend's own gates were disabled at the same time. Registration by phone
+// simply won't work meanwhile — accepted; the point is that signed-in users
+// keep using the site. Set back to true once SMS works again.
+//
+// Read by: resolvePostAuthRoute below, views/Login.vue, components/MathTestCard.vue,
+// views/TestPage.vue, composables/useTestLauncher.js, views/CompleteProfilePage.vue.
+export const PHONE_VERIFY_REDIRECTS_ENABLED = false
+
 // Where to send someone who has just authenticated, or who just tried to start
 // a test without a usable profile.
 //
@@ -22,6 +36,11 @@ export async function resolvePostAuthRoute(rawDestination = PLATFORM_HOME) {
   const destination = String(rawDestination || '').startsWith(COMPLETE_PROFILE_PATH)
     ? PLATFORM_HOME
     : rawDestination
+
+  // TEMP: SMS down — never detour into /complete-profile (see the flag above).
+  if (!PHONE_VERIFY_REDIRECTS_ENABLED) {
+    return destination
+  }
 
   try {
     await authStore.getUserInfo()

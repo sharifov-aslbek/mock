@@ -21,7 +21,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
 import { getTestApiBaseUrl } from '@/utils/api'
-import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
+import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
 
 const route = useRoute()
 const router = useRouter()
@@ -1169,10 +1169,11 @@ const loadTest = async (testId) => {
         // balance" — don't strand the user in a half-loaded test shell; clear it
         // and send them to pricing to top up. An unconfirmed phone (403) is the
         // other gate: send them to the form that fixes it and bring them back
-        // here afterwards. Any other error surfaces via resolvedErrorMessage.
+        // here afterwards (TEMP: skipped while SMS is down — flag in
+        // utils/postAuth.js). Any other error surfaces via resolvedErrorMessage.
         console.error(error)
         shouldPersistProgress.value = false
-        if (error?.phoneNotConfirmed) {
+        if (PHONE_VERIFY_REDIRECTS_ENABLED && error?.phoneNotConfirmed) {
           testStore.clearCurrentTest()
           await router.replace({
             path: COMPLETE_PROFILE_PATH,

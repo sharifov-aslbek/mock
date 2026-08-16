@@ -19,7 +19,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useTestStore } from '@/stores/test'
 import { useBalanceStore } from '@/stores/balance'
 import { isPremiumTest, isTestPurchased, testTokenCost } from '@/utils/premium'
-import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
+import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
 
 export function useTestLauncher() {
   const route = useRoute()
@@ -104,7 +104,8 @@ export function useTestLauncher() {
       // UserTestAttemptService). Rather than showing that as an error, hand the
       // user the form that fixes it and bring them back to this list afterwards
       // — same as MathTestCard. Not into /test: they re-pick the test here.
-      if (error?.phoneNotConfirmed) {
+      // (TEMP: skipped while SMS is down — flag in utils/postAuth.js.)
+      if (PHONE_VERIFY_REDIRECTS_ENABLED && error?.phoneNotConfirmed) {
         close()
         await router.push({
           path: COMPLETE_PROFILE_PATH,

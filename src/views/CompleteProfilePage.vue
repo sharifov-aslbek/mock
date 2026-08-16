@@ -7,7 +7,7 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
-import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
+import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 
 // The one gate that stands between a signed-in user and a test attempt.
@@ -107,7 +107,9 @@ const submitProfile = async () => {
     })
 
     // Unchanged number on an already-confirmed account: nothing to verify.
-    if (authStore.isPhoneVerified) {
+    // (TEMP: while SMS is down nothing gets sent, so the name/phone are saved
+    // and that's it — no OTP step. Flag in utils/postAuth.js.)
+    if (authStore.isPhoneVerified || !PHONE_VERIFY_REDIRECTS_ENABLED) {
       await finish()
       return
     }
