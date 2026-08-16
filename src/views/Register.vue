@@ -6,6 +6,7 @@ import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
+import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
@@ -62,6 +63,8 @@ const redirectQuery = computed(() =>
     : {},
 )
 
+// Runs after the OTP confirms a phone registration AND after a Telegram/Google
+// sign-in from the social buttons below the form.
 const redirectAfterAuth = async () => {
   // Same as Login: finishing registration lands the student in the platform,
   // not back on the public catalogue.
@@ -70,7 +73,8 @@ const redirectAfterAuth = async () => {
       ? route.query.redirect
       : PLATFORM_HOME
   // The phone is confirmed by the time we get here, but fatherName isn't
-  // collected during registration — /complete-profile picks that up.
+  // collected during registration — /complete-profile picks that up. A
+  // Telegram/Google sign-in has no phone at all, so it always detours there.
   return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
@@ -202,114 +206,131 @@ onMounted(() => {
     </div>
 
     <!-- ── Step 1: name + phone + password ──────────────────────────── -->
-    <form
+    <div
       v-if="step === 'form'"
       class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]"
-      @submit.prevent="submitRegisterForm"
     >
-      <div class="flex flex-col gap-4">
-        <div class="flex gap-3">
-          <label class="flex-1">
+      <form @submit.prevent="submitRegisterForm">
+        <div class="flex flex-col gap-4">
+          <div class="flex gap-3">
+            <label class="flex-1">
+              <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
+                {{ t('register.firstName') }}
+              </span>
+              <input
+                v-model="firstName"
+                type="text"
+                name="given-name"
+                autocomplete="given-name"
+                :placeholder="t('register.firstNamePlaceholder')"
+                class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+              />
+            </label>
+            <label class="flex-1">
+              <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
+                {{ t('register.lastName') }}
+              </span>
+              <input
+                v-model="lastName"
+                type="text"
+                name="family-name"
+                autocomplete="family-name"
+                :placeholder="t('register.lastNamePlaceholder')"
+                class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+              />
+            </label>
+          </div>
+
+          <label class="block">
             <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-              {{ t('register.firstName') }}
+              {{ t('register.phone') }}
+            </span>
+            <div class="flex items-stretch overflow-hidden rounded-xl border-[1.5px] border-[#e0ddd7] bg-white transition focus-within:border-[#1a1814]">
+              <span class="flex items-center border-r border-[#e0ddd7] bg-[#f5f3ef] px-3.5 text-sm font-medium text-[#1a1814]">
+                +998
+              </span>
+              <input
+                :value="phoneDisplay"
+                type="tel"
+                name="tel-national"
+                inputmode="numeric"
+                autocomplete="tel-national"
+                :placeholder="t('register.phonePlaceholder')"
+                class="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-[#1a1814] outline-none placeholder:text-[#b8b3a9]"
+                @input="onPhoneInput"
+              />
+            </div>
+          </label>
+
+          <label class="block">
+            <span class="mb-1.5 flex items-center justify-between text-[12px] font-semibold text-[#1a1814]">
+              {{ t('register.password') }}
+              <button
+                type="button"
+                class="font-medium text-[#8a857c] transition hover:text-[#1a1814]"
+                @click="showPassword = !showPassword"
+              >
+                {{ showPassword ? t('login.hide') : t('login.show') }}
+              </button>
             </span>
             <input
-              v-model="firstName"
-              type="text"
-              name="given-name"
-              autocomplete="given-name"
-              :placeholder="t('register.firstNamePlaceholder')"
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              name="new-password"
+              autocomplete="new-password"
+              :placeholder="t('register.passwordPlaceholder')"
               class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
             />
           </label>
-          <label class="flex-1">
+
+          <label class="block">
             <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-              {{ t('register.lastName') }}
+              {{ t('register.passwordConfirm') }}
             </span>
             <input
-              v-model="lastName"
-              type="text"
-              name="family-name"
-              autocomplete="family-name"
-              :placeholder="t('register.lastNamePlaceholder')"
-              class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+              v-model="passwordConfirm"
+              :type="showPassword ? 'text' : 'password'"
+              name="confirm-password"
+              autocomplete="new-password"
+              :placeholder="t('register.passwordConfirmPlaceholder')"
+              class="w-full rounded-xl border-[1.5px] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+              :class="passwordConfirm && passwordConfirm !== password ? 'border-red-300' : 'border-[#e0ddd7]'"
             />
           </label>
         </div>
 
-        <label class="block">
-          <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-            {{ t('register.phone') }}
-          </span>
-          <div class="flex items-stretch overflow-hidden rounded-xl border-[1.5px] border-[#e0ddd7] bg-white transition focus-within:border-[#1a1814]">
-            <span class="flex items-center border-r border-[#e0ddd7] bg-[#f5f3ef] px-3.5 text-sm font-medium text-[#1a1814]">
-              +998
-            </span>
-            <input
-              :value="phoneDisplay"
-              type="tel"
-              name="tel-national"
-              inputmode="numeric"
-              autocomplete="tel-national"
-              :placeholder="t('register.phonePlaceholder')"
-              class="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-[#1a1814] outline-none placeholder:text-[#b8b3a9]"
-              @input="onPhoneInput"
-            />
-          </div>
-        </label>
+        <p
+          v-if="validationError || authStore.errorMessage"
+          class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+        >
+          {{ validationError || authStore.errorMessage }}
+        </p>
 
-        <label class="block">
-          <span class="mb-1.5 flex items-center justify-between text-[12px] font-semibold text-[#1a1814]">
-            {{ t('register.password') }}
-            <button
-              type="button"
-              class="font-medium text-[#8a857c] transition hover:text-[#1a1814]"
-              @click="showPassword = !showPassword"
-            >
-              {{ showPassword ? t('login.hide') : t('login.show') }}
-            </button>
-          </span>
-          <input
-            v-model="password"
-            :type="showPassword ? 'text' : 'password'"
-            name="new-password"
-            autocomplete="new-password"
-            :placeholder="t('register.passwordPlaceholder')"
-            class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
-          />
-        </label>
+        <button
+          type="submit"
+          :disabled="authStore.isLoading"
+          class="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {{ authStore.isLoading ? t('register.submitting') : t('register.continue') }}
+        </button>
+      </form>
 
-        <label class="block">
-          <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-            {{ t('register.passwordConfirm') }}
-          </span>
-          <input
-            v-model="passwordConfirm"
-            :type="showPassword ? 'text' : 'password'"
-            name="confirm-password"
-            autocomplete="new-password"
-            :placeholder="t('register.passwordConfirmPlaceholder')"
-            class="w-full rounded-xl border-[1.5px] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
-            :class="passwordConfirm && passwordConfirm !== password ? 'border-red-300' : 'border-[#e0ddd7]'"
-          />
-        </label>
+      <div class="my-5 flex items-center gap-3">
+        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
+        <span class="text-xs text-[#8a857c]">{{ t('register.or') }}</span>
+        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
       </div>
 
-      <p
-        v-if="validationError || authStore.errorMessage"
-        class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-      >
-        {{ validationError || authStore.errorMessage }}
-      </p>
-
-      <button
-        type="submit"
-        :disabled="authStore.isLoading"
-        class="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {{ authStore.isLoading ? t('register.submitting') : t('register.continue') }}
-      </button>
-    </form>
+      <!-- Telegram + Google, the same block /login shows. Both create the
+           account on first sign-in, so they are a registration path too; the
+           name/phone step happens on /complete-profile afterwards. Errors
+           surface in the form's message above, via authStore.errorMessage. -->
+      <SocialAuthButtons
+        :telegram-label="t('register.telegram')"
+        google-text="signup_with"
+        @authenticated="redirectAfterAuth"
+      />
+    </div>
 
     <!-- ── Step 2: OTP confirmation ─────────────────────────────────── -->
     <div

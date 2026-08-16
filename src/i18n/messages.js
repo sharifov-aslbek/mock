@@ -294,7 +294,9 @@ const messages = {
       otpNotReceived: 'Kod kelmadimi?',
       otpResend: 'Qayta yuborish',
       otpResent: 'Kod qayta yuborildi.',
-      changeNumber: 'Raqamni o‘zgartirish'
+      changeNumber: 'Raqamni o‘zgartirish',
+      or: 'yoki',
+      telegram: 'Telegram orqali ro‘yxatdan o‘tish'
     },
     verify: {
       forgotTitle: 'Parolni unutdingizmi?',
@@ -897,7 +899,9 @@ const messages = {
       otpNotReceived: 'Не пришёл код?',
       otpResend: 'Отправить ещё раз',
       otpResent: 'Код отправлен повторно.',
-      changeNumber: 'Изменить номер'
+      changeNumber: 'Изменить номер',
+      or: 'или',
+      telegram: 'Зарегистрироваться через Telegram'
     },
     verify: {
       forgotTitle: 'Забыли пароль?',
