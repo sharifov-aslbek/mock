@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { apiFetch, getTestApiBaseUrl, readJsonBody } from '@/utils/api'
+import { authApiError, localizeAuthFailure } from '@/utils/authErrors'
 
 const TOKEN_KEY = 'milliymock_token'
 
@@ -14,8 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // The certificate is printed from the user's real name. A profile is only
   // "complete" once firstName, lastName, fatherName and phoneNumber are all
-  // filled — that's what the first-time test gate checks before an attempt is
-  // started. See src/composables/useProfileGate.js.
+  // filled.
   const isProfileComplete = computed(() => {
     const info = userInfo.value
     return Boolean(
@@ -26,6 +26,20 @@ export const useAuthStore = defineStore('auth', () => {
         String(info.phoneNumber || '').trim(),
     )
   })
+
+  const isPhoneVerified = computed(() =>
+    Boolean(userInfo.value?.phoneNumberConfirmed),
+  )
+
+  // Both are required before a test can be started: the certificate needs the
+  // real name, and UserTestAttemptService refuses to mint an attempt on an
+  // unconfirmed phone (403). False while userInfo is still unloaded — we'd
+  // rather let the user through and catch the 403 than bounce them on a guess.
+  const needsProfileSetup = computed(
+    () =>
+      Boolean(userInfo.value) &&
+      (!isProfileComplete.value || !isPhoneVerified.value),
+  )
 
   // Password login. The single identifier field accepts an email or a phone
   // number — the endpoint takes Email or PhoneNumber, so we pick the field
@@ -66,21 +80,19 @@ export const useAuthStore = defineStore('auth', () => {
         body: formData,
       })
 
-      const payload = await response.json()
+      const payload = await readJsonBody(response)
 
       if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-        const messageText = payload?.message || 'Login failed.'
-        const error = new Error(messageText)
-        // The backend refuses password logins until the phone number is
-        // OTP-confirmed. Flag that case so the login page can hand the user
-        // to /verify-phone instead of showing a dead-end error. Detected by
-        // status/message since swagger doesn't type the response.
+        const error = authApiError(payload, response.status, 'login')
+        // AuthService.Login answers 403 "Please verify your account before
+        // logging in." for an account whose phone was never OTP-confirmed.
+        // Flag it so the login page can hand the user to /verify-phone instead
+        // of leaving them on a dead-end error. Matched on the RAW backend
+        // message — error.message is already localized by this point.
         error.phoneNotVerified =
+          response.status === 403 ||
           payload?.code === 403 ||
-          /verif|tasdiq|подтвер|confirm/i.test(messageText) ||
-          payload?.data?.phoneNumberVerified === false ||
-          payload?.data?.isPhoneVerified === false ||
-          payload?.data?.phoneNumberConfirmed === false
+          /verif|confirm/i.test(String(payload?.message || ''))
         throw error
       }
 
@@ -89,8 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Login failed.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -127,18 +138,17 @@ export const useAuthStore = defineStore('auth', () => {
                 body,
             })
 
-            const payload = await response.json()
+            const payload = await readJsonBody(response)
 
             if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-                throw new Error(payload?.message || 'Login failed.')
+                throw authApiError(payload, response.status, 'telegramLogin')
             }
 
             token.value = payload.data.token
             localStorage.setItem(TOKEN_KEY, payload.data.token)
 
         } catch (error) {
-            errorMessage.value =
-                error instanceof Error ? error.message : 'Login failed.'
+            errorMessage.value = localizeAuthFailure(error)
             throw error
         } finally {
             isLoading.value = false
@@ -169,18 +179,17 @@ export const useAuthStore = defineStore('auth', () => {
                 body: JSON.stringify({ token: idToken }),
             })
 
-            const payload = await response.json()
+            const payload = await readJsonBody(response)
 
             if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
-                throw new Error(payload?.message || 'Login failed.')
+                throw authApiError(payload, response.status, 'googleLogin')
             }
 
             token.value = payload.data.token
             localStorage.setItem(TOKEN_KEY, payload.data.token)
 
         } catch (error) {
-            errorMessage.value =
-                error instanceof Error ? error.message : 'Login failed.'
+            errorMessage.value = localizeAuthFailure(error)
             throw error
         } finally {
             isLoading.value = false
@@ -215,16 +224,15 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Registration failed.')
+        throw authApiError(payload, response.status, 'register')
       }
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Registration failed.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -256,10 +264,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Verification failed.')
+        throw authApiError(payload, response.status, 'verifyOtp')
       }
 
       if (payload?.data?.token) {
@@ -269,8 +277,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload?.data || null
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Verification failed.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -298,16 +305,58 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Could not resend the code.')
+        throw authApiError(payload, response.status, 'resendOtp')
       }
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Could not resend the code.'
+      errorMessage.value = localizeAuthFailure(error)
+      throw error
+    }
+  }
+
+  // Sends a confirmation code to the phone number already on the signed-in
+  // user's profile (POST /auth/verify-my-phone takes no body — the backend
+  // reads it from the token). The code is then confirmed through the ordinary
+  // verifyOtp call, which also hands back a fresh token.
+  //
+  // Used by /complete-profile, mainly for Google and Telegram sign-ins: those
+  // mint a session without ever touching a phone number.
+  async function sendMyPhoneOtp() {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    errorMessage.value = ''
+
+    try {
+      const response = await apiFetch(`${apiBaseUrl}/auth/verify-my-phone`, {
+        method: 'POST',
+        headers: {
+          accept: '*/*',
+          Authorization: `Bearer ${token.value}`,
+        },
+      })
+
+      const payload = await readJsonBody(response)
+
+      if (!response.ok || (payload?.code && payload.code !== 200)) {
+        const error = authApiError(payload, response.status, 'sendMyPhoneOtp')
+        // 409 = nothing left to confirm. The caller treats that as success
+        // rather than stranding the user on a code that will never arrive.
+        error.alreadyVerified =
+          payload?.code === 409 || response.status === 409
+        throw error
+      }
+
+      return payload
+    } catch (error) {
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     }
   }
@@ -339,10 +388,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        const error = new Error(payload?.message || 'Could not send the reset code.')
+        const error = authApiError(payload, response.status, 'forgotPassword')
         // 403 = the account exists but this channel was never confirmed, so no
         // reset code is sent there. The UI offers the verify-phone drill instead.
         error.channelNotConfirmed =
@@ -352,8 +401,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Could not send the reset code.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     }
   }
@@ -387,10 +435,10 @@ export const useAuthStore = defineStore('auth', () => {
         }),
       })
 
-      const payload = await response.json().catch(() => null)
+      const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw new Error(payload?.message || 'Could not reset the password.')
+        throw authApiError(payload, response.status, 'resetPassword')
       }
 
       if (payload?.data?.token) {
@@ -400,8 +448,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return payload?.data || null
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Could not reset the password.'
+      errorMessage.value = localizeAuthFailure(error)
       throw error
     } finally {
       isLoading.value = false
@@ -423,7 +470,7 @@ export const useAuthStore = defineStore('auth', () => {
         },
       })
 
-      const payload = await response.json()
+      const payload = await readJsonBody(response)
 
       if (!response.ok || payload?.code !== 200 || !payload?.data) {
         throw new Error(payload?.message || 'Failed to fetch user info.')
@@ -471,10 +518,10 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify(body),
     })
 
-    const payload = await response.json().catch(() => null)
+    const payload = await readJsonBody(response)
 
     if (!response.ok || (payload?.code && payload.code !== 200)) {
-      throw new Error(payload?.message || 'Failed to update profile.')
+      throw authApiError(payload, response.status, 'updateProfile')
     }
 
     // Optimistically merge so isProfileComplete flips right away, then refresh
@@ -510,10 +557,13 @@ export const useAuthStore = defineStore('auth', () => {
     errorMessage,
     isAuthenticated,
     isProfileComplete,
+    isPhoneVerified,
+    needsProfileSetup,
     login,
     register,
     verifyOtp,
     resendOtp,
+    sendMyPhoneOtp,
     forgotPassword,
     resetPassword,
     telegramLogin,

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { onMounted, ref } from 'vue'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
+import { resolvePostAuthRoute } from '@/utils/postAuth'
 
 // Telegram Login. We drive the OAuth popup ourselves via `Telegram.Login.auth`
 // (defined by telegram-widget.js) instead of embedding Telegram's iframe widget.
@@ -65,8 +66,11 @@ const telegramReady = ref(false)
 const telegramSubmitting = ref(false)
 
 // After any successful login, honour a `?redirect=` target if present,
-// otherwise fall back to the math dashboard.
-const redirectAfterAuth = () => {
+// otherwise fall back to the platform — unless the account still needs a name
+// and a confirmed phone, in which case /complete-profile comes first and
+// carries the destination along. Google and Telegram sign-ins land there every
+// time, since neither ever supplies a phone number.
+const redirectAfterAuth = async () => {
   // Default to the platform, not /math: signing in is entering the product, and
   // landing back on the public subject catalogue made "Platformaga kirish" a
   // button that never reached the platform. A `?redirect=` from the guard (or
@@ -75,7 +79,7 @@ const redirectAfterAuth = () => {
     typeof route.query.redirect === 'string' && route.query.redirect
       ? route.query.redirect
       : PLATFORM_HOME
-  return router.push(redirectTarget)
+  return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
 const redirectQuery =

@@ -15,18 +15,17 @@
 // If the two ever disagree, MathTestCard is the authority. TODO: unify once the
 // platform screens are signed off.
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTestStore } from '@/stores/test'
 import { useBalanceStore } from '@/stores/balance'
 import { isPremiumTest, isTestPurchased, testTokenCost } from '@/utils/premium'
-import { useProfileGate } from '@/composables/useProfileGate'
+import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
 
 export function useTestLauncher() {
+  const route = useRoute()
   const router = useRouter()
   const testStore = useTestStore()
   const balanceStore = useBalanceStore()
-  const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
-    useProfileGate()
 
   // The test awaiting confirmation, and which dialog is showing for it.
   const pending = ref(null)
@@ -88,12 +87,6 @@ export function useTestLauncher() {
     busyTestId.value = test.id
 
     try {
-      // start-test mints a fresh attempt, so the test-taker needs a real name
-      // on file for the certificate. No-op once the profile is complete;
-      // backing out aborts the start — no attempt, no charge.
-      const profileOk = await ensureProfileComplete()
-      if (!profileOk) return
-
       await testStore.startTest(test.id)
 
       const attemptId = testStore.currentAttempt?.id
@@ -107,6 +100,18 @@ export function useTestLauncher() {
       await router.push(`/test?${params.toString()}`)
     } catch (error) {
       console.error(error)
+      // start-test is the one endpoint gated on a confirmed phone (403 from
+      // UserTestAttemptService). Rather than showing that as an error, hand the
+      // user the form that fixes it and bring them back to this list afterwards
+      // — same as MathTestCard. Not into /test: they re-pick the test here.
+      if (error?.phoneNotConfirmed) {
+        close()
+        await router.push({
+          path: COMPLETE_PROFILE_PATH,
+          query: { redirect: route.fullPath },
+        })
+        return
+      }
       // Balance moved underneath us → steer to top-up rather than a dead error.
       if (/insufficient/i.test(error?.message || '')) {
         dialog.value = 'topup'
@@ -137,8 +142,5 @@ export function useTestLauncher() {
     confirm,
     close,
     goToTopUp,
-    showProfileGate,
-    onProfileCompleted,
-    onProfileCancel,
   }
 }

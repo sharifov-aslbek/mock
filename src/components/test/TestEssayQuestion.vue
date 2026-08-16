@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import TestAiReviewBadge from '@/components/test/TestAiReviewBadge.vue'
+import { hasAiReview } from '@/utils/aiReview'
 
 // Essay (insho) question — ported from the Ona tili demo page's question 45.
 // The essay can be typed (syncs to the backend through the regular
@@ -257,6 +259,8 @@ onBeforeUnmount(() => {
             class="max-h-[420px] w-full object-contain"
           />
         </div>
+
+        <TestAiReviewBadge v-if="hasAiReview(question)" />
       </div>
 
       <button

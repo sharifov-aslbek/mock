@@ -8,8 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
 import { isPremiumTest, isTestPurchased, testTokenCost } from '@/utils/premium'
 import { subjectIcon } from '@/utils/subjects'
-import ProfileGateModal from '@/components/ProfileGateModal.vue'
-import { useProfileGate } from '@/composables/useProfileGate'
+import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
 
 const props = defineProps({
   test: {
@@ -34,8 +33,6 @@ const { t } = useI18n()
 const testStore = useTestStore()
 const authStore = useAuthStore()
 const balanceStore = useBalanceStore()
-const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
-  useProfileGate()
 const isStarting = ref(false)
 const startError = ref('')
 const showStartModal = ref(false)
@@ -72,15 +69,19 @@ const isPurchasing = ref(false)
 // the purchase before creating the attempt. Free tests and already-purchased
 // tests start straight away — no charge.
 const handlePremiumClick = async () => {
-  // Must be signed in to have a tanga balance / make a purchase. Send guests to
-  // login and bring them BACK to this tests listing (not straight into /test):
-  // a premium test has to clear the purchase/balance gate that lives on the card,
-  // so after signing up the user re-picks the test and goes through the normal
-  // buy / top-up flow. Redirecting into /test would auto-start the premium test
-  // and strand a 0-balance user on the broken "insufficient balance" screen.
+  // Must be signed in to have a tanga balance / make a purchase. Guests go to
+  // REGISTER, not login: someone clicking a test for the first time has no
+  // account yet, and the login card sends them hunting for a password they
+  // never set. The register page links back to login for returning users.
+  //
+  // Bring them BACK to this tests listing (not straight into /test): a premium
+  // test has to clear the purchase/balance gate that lives on the card, so after
+  // signing up the user re-picks the test and goes through the normal buy /
+  // top-up flow. Redirecting into /test would auto-start the premium test and
+  // strand a 0-balance user on the broken "insufficient balance" screen.
   if (!authStore.isAuthenticated) {
     router.push({
-      path: '/login',
+      path: '/register',
       query: { reason: 'auth-required', redirect: route.fullPath },
     })
     return
@@ -162,16 +163,6 @@ const goToPricing = () => {
 // insufficient funds, the plain start button shows an inline error. The test
 // page renders straight from the store; it never re-fetches or re-starts.
 const startAndOpen = async () => {
-  // First-time gate: start-test mints a brand-new attempt (and, for premium,
-  // performs the purchase), so the test-taker must have a real name on file for
-  // the certificate. No-op once the profile is complete; otherwise this blocks
-  // on the ProfileGateModal. Backing out aborts the start — no attempt, no
-  // navigation, no charge.
-  const profileOk = await ensureProfileComplete()
-  if (!profileOk) {
-    return
-  }
-
   await testStore.startTest(props.test.id)
 
   // Carry the freshly minted attempt id in the URL so a refresh resumes THIS
@@ -196,6 +187,16 @@ const openTest = async () => {
     await startAndOpen()
   } catch (error) {
     console.error(error)
+    // start-test is the one endpoint gated on a confirmed phone. Rather than
+    // showing that 403 as an error, hand the user the form that fixes it and
+    // bring them back to this test afterwards.
+    if (error?.phoneNotConfirmed) {
+      await router.push({
+        path: COMPLETE_PROFILE_PATH,
+        query: { redirect: route.fullPath },
+      })
+      return
+    }
     startError.value = testStore.errorMessage || t('mathCard.startError')
   } finally {
     isStarting.value = false
@@ -204,9 +205,9 @@ const openTest = async () => {
 
 // Free test card CTA ("Testni boshlash"). On the results page the card opens
 // the attempt-choice modal. Otherwise an unauthenticated user is sent straight
-// to login the instant they click — before the confirm modal or any backend
-// call — mirroring the premium card's gate. An authenticated user gets the
-// usual confirm modal and the unchanged start flow.
+// to registration the instant they click — before the confirm modal or any
+// backend call — mirroring the premium card's gate. An authenticated user gets
+// the usual confirm modal and the unchanged start flow.
 const handleStartClick = () => {
   if (props.isAttemptedCard) {
     showAttemptChoiceModal.value = true
@@ -215,7 +216,7 @@ const handleStartClick = () => {
 
   if (!authStore.isAuthenticated) {
     router.push({
-      path: '/login',
+      path: '/register',
       query: { reason: 'auth-required', redirect: `/test?testId=${props.test.id}` },
     })
     return
@@ -597,11 +598,5 @@ const handleAttemptedCardClick = () => {
         </NCard>
       </div>
     </NModal>
-
-    <ProfileGateModal
-      v-model:show="showProfileGate"
-      @completed="onProfileCompleted"
-      @cancel="onProfileCancel"
-    />
   </article>
 </template>

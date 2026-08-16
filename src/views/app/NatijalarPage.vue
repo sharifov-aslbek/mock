@@ -23,7 +23,6 @@ import EssayResultCard from '@/components/app/EssayResultCard.vue'
 import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
 import EmptyState from '@/components/app/EmptyState.vue'
 import TestLaunchDialogs from '@/components/app/TestLaunchDialogs.vue'
-import ProfileGateModal from '@/components/ProfileGateModal.vue'
 import { subjectKeyFromApi } from '@/components/app/subjects.js'
 import { useTestStore } from '@/stores/test'
 import { useTestCatalogStore } from '@/stores/testCatalog'
@@ -54,9 +53,6 @@ const {
   confirm: confirmLaunch,
   close: closeLaunch,
   goToTopUp,
-  showProfileGate,
-  onProfileCompleted,
-  onProfileCancel,
 } = useTestLauncher()
 
 // ——— Tabs, synced to ?view= so a result link can be shared/bookmarked ————
@@ -538,12 +534,6 @@ const errorCopy = computed(() =>
       @confirm="confirmLaunch"
       @close="closeLaunch"
       @topup="goToTopUp"
-    />
-
-    <ProfileGateModal
-      v-model:show="showProfileGate"
-      @completed="onProfileCompleted"
-      @cancel="onProfileCancel"
     />
   </main>
 </template>

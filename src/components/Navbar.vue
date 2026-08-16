@@ -45,8 +45,7 @@ const navItems = computed(() => [
   { label: t('navbar.items.history'), to: '/tarix' },
   { label: t('navbar.items.physics'), to: '/fizika' },
   { label: t('navbar.items.motherTongue'), to: '/ona-tili' },
-  // Biologiya hidden until it's ready to launch — re-enable when complete
-  // { label: t('navbar.items.biology'), to: '/biologiya' },
+  //{ label: t('navbar.items.biology'), to: '/biologiya' },
   // Mashq page hidden until it's finished — re-enable when complete
   // { label: t('navbar.items.mashq'), to: '/mashq' },
   // Both of these now live in the platform shell. A signed-in visitor on a

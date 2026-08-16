@@ -9,6 +9,7 @@ import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
+import { resolvePostAuthRoute } from '@/utils/postAuth'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -79,14 +80,16 @@ const redirectQuery = computed(() =>
     : {},
 )
 
-const redirectAfterAuth = () => {
+const redirectAfterAuth = async () => {
   // Same default as Login/Register: finishing verification is entering the
   // product, so it lands in the platform rather than on the public catalogue.
+  // resolvePostAuthRoute detours through /complete-profile first if the
+  // account still lacks a name or a confirmed phone.
   const redirectTarget =
     typeof route.query.redirect === 'string' && route.query.redirect
       ? route.query.redirect
       : PLATFORM_HOME
-  return router.push(redirectTarget)
+  return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
 // forgot-password and resend-otp both deliver a code to the phone; which one
@@ -121,8 +124,9 @@ const sendCode = async () => {
     await nextTick()
     otpInput.value?.focus()
   } catch (error) {
-    // authStore.errorMessage already carries the backend message. A 403 means
-    // no reset code goes to an unconfirmed phone — offer verification instead.
+    // authStore.errorMessage already carries the localized backend message.
+    // A 403 means no reset code goes to an unconfirmed phone — offer
+    // verification instead.
     if (reason.value === 'forgot' && error?.channelNotConfirmed) {
       showVerifyHint.value = true
     }
@@ -163,19 +167,13 @@ const submitOtp = async () => {
   isVerifying.value = true
 
   try {
-    const result = await authStore.verifyOtp({
+    // verify-otp answers with a LoginResultDto, so a call that comes back
+    // clean means the session is already live — no separate login step.
+    await authStore.verifyOtp({
       phoneNumber: apiPhoneNumber.value,
       code: otpCode.value,
     })
-
-    if (result?.token) {
-      await redirectAfterAuth()
-      return
-    }
-
-    // Verified but no session token — send them through the normal login.
-    message.success(t('verify.verified'), { duration: 4000 })
-    await router.push({ path: '/login', query: redirectQuery.value })
+    await redirectAfterAuth()
   } catch {
     // Wrong/expired code: clear the boxes for a clean retry.
     await otpInput.value?.clear()
@@ -256,13 +254,14 @@ const resendCode = async () => {
   }
 
   isResending.value = true
+  validationError.value = ''
 
   try {
     await sendCodeRequest()
     message.success(t('register.otpResent'), { duration: 3000 })
     startResendCountdown()
   } catch {
-    // authStore.errorMessage already carries the backend message.
+    // authStore.errorMessage already carries the localized backend message.
   } finally {
     isResending.value = false
   }

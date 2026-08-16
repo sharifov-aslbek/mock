@@ -43,6 +43,15 @@ const SUBJECT_CONFIG = {
       'M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3H3Z',
     ],
   },
+  biology: {
+    // Leaf — life sciences symbol. Keep in sync with utils/subjects.js.
+    subjectParam: 'Biology',
+    aliases: ['biology', 'biologiya', 'биология'],
+    paths: [
+      'M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z',
+      'M2 21c0-3 1.85-5.36 5.08-6',
+    ],
+  },
 }
 
 const route = useRoute()

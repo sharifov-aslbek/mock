@@ -6,6 +6,7 @@ import { NPopover } from 'naive-ui'
 import TestCertificate from '@/components/certificate/TestCertificate.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
+import BiologyReviewSection from '@/components/biology/BiologyReviewSection.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
@@ -13,6 +14,7 @@ import { useTestProgressStore } from '@/stores/testProgress'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { buildCertificateViewModel } from '@/utils/certificateData'
 import { subjectDisplayName } from '@/utils/subjects'
+import { isImageAnswerQuestion } from '@/utils/aiReview'
 
 const route = useRoute()
 const router = useRouter()
@@ -310,11 +312,13 @@ const filteredQuestions = computed(() => {
     }
   }
 
-  // Essay questions are graded by the AI, not marked correct/incorrect — they
-  // live in the essay-analysis section below, never in this row table (and so
-  // don't skew the correct/omitted tallies derived from it).
+  // AI-graded questions are not marked correct/incorrect — the essay and the
+  // image-only open responses live in their own analysis sections below, never
+  // in this row table (and so don't skew the correct/omitted tallies derived
+  // from it).
   const apiQuestions = [...questionsById.values()].filter(
-    (question) => question?.type !== 'Essay',
+    (question) =>
+      question?.type !== 'Essay' && !aiReviewedQuestionIds.value.has(Number(question?.id)),
   )
 
   if (!apiQuestions.length) {
@@ -631,6 +635,88 @@ const essayBandTotal = computed(() => {
   return Number.isFinite(total) ? total : null
 })
 
+// ——— Biology open-response AI review ————————————————————————————————
+// Image-only questions (AiReviewMode.BiologyOpenResponse) are graded by the AI
+// from the uploaded photos, so — like the essay — they are never marked
+// correct/incorrect in the row table; get-results returns their grade under
+// `biologyReviews`, which BiologyReviewSection renders.
+const biologyReviews = computed(() => {
+  const reviews = testStore.lastSubmission?.biologyReviews
+  return Array.isArray(reviews) ? reviews : []
+})
+
+// Every question on the attempt, whichever shape it arrived in — used to resolve
+// a reviewed question's display number and to spot the image-answered ones.
+const allQuestionsById = computed(() => {
+  const questions = [
+    ...(Array.isArray(submittedQuestions.value) ? submittedQuestions.value : []),
+    ...(Array.isArray(testStore.currentTest?.questions) ? testStore.currentTest.questions : []),
+  ]
+
+  const map = new Map()
+  for (const question of questions) {
+    const id = Number(question?.id)
+    if (id && !map.has(id)) {
+      map.set(id, question)
+    }
+  }
+  return map
+})
+
+const aiImageQuestions = computed(() =>
+  [...allQuestionsById.value.values()].filter((question) => isImageAnswerQuestion(question)),
+)
+
+// Ids the row table must skip: graded by AI, never correct/incorrect. Covers
+// both the questions flagged BiologyOpenResponse and anything the backend
+// actually returned a review for.
+const aiReviewedQuestionIds = computed(() => {
+  const ids = new Set(aiImageQuestions.value.map((question) => Number(question.id)))
+  for (const review of biologyReviews.value) {
+    const id = Number(review?.questionId)
+    if (id) {
+      ids.add(id)
+    }
+  }
+  return ids
+})
+
+const hasBiologyReview = computed(() => biologyReviews.value.length > 0)
+
+// The attempt has image-answered questions but no grades came back yet.
+const biologyPending = computed(
+  () => !hasBiologyReview.value && aiImageQuestions.value.length > 0,
+)
+
+// Display number for a reviewed question ("41"), resolved from the test content.
+const biologyQuestionLabel = (questionId) => {
+  const question = allQuestionsById.value.get(Number(questionId))
+  const order = Number(question?.order)
+  return Number.isFinite(order) && order > 0 ? String(order) : ''
+}
+
+// The photos the student handed in, read off the same userAnswer the grade
+// refers to. Field name isn't pinned down yet, so read the likely shapes.
+const biologyAnswerImages = (questionId) => {
+  const answer = userAnswersByQuestionId.value.get(Number(questionId))
+  const rawImages =
+    answer?.imagePaths ?? answer?.images ?? answer?.answerImages ?? answer?.imageUrls
+
+  if (!Array.isArray(rawImages)) {
+    return []
+  }
+
+  return rawImages
+    .map((item) =>
+      typeof item === 'string'
+        ? item
+        : item?.imagePath || item?.path || item?.imageUrl || item?.url || '',
+    )
+    .filter(Boolean)
+    .map((imagePath) => buildAssetUrl(imagePath))
+    .filter(Boolean)
+}
+
 const hasEssayReview = computed(() => Boolean(essayReview.value) && Boolean(essayAnalysis.value))
 // Essay submitted but the async AI grade hasn't landed yet: keep the answer
 // visible with a "being analysed" note instead of dropping it silently (it's
@@ -651,18 +737,21 @@ const showEssayCheckingOverlay = computed(
     !testLoadError.value,
 )
 
-// The score ring + review table cover the auto-graded questions. An essay-only
-// result (no auto-graded questions, just the AI-graded essay) would otherwise
-// show a 0% ring over an empty table — skip both and let the essay section
-// stand alone. Still shown while loading / on error / when there's genuinely
-// nothing (so the empty + error states remain reachable).
+// The score ring + review table cover the auto-graded questions. An AI-only
+// result (no auto-graded questions, just the graded essay or open responses)
+// would otherwise show a 0% ring over an empty table — skip both and let the
+// analysis section stand alone. Still shown while loading / on error / when
+// there's genuinely nothing (so the empty + error states remain reachable).
 const showScoreAndTable = computed(
   () =>
     filteredQuestions.value.length > 0 ||
     isLoadingTest.value ||
     isFinalizingSubmission.value ||
     Boolean(testLoadError.value) ||
-    (!hasEssayReview.value && !essayPending.value),
+    (!hasEssayReview.value &&
+      !essayPending.value &&
+      !hasBiologyReview.value &&
+      !biologyPending.value),
 )
 
 const totalQuestions = computed(() => filteredQuestions.value.length)
@@ -1976,8 +2065,46 @@ function answerFeedbackText(question) {
           </button>
         </div>
 
-        <div v-else-if="filteredQuestions.length === 0 && !hasEssayReview && !essayPending" class="flex items-center justify-center py-16">
+        <div
+          v-else-if="filteredQuestions.length === 0 && !hasEssayReview && !essayPending && !hasBiologyReview && !biologyPending"
+          class="flex items-center justify-center py-16"
+        >
           <p class="text-sm text-[#d8d3ca]">Ma'lumot topilmadi</p>
+        </div>
+      </section>
+
+      <!-- ═══ Biology open-response AI analysis ═══
+           Image-only questions (41–43) are graded by the AI from the uploaded
+           photos, not marked in the table above. -->
+      <BiologyReviewSection
+        v-if="hasBiologyReview && !isLoadingTest && !testLoadError"
+        :reviews="biologyReviews"
+        :resolve-question-label="biologyQuestionLabel"
+        :resolve-answer-images="biologyAnswerImages"
+      />
+
+      <!-- Answers handed in, AI grade still pending -->
+      <section
+        v-else-if="biologyPending && !isLoadingTest && !testLoadError"
+        class="mt-12"
+      >
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="font-mono-custom text-[11px] font-semibold tracking-[0.18em] text-[#bcb6a9]">IV</span>
+          <h2 class="text-xl font-bold tracking-[-0.01em] text-[#1a1814]">Ochiq javob tahlili</h2>
+          <span class="font-mono-custom rounded-full border border-[#d8d3ca] bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8a857c]">
+            AI tekshiruvi
+          </span>
+        </div>
+
+        <div class="mt-5 flex items-start gap-3 rounded-[18px] border border-[#e5ded3] bg-[#fffdfa] px-5 py-4 shadow-[0_10px_30px_rgba(26,24,20,0.05)]">
+          <span class="mt-0.5 inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#4a463f]" />
+          <div class="min-w-0">
+            <p class="text-[14px] font-semibold text-[#1a1814]">Yechimingiz tekshirilmoqda</p>
+            <p class="mt-0.5 text-[13px] leading-relaxed text-[#8a857c]">
+              AI yuklagan rasmlaringizni baholamoqda. Tahlil tayyor bo‘lgach, shu sahifada
+              ko‘rinadi — birozdan so‘ng qayta yangilang.
+            </p>
+          </div>
         </div>
       </section>
 

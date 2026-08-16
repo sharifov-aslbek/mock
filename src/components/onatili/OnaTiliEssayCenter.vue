@@ -69,7 +69,11 @@ const submittedEssay = ref('')
 const submittedUploads = ref([])
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-const loginLocation = { path: '/login', query: { redirect: '/ona-tili?tab=essay' } }
+// The button still reads "Kirish", but it goes to /register: someone hitting
+// this gate has no account yet, and the login card only sends them looking for
+// a password they never set. The register page links back to login for
+// returning users. Same call as the test-card gate.
+const loginLocation = { path: '/register', query: { redirect: '/ona-tili?tab=essay' } }
 
 // ——— Topics (GET /essay-topic) ————————————————————————————————————————
 const fetchTopics = async () => {

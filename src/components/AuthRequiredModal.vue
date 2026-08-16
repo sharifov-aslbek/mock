@@ -16,12 +16,13 @@ const router = useRouter()
 
 const close = () => emit('close')
 
-// Both actions land on /login (registration happens via the Telegram widget
-// there). Register deep-links straight to that widget. Carry a redirect back
-// to pricing so the user returns to finish their purchase after auth.
+// The register button goes to the register page — it used to deep-link into
+// /login's Telegram widget, from back when that was the only way to sign up,
+// which left users on a login card asking for a password they never set.
+// Both carry a redirect back to pricing so they return to finish the purchase.
 const goRegister = () => {
   emit('close')
-  router.push({ path: '/login', query: { redirect: '/narxlar', focus: 'telegram' } })
+  router.push({ path: '/register', query: { redirect: '/narxlar' } })
 }
 
 const goLogin = () => {

@@ -184,7 +184,7 @@ const routes = [
       {
         path: 'biologiya',
         name: 'biologiya',
-        component: () => import('@/views/BiologySubjectPage.vue'),
+        component: () => import('@/views/SubjectPage.vue'),
         meta: {
           subjectKey: 'biology',
           seo: {
@@ -195,14 +195,21 @@ const routes = [
         },
       },
       {
+        // The Biology sample graduated into the real /test flow (backend test +
+        // AI-checked questions), so old links land on the subject page. Kept in
+        // DEV as the offline design reference for the AI question UI.
         path: 'biologiya/test',
-        name: 'biologiya-test',
-        component: () => import('@/views/BiologyDemoPage.vue'),
-        meta: {
-          chrome: false,
-          support: false,
-          seo: { title: 'Biologiya testi', robots: 'noindex, nofollow' },
-        },
+        ...(import.meta.env.DEV
+          ? {
+              name: 'biologiya-test',
+              component: () => import('@/views/BiologyDemoPage.vue'),
+              meta: {
+                chrome: false,
+                support: false,
+                seo: { title: 'Biologiya testi', robots: 'noindex, nofollow' },
+              },
+            }
+          : { redirect: '/biologiya' }),
       },
       {
         path: 'ona-tili',
@@ -389,6 +396,16 @@ const routes = [
         name: 'register',
         component: () => import('@/views/Register.vue'),
         meta: { seo: { robots: 'noindex, nofollow' } },
+      },
+      {
+        // Name + phone confirmation for a session that has neither — mainly Google
+        // and Telegram sign-ins. start-test is the only thing actually gated on
+        // this (403 from UserTestAttemptService), so the page is a redirect target
+        // rather than a wall: browsing stays open.
+        path: 'complete-profile',
+        name: 'complete-profile',
+        component: () => import('@/views/CompleteProfilePage.vue'),
+        meta: { requiresAuth: true, seo: { robots: 'noindex, nofollow' } },
       },
       {
         // Forgot password + unconfirmed-phone verification (?reason=unverified),

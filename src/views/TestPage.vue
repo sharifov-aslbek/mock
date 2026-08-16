@@ -7,20 +7,21 @@ import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
 import { isMathSubject } from '@/utils/subjects'
+import { isImageAnswerQuestion } from '@/utils/aiReview'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import TestBottomBar from '@/components/test/TestBottomBar.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
 import TestErrorState from '@/components/test/TestErrorState.vue'
 import TestEssayQuestion from '@/components/test/TestEssayQuestion.vue'
 import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
+import TestOpenResponseQuestion from '@/components/test/TestOpenResponseQuestion.vue'
 import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
 import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
-import ProfileGateModal from '@/components/ProfileGateModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
-import { useProfileGate } from '@/composables/useProfileGate'
 import { getTestApiBaseUrl } from '@/utils/api'
+import { COMPLETE_PROFILE_PATH } from '@/utils/postAuth'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,8 +29,6 @@ const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
-const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
-  useProfileGate()
 const answers = reactive({})
 const freeAnswers = reactive({})
 const pageErrorKey = ref('')
@@ -355,6 +354,43 @@ const updateEssayUploads = (questionId, uploads) => {
 
 const getEssayUploads = (questionId) => essayUploads[questionId] || []
 
+// ——— AI-reviewed open response (AiReviewMode.BiologyOpenResponse) ————————
+// questionId → photos of the handwritten solution ({ id, name, dataUrl }). These
+// ARE the answer — there is no typed input — and they go to
+// POST /user-answer/images, which replaces that question's stored image set.
+const answerImages = reactive({})
+// questionId → image URLs already stored server-side, read off a resume payload
+// so a refresh doesn't look like the photos were lost. Shown read-only; picking
+// new photos replaces the whole set.
+const remoteAnswerImages = reactive({})
+// Questions whose local image set changed and hasn't been pushed yet.
+const dirtyImageQuestionIds = new Set()
+
+const getAnswerImages = (questionId) => answerImages[questionId] || []
+
+const getRemoteAnswerImageUrls = (questionId) => remoteAnswerImages[questionId] || []
+
+const updateAnswerImages = (questionId, uploads) => {
+  answerImages[questionId] = Array.isArray(uploads) ? [...uploads] : []
+  dirtyImageQuestionIds.add(String(questionId))
+}
+
+const imageAnswerQuestions = computed(() =>
+  renderedQuestions.value.filter((question) => isImageAnswerQuestion(question)),
+)
+
+// Photos are deliberately NOT written into the saved progress (a handful of
+// data URLs would blow the localStorage quota) — but the saved answered tally
+// should still move when one is added, so the "continue" card isn't stale.
+const serializedImageAnswerCounts = computed(() =>
+  JSON.stringify(
+    imageAnswerQuestions.value.map((question) => [
+      question.id,
+      getAnswerImages(question.id).length || getRemoteAnswerImageUrls(question.id).length,
+    ]),
+  ),
+)
+
 const essayQuestionsWithUploads = computed(() =>
   renderedQuestions.value.filter(
     (question) => isEssayQuestion(question) && getEssayUploads(question.id).length > 0,
@@ -394,6 +430,14 @@ const hasFreeAnswerContent = (value) => {
 }
 
 const isQuestionAnswered = (question) => {
+  // Image-only open response: answered as soon as at least one photo exists,
+  // either picked now or already stored on the attempt.
+  if (isImageAnswerQuestion(question)) {
+    return (
+      getAnswerImages(question.id).length > 0 ||
+      getRemoteAnswerImageUrls(question.id).length > 0
+    )
+  }
   if (isEssayQuestion(question)) {
     return (
       hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ||
@@ -746,6 +790,16 @@ const clearAnswers = () => {
   for (const answerKey of Object.keys(freeAnswers)) {
     delete freeAnswers[answerKey]
   }
+
+  for (const answerKey of Object.keys(answerImages)) {
+    delete answerImages[answerKey]
+  }
+
+  for (const answerKey of Object.keys(remoteAnswerImages)) {
+    delete remoteAnswerImages[answerKey]
+  }
+
+  dirtyImageQuestionIds.clear()
 }
 
 const updateFreeAnswer = (questionId, value) => {
@@ -849,11 +903,39 @@ const persistCurrentProgress = () => {
 // the attempt, so we set them straight into the UI without re-queuing a sync
 // (only fresh edits need to push). Option answers carry an option id; FreeAnswer
 // questions carry text.
+// Image answers stored against a question (AI-reviewed open response) on a
+// resumed attempt. The exact field name isn't pinned down yet, so read the
+// likely shapes tolerantly: a bare array of paths, or objects carrying one.
+// Returns [] when the payload has none, which just leaves the dropzone empty.
+const extractAnswerImageUrls = (answer) => {
+  const rawImages =
+    answer?.imagePaths ?? answer?.images ?? answer?.answerImages ?? answer?.imageUrls
+
+  if (!Array.isArray(rawImages)) {
+    return []
+  }
+
+  return rawImages
+    .map((item) =>
+      typeof item === 'string'
+        ? item
+        : item?.imagePath || item?.path || item?.imageUrl || item?.url || '',
+    )
+    .filter(Boolean)
+    .map((imagePath) => buildEntityImageUrl(imagePath))
+    .filter(Boolean)
+}
+
 const applyServerAnswers = (userAnswers) => {
   for (const answer of userAnswers || []) {
     const questionId = Number(answer?.questionId)
     if (!questionId) {
       continue
+    }
+
+    const imageUrls = extractAnswerImageUrls(answer)
+    if (imageUrls.length) {
+      remoteAnswerImages[questionId] = imageUrls
     }
 
     if (typeof answer.textAnswer === 'string' && answer.textAnswer.trim()) {
@@ -1033,8 +1115,11 @@ const loadTest = async (testId) => {
     closeReferenceWindow()
     testStore.clearCurrentTest()
     shouldPersistProgress.value = false
+    // Same gate as the test card: a guest opening a test has no account yet, so
+    // registration is the useful destination. (A session that DIED mid-test is a
+    // 401, which api.js routes to /login instead — that user does have one.)
     await router.replace({
-      path: '/login',
+      path: '/register',
       query: { reason: 'auth-required', redirect: route.fullPath },
     })
     return
@@ -1076,29 +1161,24 @@ const loadTest = async (testId) => {
         return
       }
     } else {
-      // First-time gate: a direct link with no attempt starts a brand-new attempt
-      // here, so the test-taker must have a real name on file for the certificate.
-      // No-op once the profile is complete; otherwise this blocks on the
-      // ProfileGateModal. Backing out returns them to where they came from rather
-      // than starting a nameless attempt.
-      const profileOk = await ensureProfileComplete()
-      if (!profileOk) {
-        shouldPersistProgress.value = false
-        router.back()
-        return
-      }
-
       try {
         await testStore.startTest(testId)
       } catch (error) {
         // start-test failed. For a premium test reached directly (a deep link or
         // the auth guard's post-login redirect) this is usually "insufficient
         // balance" — don't strand the user in a half-loaded test shell; clear it
-        // and send them to pricing to top up. Any other error surfaces via
-        // resolvedErrorMessage instead.
+        // and send them to pricing to top up. An unconfirmed phone (403) is the
+        // other gate: send them to the form that fixes it and bring them back
+        // here afterwards. Any other error surfaces via resolvedErrorMessage.
         console.error(error)
         shouldPersistProgress.value = false
-        if (/insufficient/i.test(error?.message || '')) {
+        if (error?.phoneNotConfirmed) {
+          testStore.clearCurrentTest()
+          await router.replace({
+            path: COMPLETE_PROFILE_PATH,
+            query: { redirect: route.fullPath },
+          })
+        } else if (/insufficient/i.test(error?.message || '')) {
           testStore.clearCurrentTest()
           await router.replace('/tanga')
         }
@@ -1127,6 +1207,68 @@ const dataUrlToFile = (dataUrl, fileName) => {
     bytes[index] = binary.charCodeAt(index)
   }
   return new File([bytes], fileName, { type: mimeType })
+}
+
+// Push the photo answers of AI-reviewed open-response questions. Each call SETS
+// that question's image list server-side, so we always send the full current
+// selection. Runs on the same cadence as the text answers (and again at finish)
+// rather than only at the end, so a dropped connection can't lose the photos.
+// Returns the ids that failed, so the finish path can refuse to submit an
+// attempt whose images never landed.
+let activeImageSyncPromise = null
+
+const performImageSyncPass = async () => {
+  const failedQuestionIds = []
+
+  if (!activeAttemptId.value || !currentTest.value?.id) {
+    return failedQuestionIds
+  }
+
+  for (const questionId of [...dirtyImageQuestionIds]) {
+    const uploads = getAnswerImages(questionId)
+
+    // Nothing picked (or everything removed): there is no "clear" call in the
+    // contract, so leave whatever is stored and drop the dirty flag.
+    if (!uploads.length) {
+      dirtyImageQuestionIds.delete(questionId)
+      continue
+    }
+
+    try {
+      const files = uploads.map((upload, index) =>
+        dataUrlToFile(upload.dataUrl, `answer-${questionId}-${index + 1}.jpg`),
+      )
+
+      await testStore.setUserAnswerImages(activeAttemptId.value, questionId, files)
+
+      // The set that just landed is now authoritative; a later edit re-dirties.
+      dirtyImageQuestionIds.delete(questionId)
+      remoteAnswerImages[questionId] = uploads.map((upload) => upload.dataUrl)
+    } catch (error) {
+      console.error(error)
+      failedQuestionIds.push(questionId)
+    }
+  }
+
+  return failedQuestionIds
+}
+
+// Single-flight, like syncDirtyAnswers — image uploads are slow enough that
+// overlapping passes would re-send the same photos.
+const syncDirtyAnswerImages = () => {
+  if (activeImageSyncPromise) {
+    return activeImageSyncPromise
+  }
+
+  activeImageSyncPromise = (async () => {
+    try {
+      return await performImageSyncPass()
+    } finally {
+      activeImageSyncPromise = null
+    }
+  })()
+
+  return activeImageSyncPromise
 }
 
 // Ona tili: when the essay was handed in as photos, the photos win over the
@@ -1188,6 +1330,15 @@ const applyEssayTranscriptions = async () => {
 
 const finishTestAndGoToExplanation = async ({ tolerateTranscribeFailure = false } = {}) => {
   await syncDirtyAnswers()
+
+  // The photo answers must be stored before submit — grading reads them from the
+  // attempt. On a manual finish a failure aborts so the user can retry; on
+  // time-up there is no second chance, so we submit with whatever landed.
+  const failedImageQuestionIds = await syncDirtyAnswerImages()
+
+  if (failedImageQuestionIds.length && !tolerateTranscribeFailure) {
+    throw new Error('Could not save the answer images.')
+  }
 
   let transcribedCount = 0
 
@@ -1338,7 +1489,7 @@ watch(
   },
 )
 
-watch([serializedAnswers, remainingSeconds, activeAttemptId], () => {
+watch([serializedAnswers, serializedImageAnswerCounts, remainingSeconds, activeAttemptId], () => {
   persistCurrentProgress()
 })
 
@@ -1381,10 +1532,17 @@ const confirmSubmitTest = async () => {
   } catch (error) {
     console.error(error)
     isCompletingTest.value = false
-    if (finishOverlayState.value) {
+    // Two things can fail a finish: the photo answers of AI-reviewed questions,
+    // and the handwritten-essay transcription. Name the right one.
+    const isImageUploadFailure = /answer images/i.test(error?.message || '')
+    if (finishOverlayState.value && !isImageUploadFailure) {
       finishOverlayState.value = 'error'
     } else {
-      submitErrorMessage.value = t('testPage.essay.transcribeFailed')
+      finishOverlayState.value = ''
+      submitErrorMessage.value = isImageUploadFailure
+        ? t('testPage.aiReview.uploadFailed')
+        : t('testPage.essay.transcribeFailed')
+      showSubmitModal.value = true
     }
   } finally {
     isSubmittingTest.value = false
@@ -1488,6 +1646,9 @@ onMounted(() => {
       if (hasPendingAnswerActions()) {
         void syncDirtyAnswers()
       }
+      if (dirtyImageQuestionIds.size) {
+        void syncDirtyAnswerImages()
+      }
     }, ANSWER_SYNC_INTERVAL_MS)
   }
 })
@@ -1500,6 +1661,7 @@ onBeforeUnmount(() => {
   // Final flush so up to ANSWER_SYNC_INTERVAL_MS of unsent edits aren't lost
   // when the user navigates away mid-window.
   void syncDirtyAnswers()
+  void syncDirtyAnswerImages()
   persistCurrentProgress()
   stopTimer()
   unlockZoom()
@@ -1511,12 +1673,6 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="font-sans-custom min-h-screen touch-manipulation bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
-
-    <ProfileGateModal
-      v-model:show="showProfileGate"
-      @completed="onProfileCompleted"
-      @cancel="onProfileCancel"
-    />
 
     <EssayProcessingOverlay
       v-if="finishOverlayState"
@@ -1606,6 +1762,8 @@ onBeforeUnmount(() => {
                   :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
                   :selected-answers="answers"
                   :resolve-free-answer="getResolvedFreeAnswer"
+                  :resolve-answer-images="getAnswerImages"
+                  :resolve-remote-image-urls="getRemoteAnswerImageUrls"
                   :image-alt="t('testPage.imageAlt')"
                   :option-bank-label="t('testPage.optionBank')"
                   :select-option-label="t('testPage.selectOption')"
@@ -1616,6 +1774,18 @@ onBeforeUnmount(() => {
                   @update-matching-answer="updateMatchingAnswer"
                   @update-option="updateOptionAnswer"
                   @update-free-answer="updateFreeAnswer"
+                  @update-answer-images="updateAnswerImages"
+                />
+
+                <!-- AI-reviewed open response (Biology 41–43): no answer box —
+                     photos of the handwritten solution are the whole answer. -->
+                <TestOpenResponseQuestion
+                  v-else-if="!question.questionGroupId && isImageAnswerQuestion(question)"
+                  :question="question"
+                  :uploads="getAnswerImages(question.id)"
+                  :remote-image-urls="getRemoteAnswerImageUrls(question.id)"
+                  :image-alt="t('testPage.imageAlt')"
+                  @update-uploads="updateAnswerImages"
                 />
 
                 <TestEssayQuestion

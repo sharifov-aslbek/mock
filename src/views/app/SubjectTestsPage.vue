@@ -14,7 +14,6 @@ import TestCard from '@/components/app/TestCard.vue'
 import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
 import EmptyState from '@/components/app/EmptyState.vue'
 import TestLaunchDialogs from '@/components/app/TestLaunchDialogs.vue'
-import ProfileGateModal from '@/components/ProfileGateModal.vue'
 import { SUBJECTS, unknownSubject } from '@/components/app/subjects.js'
 import { useTestCatalogStore } from '@/stores/testCatalog'
 import { useTestLauncher } from '@/composables/useTestLauncher'
@@ -40,9 +39,6 @@ const {
   confirm: confirmLaunch,
   close: closeLaunch,
   goToTopUp,
-  showProfileGate,
-  onProfileCompleted,
-  onProfileCancel,
 } = useTestLauncher()
 
 void catalog.load()
@@ -402,12 +398,6 @@ const sortOptions = asOptions(SORTS)
       @confirm="confirmLaunch"
       @close="closeLaunch"
       @topup="goToTopUp"
-    />
-
-    <ProfileGateModal
-      v-model:show="showProfileGate"
-      @completed="onProfileCompleted"
-      @cancel="onProfileCancel"
     />
   </main>
 </template>

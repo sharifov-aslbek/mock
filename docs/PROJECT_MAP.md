@@ -20,7 +20,7 @@ vue-router equivalent; nested layout routes are the idiomatic translation.)
 | marketing | `MarketingLayout.vue` | none — **no auth store, no session request** | `/`, `/natijalar`, `/platforma`, `/ai-tekshiruv` |
 | public (legacy) | `PublicLayout.vue` | none (pages may be auth-*aware*) | `/narxlar`, subject pages, demos |
 | platform | `PlatformLayout.vue` | **guarded** | `/test`, `/result-exam`, `/profile`, `/explanation` |
-| auth | `BareLayout.vue` | none | `/login`, `/register`, `/verify-phone` |
+| auth | `BareLayout.vue` | none (`/complete-profile` requires auth) | `/login`, `/register`, `/verify-phone`, `/complete-profile` |
 
 `App.vue` is now only global providers (`NMessageProvider`,
 `NetworkStatusAlert`) + `<RouterView>`. The old `layoutlessRoutes` /
@@ -53,8 +53,8 @@ into `MarketingLayout` would silently redesign them.
 | `/math` | `views/SubjectPage.vue` | `subjectKey: 'math'` |
 | `/tarix` | `views/SubjectPage.vue` | `subjectKey: 'history'` |
 | `/fizika` | `views/SubjectPage.vue` | `subjectKey: 'physics'` |
-| `/biologiya` | `views/BiologySubjectPage.vue` | |
-| `/biologiya/test` | `views/BiologyDemoPage.vue` | `chrome: false`, `support: false`, noindex |
+| `/biologiya` | `views/SubjectPage.vue` | `subjectKey: 'biology'` |
+| `/biologiya/test` | `views/BiologyDemoPage.vue` | **DEV only** (offline reference for the AI-question UI); prod → `/biologiya`. `chrome: false`, `support: false`, noindex |
 | `/ona-tili` | `views/OnaTiliPage.vue` | |
 | `/ona-tili-demo` | → `/ona-tili` | |
 | `/ona-tili-demo-natija` | `views/OnaTiliDemoResultPage.vue` | **DEV only**; prod → `/ona-tili` |
@@ -161,7 +161,18 @@ dashboard's average and per-attempt results can use it.
 All carry `meta.requiresAuth: true` and `robots: noindex, nofollow`.
 
 ### auth — `BareLayout`
-`/login`, `/register`, `/verify-phone` — all noindex.
+`/login`, `/register`, `/verify-phone`, `/complete-profile` — all noindex.
+
+`/complete-profile` (`views/CompleteProfilePage.vue`, `requiresAuth`) collects
+the real name (printed on the certificate) and confirms the phone via
+`POST /auth/verify-my-phone` → verify-otp. It is a redirect target, not a wall:
+`utils/postAuth.js#resolvePostAuthRoute` sends a fresh session there after
+login / register / verify-phone when `authStore.needsProfileSetup`, and every
+start-test call site (`MathTestCard`, `TestPage`, `composables/useTestLauncher`)
+sends the user there on the backend's 403 (`error.phoneNotConfirmed`, set in
+`stores/test.js`) with `?redirect=` back to where they were. Google and
+Telegram sign-ins land there every time — neither supplies a phone. The old
+client-side `ProfileGateModal` / `useProfileGate` gate is gone.
 
 ## The guard
 
