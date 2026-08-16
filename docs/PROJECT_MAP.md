@@ -112,9 +112,9 @@ subject list does not re-hit the network. Rules that fall out of the real data:
 | Request | Does |
 |---|---|
 | `GET /essay-topic` | the user's own topics plus the shared ones |
-| `POST /essay-topic?text=` | add one of your own |
+| `POST /essay-topic` — JSON `{ text }` | add one of your own |
 | `DELETE /essay-topic?topicId=` | remove one of your own |
-| `POST /essay-review/custom` | grade a typed essay |
+| `POST /essay-review/custom` — JSON `{ topicId, essay }` | grade a typed essay |
 | `POST /essay-review/custom/images` | OCR photographed pages, then grade |
 | `GET /essay-submission` | the OCR transcription, so highlights can anchor |
 

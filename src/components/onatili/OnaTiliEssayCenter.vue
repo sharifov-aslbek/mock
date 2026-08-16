@@ -130,9 +130,10 @@ const addCustom = async () => {
   isSavingTopic.value = true
   customError.value = ''
   try {
-    const response = await apiFetch(`${apiBaseUrl}/essay-topic?text=${encodeURIComponent(text)}`, {
+    const response = await apiFetch(`${apiBaseUrl}/essay-topic`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
     })
     const payload = await response.json().catch(() => null)
     if (!response.ok || payload?.code !== 200) {
@@ -301,10 +302,10 @@ const submit = async () => {
         { method: 'POST', headers: authHeaders(), body: formData },
       )
     } else {
-      const query = `topicId=${encodeURIComponent(activeTopic.value.id)}&essay=${encodeURIComponent(text)}`
-      response = await apiFetch(`${apiBaseUrl}/essay-review/custom?${query}`, {
+      response = await apiFetch(`${apiBaseUrl}/essay-review/custom`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId: activeTopic.value.id, essay: text }),
       })
     }
     const payload = await response.json().catch(() => null)

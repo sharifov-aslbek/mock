@@ -2,9 +2,9 @@
 //
 // Same backend as the public Ona tili essay centre:
 //   GET    /essay-topic                    the user's own topics + shared ones
-//   POST   /essay-topic?text=              add one of your own
+//   POST   /essay-topic  { text }          add one of your own
 //   DELETE /essay-topic?topicId=           remove one of your own
-//   POST   /essay-review/custom            grade a typed essay
+//   POST   /essay-review/custom  { topicId, essay }   grade a typed essay
 //   POST   /essay-review/custom/images     OCR photographed pages, then grade
 //   GET    /essay-submission               the OCR transcription, for highlights
 //
@@ -105,10 +105,11 @@ export function useEssayCenter() {
 
     isSavingTopic.value = true
     try {
-      const response = await apiFetch(
-        `${apiBaseUrl}/essay-topic?text=${encodeURIComponent(value)}`,
-        { method: 'POST', headers: authHeaders() },
-      )
+      const response = await apiFetch(`${apiBaseUrl}/essay-topic`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: value }),
+      })
       const payload = await response.json().catch(() => null)
       if (!response.ok || payload?.code !== 200) {
         throw new Error(payload?.message || `HTTP ${response.status}`)
@@ -281,10 +282,10 @@ export function useEssayCenter() {
           { method: 'POST', headers: authHeaders(), body: formData },
         )
       } else {
-        const query = `topicId=${encodeURIComponent(activeTopic.value.id)}&essay=${encodeURIComponent(text)}`
-        response = await apiFetch(`${apiBaseUrl}/essay-review/custom?${query}`, {
+        response = await apiFetch(`${apiBaseUrl}/essay-review/custom`, {
           method: 'POST',
-          headers: authHeaders(),
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topicId: activeTopic.value.id, essay: text }),
         })
       }
       const payload = await response.json().catch(() => null)
