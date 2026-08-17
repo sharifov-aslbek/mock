@@ -296,7 +296,10 @@ const messages = {
       otpResent: 'Kod qayta yuborildi.',
       changeNumber: 'Raqamni o‘zgartirish',
       or: 'yoki',
-      telegram: 'Telegram orqali ro‘yxatdan o‘tish'
+      telegram: 'Telegram orqali ro‘yxatdan o‘tish',
+      // Shown instead of `description` while phone registration is switched
+      // off (SMS down — PHONE_REGISTRATION_ENABLED in utils/postAuth.js).
+      socialOnlyDescription: 'Google yoki Telegram hisobingiz orqali bir necha soniyada ro‘yxatdan o‘ting'
     },
     verify: {
       forgotTitle: 'Parolni unutdingizmi?',
@@ -901,7 +904,8 @@ const messages = {
       otpResent: 'Код отправлен повторно.',
       changeNumber: 'Изменить номер',
       or: 'или',
-      telegram: 'Зарегистрироваться через Telegram'
+      telegram: 'Зарегистрироваться через Telegram',
+      socialOnlyDescription: 'Зарегистрируйтесь за несколько секунд через аккаунт Google или Telegram'
     },
     verify: {
       forgotTitle: 'Забыли пароль?',

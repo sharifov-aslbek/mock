@@ -168,13 +168,15 @@ rendered on both `/login` and `/register` (both providers create the account on
 first sign-in, so they are a registration path too). It emits `authenticated`;
 the page owns the redirect (`redirectAfterAuth` → `resolvePostAuthRoute`).
 
-**TEMP (2026-08-16) — SMS is down again.** `PHONE_VERIFY_REDIRECTS_ENABLED = false`
-in `utils/postAuth.js` switches off every redirect into phone verification
-described below (post-auth detour to `/complete-profile`, start-test's 403
-hand-off, login's `/verify-phone` hand-off; `/complete-profile` itself saves the
-name/phone and finishes without an OTP). Registration by phone simply doesn't
-complete meanwhile; signed-in users keep using the site. Flip it back to `true`
-when SMS works again — nothing else needs to change.
+**TEMP (2026-08-16) — SMS is down again.** `SMS_AVAILABLE = false` in
+`utils/postAuth.js` is the one switch. It drives `PHONE_VERIFY_REDIRECTS_ENABLED`
+(every redirect into phone verification described below is off: the post-auth
+detour to `/complete-profile`, start-test's 403 hand-off, login's `/verify-phone`
+hand-off; `/complete-profile` itself saves the name/phone and finishes without an
+OTP) and `PHONE_REGISTRATION_ENABLED` (`/register` hides the name / phone /
+password form and offers only Telegram and Google). Signed-in users keep using
+the site. Flip `SMS_AVAILABLE` back to `true` when SMS works again — nothing
+else needs to change.
 
 `/complete-profile` (`views/CompleteProfilePage.vue`, `requiresAuth`) collects
 the real name (printed on the certificate) and confirms the phone via

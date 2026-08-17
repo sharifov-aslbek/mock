@@ -10,7 +10,7 @@ import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
-import { resolvePostAuthRoute } from '@/utils/postAuth'
+import { PHONE_REGISTRATION_ENABLED, resolvePostAuthRoute } from '@/utils/postAuth'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -201,16 +201,19 @@ onMounted(() => {
         {{ t('register.title') }}
       </h1>
       <p class="mt-3 text-sm leading-relaxed text-[#6b6760]">
-        {{ t('register.description') }}
+        {{ PHONE_REGISTRATION_ENABLED ? t('register.description') : t('register.socialOnlyDescription') }}
       </p>
     </div>
 
     <!-- ── Step 1: name + phone + password ──────────────────────────── -->
+    <!-- TEMP: while SMS is down (PHONE_REGISTRATION_ENABLED, utils/postAuth.js)
+         the phone form and its "yoki" divider are hidden — the code it leads
+         to would never arrive — and the card holds only Telegram / Google. -->
     <div
       v-if="step === 'form'"
       class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]"
     >
-      <form @submit.prevent="submitRegisterForm">
+      <form v-if="PHONE_REGISTRATION_ENABLED" @submit.prevent="submitRegisterForm">
         <div class="flex flex-col gap-4">
           <div class="flex gap-3">
             <label class="flex-1">
@@ -315,11 +318,20 @@ onMounted(() => {
         </button>
       </form>
 
-      <div class="my-5 flex items-center gap-3">
+      <div v-if="PHONE_REGISTRATION_ENABLED" class="my-5 flex items-center gap-3">
         <div class="h-px flex-1 bg-[#e4e0d8]"></div>
         <span class="text-xs text-[#8a857c]">{{ t('register.or') }}</span>
         <div class="h-px flex-1 bg-[#e4e0d8]"></div>
       </div>
+
+      <!-- With the form hidden there is no error box above the buttons, so a
+           failed Telegram / Google sign-in shows here instead. -->
+      <p
+        v-if="!PHONE_REGISTRATION_ENABLED && authStore.errorMessage"
+        class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+      >
+        {{ authStore.errorMessage }}
+      </p>
 
       <!-- Telegram + Google, the same block /login shows. Both create the
            account on first sign-in, so they are a registration path too; the

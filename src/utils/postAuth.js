@@ -4,18 +4,26 @@ import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 export const COMPLETE_PROFILE_PATH = '/complete-profile'
 
 // TEMP (2026-08-16): the SMS provider is down again, so nothing that ends in an
-// OTP can complete — /complete-profile (verify-my-phone) and /verify-phone are
-// dead ends right now. While this is false, no flow redirects INTO phone
-// verification: post-auth routing goes straight to the destination (a Google /
-// Telegram session included), start-test's "verify your phone" 403 falls
-// through as a plain error, and login's "verify first" hand-off is skipped. The
-// backend's own gates were disabled at the same time. Registration by phone
-// simply won't work meanwhile — accepted; the point is that signed-in users
-// keep using the site. Set back to true once SMS works again.
+// OTP can complete — registration by phone, /complete-profile (verify-my-phone)
+// and /verify-phone are all dead ends right now. The backend's own gates were
+// disabled at the same time. This is the ONE switch: set it back to true once
+// SMS works again and everything below comes back — nothing else changes.
+export const SMS_AVAILABLE = false
+
+// While false, no flow redirects INTO phone verification: post-auth routing goes
+// straight to the destination (a Google / Telegram session included),
+// start-test's "verify your phone" 403 falls through as a plain error, login's
+// "verify first" hand-off is skipped, and /complete-profile saves without an
+// OTP step. The point is that signed-in users keep using the site.
 //
 // Read by: resolvePostAuthRoute below, views/Login.vue, components/MathTestCard.vue,
 // views/TestPage.vue, composables/useTestLauncher.js, views/CompleteProfilePage.vue.
-export const PHONE_VERIFY_REDIRECTS_ENABLED = false
+export const PHONE_VERIFY_REDIRECTS_ENABLED = SMS_AVAILABLE
+
+// While false, /register hides the name / phone / password form (its OTP would
+// never arrive) and offers only Telegram and Google, which need no code.
+// Read by: views/Register.vue.
+export const PHONE_REGISTRATION_ENABLED = SMS_AVAILABLE
 
 // Where to send someone who has just authenticated, or who just tried to start
 // a test without a usable profile.
