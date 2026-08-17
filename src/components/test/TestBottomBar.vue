@@ -22,8 +22,12 @@ defineEmits(['submit'])
 </script>
 
 <template>
-  <div class="fixed bottom-0 left-1/2 z-30 w-full max-w-[920px] -translate-x-1/2 border-t border-[#e0ddd7] bg-white">
-    <div class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+  <!-- Reads as the question card's own footer: same width and side borders as
+       the card, hairline divider on top, flush to the viewport bottom. The
+       fixed heights below are what TestPage's bottom padding reserves, so the
+       card ends exactly where this bar starts (no page-background gap). -->
+  <div class="fixed bottom-0 left-1/2 z-30 flex h-[116px] w-[calc(100%-1.5rem)] max-w-[920px] -translate-x-1/2 items-center border-x border-t border-[#e0ddd7] bg-white sm:h-[76px] sm:w-[calc(100%-2.5rem)] lg:w-[calc(100%-3rem)]">
+    <div class="flex w-full flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-10 lg:px-16">
       <div class="flex items-center gap-2.5">
         <button
           type="button"

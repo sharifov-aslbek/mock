@@ -22,6 +22,13 @@ import {
 // "is this a real timestamp" needs more than a truthiness check.
 const isRealDate = (value) => Boolean(value) && !String(value).startsWith('0001-01-01')
 
+// TEMP: subjects held back from the platform. Their tests are dropped from the
+// catalogue here, which is the single place the Fanlar grid, the subject lists
+// and the dashboard all read from — so the fan disappears everywhere at once
+// instead of each surface needing its own guard. Empty this set to bring one
+// back; nothing else has to change.
+const HIDDEN_SUBJECT_KEYS = new Set(['biology'])
+
 export const useTestCatalogStore = defineStore('testCatalog', () => {
   const tests = ref([])
   const attempts = ref([])
@@ -134,25 +141,28 @@ export const useTestCatalogStore = defineStore('testCatalog', () => {
   // to a registry key; tests whose subject we cannot place keep their raw
   // string so they are still listed rather than dropped.
   const catalogue = computed(() =>
-    tests.value.filter(isPublished).map((test) => {
-      const subjectKey = subjectKeyFromApi(test.subject)
-      const attempt = attemptByTest.value.get(Number(test.id))
-      return {
-        id: Number(test.id),
-        title: String(test.title || '').trim() || 'Nomsiz test',
-        subjectKey,
-        subjectRaw: test.subject,
-        questionCount: Number(test.questionCount) || 0,
-        attemptCount: Number(test.attemptCount) || 0,
-        isPremium: Boolean(test.isPremium),
-        isPurchased: Boolean(test.isPurchased),
-        price: Number(test.price) || 0,
-        durationMinutes: Number(test.durationMinutes) || 0,
-        // No attempt → new. Unfinished → progress. Finished → done.
-        state: !attempt ? 'new' : attempt.finished ? 'done' : 'progress',
-        attemptId: attempt?.id ?? null,
-      }
-    }),
+    tests.value
+      .filter(isPublished)
+      .filter((test) => !HIDDEN_SUBJECT_KEYS.has(subjectKeyFromApi(test.subject)))
+      .map((test) => {
+        const subjectKey = subjectKeyFromApi(test.subject)
+        const attempt = attemptByTest.value.get(Number(test.id))
+        return {
+          id: Number(test.id),
+          title: String(test.title || '').trim() || 'Nomsiz test',
+          subjectKey,
+          subjectRaw: test.subject,
+          questionCount: Number(test.questionCount) || 0,
+          attemptCount: Number(test.attemptCount) || 0,
+          isPremium: Boolean(test.isPremium),
+          isPurchased: Boolean(test.isPurchased),
+          price: Number(test.price) || 0,
+          durationMinutes: Number(test.durationMinutes) || 0,
+          // No attempt → new. Unfinished → progress. Finished → done.
+          state: !attempt ? 'new' : attempt.finished ? 'done' : 'progress',
+          attemptId: attempt?.id ?? null,
+        }
+      }),
   )
 
   // Free tests first, then premium — so a newcomer starts on the free ones

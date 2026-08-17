@@ -5,7 +5,6 @@
 // student never opens a fan and finds nothing. Counts are real test counts.
 import { computed, onMounted } from 'vue'
 import AppTopbar from '@/components/app/AppTopbar.vue'
-import AppCard from '@/components/app/AppCard.vue'
 import SubjectCard from '@/components/app/SubjectCard.vue'
 import SkeletonBlock from '@/components/app/SkeletonBlock.vue'
 import EmptyState from '@/components/app/EmptyState.vue'
@@ -46,16 +45,15 @@ const errorCopy = computed(() =>
   />
 
   <main>
-    <!-- Below sm the panel drops its own surface: a card of cards spent 40px of
-         a 390px screen on two nested borders, and the subject rows already read
-         as a group. The heading stays; the box around it goes. -->
-    <AppCard
-      class="max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none"
-    >
+    <!-- No panel around the grid at any width: a card of cards put two nested
+         borders and two near-identical surfaces on screen for nothing, and the
+         subject cards already read as one group. The heading stays; the box
+         around it goes. -->
+    <section>
       <!-- On a phone the page title is already "Testlar" and the list below is
            plainly the subjects, so this second heading only pushed them down.
            It stays in the accessibility tree, and returns visibly from sm up
-           where it labels the panel it sits in. -->
+           where it labels the grid. -->
       <h2 class="sr-only text-[18px] font-bold tracking-[-0.015em] text-app-ink sm:not-sr-only">
         Fanlar
       </h2>
@@ -110,6 +108,6 @@ const errorCopy = computed(() =>
           :count="entry.count"
         />
       </div>
-    </AppCard>
+    </section>
   </main>
 </template>

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { onMounted, ref } from 'vue'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
+import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 import { PHONE_VERIFY_REDIRECTS_ENABLED, resolvePostAuthRoute } from '@/utils/postAuth'
 
@@ -186,16 +187,6 @@ onMounted(() => {
         </button>
       </form>
 
-      <p class="mt-5 text-center text-sm text-[#6b6760]">
-        {{ t('login.noAccount') }}
-        <router-link
-          :to="registerLocation"
-          class="font-semibold text-[#1a1814] underline underline-offset-2"
-        >
-          {{ t('login.signUp') }}
-        </router-link>
-      </p>
-
       <div class="my-5 flex items-center gap-3">
         <div class="h-px flex-1 bg-[#e4e0d8]"></div>
         <span class="text-xs text-[#8a857c]">{{ t('login.or') }}</span>
@@ -209,6 +200,12 @@ onMounted(() => {
         ref="socialAuth"
         :telegram-label="t('login.telegram')"
         @authenticated="redirectAfterAuth"
+      />
+
+      <AuthSwitchCta
+        :question="t('login.noAccount')"
+        :action="t('login.signUp')"
+        :to="registerLocation"
       />
     </div>
   </AuthLayout>

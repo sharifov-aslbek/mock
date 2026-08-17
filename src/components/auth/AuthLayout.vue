@@ -1,6 +1,6 @@
 <script setup>
 import { useI18n } from 'vue-i18n'
-import logoBlack from '@/assets/logo-black.jpg'
+import logoMarkDark from '@/assets/logo-mark.png'
 import logoMark from '@/assets/logo-removed.png'
 
 // Shared shell for /login, /register and /verify-phone: dark brand aside on
@@ -63,7 +63,7 @@ const { t, tm } = useI18n()
       <div class="flex flex-1 items-center justify-center py-8">
         <div class="auth-form w-full max-w-md">
           <div class="mb-5 flex items-center justify-center gap-2 lg:hidden">
-            <img :src="logoBlack" alt="MilliyMock" class="h-9 w-auto object-contain" />
+            <img :src="logoMarkDark" alt="MilliyMock" class="h-9 w-auto object-contain" />
             <span class="text-[18px] font-bold tracking-[-0.025em] text-[#1a1814]">MilliyMock</span>
           </div>
           <slot />

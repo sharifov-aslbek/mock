@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
+import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
@@ -342,6 +343,12 @@ onMounted(() => {
         google-text="signup_with"
         @authenticated="redirectAfterAuth"
       />
+
+      <AuthSwitchCta
+        :question="t('register.haveAccount')"
+        :action="t('register.signIn')"
+        :to="{ path: '/login', query: redirectQuery }"
+      />
     </div>
 
     <!-- ── Step 2: OTP confirmation ─────────────────────────────────── -->
@@ -417,14 +424,5 @@ onMounted(() => {
       </button>
     </div>
 
-    <p v-if="step === 'form'" class="mt-6 text-center text-sm text-[#6b6760]">
-      {{ t('register.haveAccount') }}
-      <router-link
-        :to="{ path: '/login', query: redirectQuery }"
-        class="font-semibold text-[#1a1814] underline-offset-2 hover:underline"
-      >
-        {{ t('register.signIn') }}
-      </router-link>
-    </p>
   </AuthLayout>
 </template>

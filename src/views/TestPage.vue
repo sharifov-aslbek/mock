@@ -1673,7 +1673,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="font-sans-custom min-h-screen touch-manipulation bg-[#f5f3ef] pb-[190px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[220px] sm:pt-6">
+  <main class="font-sans-custom min-h-screen touch-manipulation bg-[#f5f3ef] pb-[116px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[76px] sm:pt-6">
 
     <EssayProcessingOverlay
       v-if="finishOverlayState"
@@ -1702,7 +1702,7 @@ onBeforeUnmount(() => {
     />
 
     <NSpin :show="testStore.isLoading">
-      <div class="mx-auto max-w-[1280px] px-3 py-2 sm:px-5 sm:py-4 lg:px-6 lg:py-5">
+      <div class="mx-auto max-w-[1280px] px-3 pb-0 pt-2 sm:px-5 sm:pt-4 lg:px-6 lg:pt-5">
         <TestErrorState
           v-if="resolvedErrorMessage"
           :message="resolvedErrorMessage"
@@ -1729,7 +1729,7 @@ onBeforeUnmount(() => {
           </button>
 
           <div
-            class="mx-auto min-h-[calc(100vh-11rem)] max-w-[920px] overflow-hidden rounded-[28px] border border-[#e0ddd7] bg-white px-4 pb-14 pt-5 shadow-[0_14px_40px_rgba(26,24,20,0.06)] ring-1 ring-[#ebe7e0] sm:min-h-[1056px] sm:rounded-[32px] sm:px-10 sm:py-10 lg:px-16 lg:pb-20 lg:pt-12"
+            class="mx-auto min-h-[calc(100vh-132px)] max-w-[920px] overflow-hidden rounded-[28px] rounded-b-none border border-b-0 border-[#e0ddd7] bg-white px-4 pb-10 pt-5 shadow-[0_14px_40px_rgba(26,24,20,0.06)] ring-1 ring-[#ebe7e0] sm:min-h-[1056px] sm:rounded-[32px] sm:rounded-b-none sm:px-10 sm:pb-10 sm:pt-10 lg:px-16 lg:pb-12 lg:pt-12"
           >
             <div class="border-b border-[#e0ddd7] pb-5 sm:pb-8">
               <h1 class="font-serif-custom text-[2rem] font-normal leading-[0.96] tracking-[0.01em] text-[#1a1814] sm:text-[2.55rem] lg:text-4xl">
