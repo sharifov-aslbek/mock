@@ -46,34 +46,30 @@ watch(() => route.fullPath, () => {
       class="mx-auto box-content flex max-w-[1280px] items-center justify-between px-[20px] py-[18px] sm:px-[32px] lg:h-[92px] lg:px-[48px] lg:py-0"
       aria-label="Asosiy menyu"
     >
-      <!-- Logo and links are one group, 48px apart: the link row used to float
-           between the logo and the centre of the container, which read as a
-           failed centring rather than a decision. Left-aligned off the logo it
-           has an edge to belong to. -->
-      <div class="flex items-center lg:gap-[48px]">
-        <RouterLink
-          to="/"
-          class="flex items-center rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
-        >
-          <img
-            :src="logoLockup"
-            alt="Milliy Mock"
-            width="107"
-            height="27"
-            class="block h-[27px] w-auto"
-          />
-        </RouterLink>
+      <RouterLink
+        to="/"
+        class="flex items-center rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
+      >
+        <img
+          :src="logoLockup"
+          alt="Milliy Mock"
+          width="107"
+          height="27"
+          class="block h-[27px] w-auto"
+        />
+      </RouterLink>
 
-        <div class="hidden items-center text-[15px] font-medium lg:flex lg:gap-[32px]">
-          <RouterLink
-            v-for="item in navItems"
-            :key="item.label"
-            :to="item.to"
-            class="rounded-sm text-navlink transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
-          >
-            {{ item.label }}
-          </RouterLink>
-        </div>
+      <div
+        class="hidden items-center text-[15px] font-medium lg:flex lg:gap-[40px]"
+      >
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.label"
+          :to="item.to"
+          class="rounded-sm text-navlink transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
+        >
+          {{ item.label }}
+        </RouterLink>
       </div>
 
       <RouterLink
