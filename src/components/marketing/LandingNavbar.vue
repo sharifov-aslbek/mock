@@ -9,18 +9,23 @@ import { useRoute } from 'vue-router'
 import { usePlatformEntry } from '@/composables/usePlatformEntry'
 import logoLockup from '@/assets/landing/logo-lockup.png'
 
+// Four links, each a real public route. Narxlar is the important one: /narxlar
+// has always existed but was unreachable from the landing page, so a visitor
+// could not find pricing without registering first. Platforma and Fikrlar moved
+// to the footer — they are reference pages, not the paths a visitor is deciding
+// between here. There is no Testlar item because /testlar is behind the auth
+// wall; linking it would bounce logged-out visitors into /register.
 const navItems = [
-  // Platforma is the one link that is no longer an in-page anchor: `/platforma`
-  // is now a real page (the screen tour), and a four-word feature column on the
-  // landing page was a weaker answer than the thing itself.
-  { label: 'Platforma', to: '/platforma' },
-  { label: 'Fikrlar', to: '/fikrlar' },
-  // The essay analysis screen has its own page — better than an anchor to a
-  // four-word feature column, and it keeps /platforma about the platform.
-  { label: 'Essay tekshirish', to: '/essay-tekshirish' },
   // Courses do not exist yet, so this leads to the page that says so — an
   // anchor to a four-word feature column implied they were already there.
   { label: 'Kurslar', to: '/kurslar' },
+  // The essay analysis screen has its own page — better than an anchor to a
+  // four-word feature column, and it keeps /platforma about the platform.
+  { label: 'Essay tekshirish', to: '/essay-tekshirish' },
+  // Public success stories. A signed-in student is redirected to /natijalarim
+  // by the router guard, so one item serves both states.
+  { label: 'Natijalar', to: '/natijalar' },
+  { label: 'Narxlar', to: '/narxlar' },
 ]
 
 const { enter } = usePlatformEntry()
@@ -41,30 +46,34 @@ watch(() => route.fullPath, () => {
       class="mx-auto box-content flex max-w-[1280px] items-center justify-between px-[20px] py-[18px] sm:px-[32px] lg:h-[92px] lg:px-[48px] lg:py-0"
       aria-label="Asosiy menyu"
     >
-      <RouterLink
-        to="/"
-        class="flex items-center rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
-      >
-        <img
-          :src="logoLockup"
-          alt="Milliy Mock"
-          width="107"
-          height="27"
-          class="block h-[27px] w-auto"
-        />
-      </RouterLink>
-
-      <div
-        class="hidden items-center text-[15px] font-medium lg:flex lg:gap-[40px]"
-      >
+      <!-- Logo and links are one group, 48px apart: the link row used to float
+           between the logo and the centre of the container, which read as a
+           failed centring rather than a decision. Left-aligned off the logo it
+           has an edge to belong to. -->
+      <div class="flex items-center lg:gap-[48px]">
         <RouterLink
-          v-for="item in navItems"
-          :key="item.label"
-          :to="item.to"
-          class="rounded-sm text-navlink transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
+          to="/"
+          class="flex items-center rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
         >
-          {{ item.label }}
+          <img
+            :src="logoLockup"
+            alt="Milliy Mock"
+            width="107"
+            height="27"
+            class="block h-[27px] w-auto"
+          />
         </RouterLink>
+
+        <div class="hidden items-center text-[15px] font-medium lg:flex lg:gap-[32px]">
+          <RouterLink
+            v-for="item in navItems"
+            :key="item.label"
+            :to="item.to"
+            class="rounded-sm text-navlink transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
+          >
+            {{ item.label }}
+          </RouterLink>
+        </div>
       </div>
 
       <RouterLink
