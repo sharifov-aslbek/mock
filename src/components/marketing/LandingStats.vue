@@ -1,11 +1,22 @@
 <script setup>
 // Stats band, from `MilliyMock Landing.dc.html`.
 // The `fikrlar` id is the design's own anchor target for the nav.
+//
+// Every figure here is checked against GET /api/test (18/08/2026): 29 published
+// tests, 1,303 questions across them, 5 subjects, and 28 of the 29 built to the
+// 45-question / 180-minute exam format.
+//
+// What was here before could not be defended. "10,000+ Yaratilgan testlar" was
+// wrong by two orders of magnitude; "13,543+ Faol foydalanuvchi" next to the
+// hero's 18,8xx attempts published a ratio of 1.4 tests per user — a retention
+// problem dressed as a trust signal; "98% Mamnun foydalanuvchi" had no source;
+// and "24/7 qo'llab-quvvatlash" is a promise, not a statistic. Total attempts
+// are deliberately absent: the hero already shows that number live.
 const stats = [
-  { value: '13,543+', label: 'Faol foydalanuvchi' },
-  { value: '98%', label: 'Mamnun foydalanuvchi' },
-  { value: '24/7', label: "Doimiy qo'llab-quvvatlash" },
-  { value: '10,000+', label: 'Yaratilgan testlar' },
+  { value: '29', label: 'Tayyor mock test' },
+  { value: '1,303', label: 'Test savollari' },
+  { value: '5', label: 'Fan' },
+  { value: '45', label: 'Har testda savol' },
 ]
 </script>
 
