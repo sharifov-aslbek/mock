@@ -13,14 +13,8 @@
 
   --color-cream: #f8f6f2;        /* page background */
   --color-ink: #111111;          /* body text, buttons */
-  /* Two greys retuned for WCAG AA. The design file's values were chosen on a
-     white artboard and fail on cream: #787878 measured 4.09:1 (body needs 4.5)
-     and #a39b8f measured 2.55:1, under even the 3:1 large-text floor — so the
-     muted half of every two-tone heading was the least readable text on the
-     page. Hues are unchanged; only lightness moved. Verified against all three
-     landing surfaces (cream #f8f6f2, panel #efece5, panel-alt #ebe6dd). */
-  --color-muted: #5c554e;        /* body copy, stat labels, captions — 6.79:1 */
-  --color-accent: #6b6259;       /* second half of two-tone headlines — 5.53:1 */
+  --color-muted: #787878;        /* secondary text, link hover */
+  --color-accent: #a39b8f;       /* second half of two-tone headlines */
   --color-navlink: #3d3a36;      /* nav link rest state */
   --color-panel: #efece5;        /* stats band */
   --color-panel-alt: #ebe6dd;    /* closing CTA banner */
@@ -28,7 +22,7 @@
   --color-hairline: #ece7df;     /* feature dividers, pill border */
   --color-hairline-strong: #e2ddd3; /* stats band dividers */
   --color-avatar: #e4dfd5;       /* social-proof avatar backing */
-  --color-footer-text: #5c554e; /* was #9c968b — 2.72:1, the worst on the page */
+  --color-footer-text: #9c968b;
 
   /* Platform (logged-in) design system — see docs/DESIGN.md. Measured from
      design-ref/dashboard-approved.png. Deliberately a different world from the

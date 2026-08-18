@@ -28,22 +28,17 @@ const countLabel = computed(() => count.value.toLocaleString('en-US'))
     >
       <!-- DM Sans, not the Playfair `font-display`. The rule across the
            marketing site is now: page titles are sans, section headings inside
-           a page keep the serif.
-
-           The two-tone split is inverted from the design file: the muted half
-           used to carry the benefit ("Natijangizni oshiring"), so the most
-           valuable words were the least visible. Setup line muted, benefit in
-           ink. It also names the exam — the hero never said which one. -->
+           a page keep the serif. -->
       <h1
         class="mb-[20px] text-[38px] font-bold leading-[1.12] tracking-[-0.025em] sm:mb-[28px] sm:text-[56px] sm:leading-[1.08] lg:text-[72px]"
       >
-        <span class="text-accent">Milliy Sertifikat mock testlari.</span>
-        Ballingizni oshiring.
+        Bilimingizni sinang. <span class="text-accent">Natijangizni oshiring.</span>
       </h1>
 
-      <p class="mb-[28px] max-w-[440px] text-[17px] leading-[1.6] text-muted sm:mb-[36px] sm:text-[19px] sm:leading-[1.65]">
-        Matematika, Ona tili, Tarix, Biologiya va Fizika bo'yicha real imtihon
-        formatidagi testlar va AI essay tekshiruvi — bitta joyda.
+      <!-- One line at this measure. The old three-line version listed the
+           product's parts, which the feature columns below already do. -->
+      <p class="mb-[32px] max-w-[400px] text-[17px] leading-[1.6] text-muted sm:mb-[40px] sm:text-[19px] sm:leading-[1.65]">
+        <span class="text-ink">Milliy Mock</span> — testlar va essay tekshirish bitta joyda.
       </p>
 
       <div class="flex flex-wrap items-center gap-[24px]">
@@ -74,13 +69,6 @@ const countLabel = computed(() => count.value.toLocaleString('en-US'))
         </RouterLink>
       </div>
 
-      <!-- True as written: registration is free, and the paid tiers are settled
-           by hand over Telegram (see PricingPaymentModal), so no card is taken
-           at any point of sign-up. -->
-      <p class="mt-[16px] text-[14px] text-muted">
-        Bepul ro'yxatdan o'ting · Karta talab qilinmaydi
-      </p>
-
     </div>
 
     <!-- Mobile: the figure bleeds to both screen edges (-mx cancels the page
@@ -97,7 +85,7 @@ const countLabel = computed(() => count.value.toLocaleString('en-US'))
     >
       <img
         :src="dashboardFigure"
-        alt="Milliy Mock boshqaruv paneli: yechilgan testlar soni, o'rtacha natija, tanga balansi va natijalar o'sishi grafigi"
+        alt="Milliy Mock platformasining boshqaruv paneli"
         width="1532"
         height="925"
         loading="lazy"

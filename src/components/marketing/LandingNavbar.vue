@@ -9,23 +9,18 @@ import { useRoute } from 'vue-router'
 import { usePlatformEntry } from '@/composables/usePlatformEntry'
 import logoLockup from '@/assets/landing/logo-lockup.png'
 
-// Four links, each a real public route. Narxlar is the important one: /narxlar
-// has always existed but was unreachable from the landing page, so a visitor
-// could not find pricing without registering first. Platforma and Fikrlar moved
-// to the footer — they are reference pages, not the paths a visitor is deciding
-// between here. There is no Testlar item because /testlar is behind the auth
-// wall; linking it would bounce logged-out visitors into /register.
 const navItems = [
-  // Courses do not exist yet, so this leads to the page that says so — an
-  // anchor to a four-word feature column implied they were already there.
-  { label: 'Kurslar', to: '/kurslar' },
+  // Platforma is the one link that is no longer an in-page anchor: `/platforma`
+  // is now a real page (the screen tour), and a four-word feature column on the
+  // landing page was a weaker answer than the thing itself.
+  { label: 'Platforma', to: '/platforma' },
+  { label: 'Fikrlar', to: '/fikrlar' },
   // The essay analysis screen has its own page — better than an anchor to a
   // four-word feature column, and it keeps /platforma about the platform.
   { label: 'Essay tekshirish', to: '/essay-tekshirish' },
-  // Public success stories. A signed-in student is redirected to /natijalarim
-  // by the router guard, so one item serves both states.
-  { label: 'Natijalar', to: '/natijalar' },
-  { label: 'Narxlar', to: '/narxlar' },
+  // Courses do not exist yet, so this leads to the page that says so — an
+  // anchor to a four-word feature column implied they were already there.
+  { label: 'Kurslar', to: '/kurslar' },
 ]
 
 const { enter } = usePlatformEntry()
