@@ -174,9 +174,14 @@ the page owns the redirect (`redirectAfterAuth` → `resolvePostAuthRoute`).
 detour to `/complete-profile`, start-test's 403 hand-off, login's `/verify-phone`
 hand-off; `/complete-profile` itself saves the name/phone and finishes without an
 OTP) and `PHONE_REGISTRATION_ENABLED` (`/register` hides the name / phone /
-password form and offers only Telegram and Google). Signed-in users keep using
-the site. Flip `SMS_AVAILABLE` back to `true` when SMS works again — nothing
-else needs to change.
+password form and offers only Telegram and Google). Because `/complete-profile`
+is out of action, the *old* first-time gate is back as its stand-in:
+`PROFILE_GATE_MODAL_ENABLED = !SMS_AVAILABLE` makes `composables/useProfileGate.js`
+open `components/ProfileGateModal.vue` before start-test (in `MathTestCard`,
+`TestPage` and `useTestLauncher`) whenever firstName / lastName / fatherName /
+phoneNumber is missing — saved with `PUT /user`, no OTP. Signed-in users keep
+using the site. Flip `SMS_AVAILABLE` back to `true` when SMS works again —
+nothing else needs to change (the modal goes dormant by itself).
 
 `/complete-profile` (`views/CompleteProfilePage.vue`, `requiresAuth`) collects
 the real name (printed on the certificate) and confirms the phone via

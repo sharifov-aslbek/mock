@@ -20,12 +20,15 @@ import { useTestStore } from '@/stores/test'
 import { useBalanceStore } from '@/stores/balance'
 import { isPremiumTest, isTestPurchased, testTokenCost } from '@/utils/premium'
 import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
+import { useProfileGate } from '@/composables/useProfileGate'
 
 export function useTestLauncher() {
   const route = useRoute()
   const router = useRouter()
   const testStore = useTestStore()
   const balanceStore = useBalanceStore()
+  const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
+    useProfileGate()
 
   // The test awaiting confirmation, and which dialog is showing for it.
   const pending = ref(null)
@@ -87,6 +90,13 @@ export function useTestLauncher() {
     busyTestId.value = test.id
 
     try {
+      // start-test mints a fresh attempt, so the test-taker needs a real name
+      // on file for the certificate. No-op once the profile is complete;
+      // backing out aborts the start — no attempt, no charge. (TEMP: the
+      // SMS-down stand-in for /complete-profile; a no-op once SMS is back.)
+      const profileOk = await ensureProfileComplete()
+      if (!profileOk) return
+
       await testStore.startTest(test.id)
 
       const attemptId = testStore.currentAttempt?.id
@@ -143,5 +153,8 @@ export function useTestLauncher() {
     confirm,
     close,
     goToTopUp,
+    showProfileGate,
+    onProfileCompleted,
+    onProfileCancel,
   }
 }

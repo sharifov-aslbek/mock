@@ -25,6 +25,14 @@ export const PHONE_VERIFY_REDIRECTS_ENABLED = SMS_AVAILABLE
 // Read by: views/Register.vue.
 export const PHONE_REGISTRATION_ENABLED = SMS_AVAILABLE
 
+// While SMS is down, /complete-profile can't run, so the OLD first-time gate is
+// back: before a test starts, ProfileGateModal asks for first/last/father name
+// and a phone number (saved with PUT /user, no OTP) — the certificate is printed
+// from them. It goes dormant again the moment SMS_AVAILABLE flips, because
+// /complete-profile then collects the same fields, with verification.
+// Read by: composables/useProfileGate.js (the one place that checks it).
+export const PROFILE_GATE_MODAL_ENABLED = !SMS_AVAILABLE
+
 // Where to send someone who has just authenticated, or who just tried to start
 // a test without a usable profile.
 //
