@@ -267,7 +267,7 @@ const messages = {
     },
     register: {
       title: 'Ro‘yxatdan o‘tish',
-      description: 'Telefon raqamingizga tasdiqlash kodi yuboriladi',
+      description: 'Ism-familiyangizni kiriting va parol o‘rnating — telefon raqamingiz Telegram bot orqali tasdiqlanadi',
       firstName: 'Ism',
       firstNamePlaceholder: 'Aziz',
       lastName: 'Familiya',
@@ -280,7 +280,7 @@ const messages = {
       passwordConfirmPlaceholder: 'Parolni qayta kiriting',
       continue: 'Davom etish',
       submitting: 'Yuborilmoqda...',
-      validation: 'Ism, familiya va telefon raqamni to‘liq kiriting.',
+      validation: 'Ism, familiya va otangizning ismini to‘liq kiriting.',
       passwordValidation: 'Parol kamida 6 ta belgidan iborat bo‘lishi kerak.',
       passwordMismatch: 'Parollar mos kelmadi.',
       haveAccount: 'Hisobingiz bormi?',
@@ -297,19 +297,32 @@ const messages = {
       changeNumber: 'Raqamni o‘zgartirish',
       or: 'yoki',
       telegram: 'Telegram orqali ro‘yxatdan o‘tish',
-      // Shown instead of `description` while phone registration is switched
-      // off (SMS down — PHONE_REGISTRATION_ENABLED in utils/postAuth.js).
-      socialOnlyDescription: 'Google yoki Telegram hisobingiz orqali bir necha soniyada ro‘yxatdan o‘ting'
+      fatherName: 'Otasining ismi',
+      fatherNamePlaceholder: 'Karimovich',
+      // Code screen of the Telegram-bot sign-up (views/Register.vue). There is
+      // no resend call — the bot re-shows / reissues the code on 📱.
+      botInstruction: 'Kodni olish uchun Telegram botga o‘ting va 📱 Raqamni yuborish tugmasini bosing',
+      openBot: 'Telegram botni ochish',
+      qrHint: 'yoki QR-kodni telefoningiz bilan skanerlang',
+      botNotReceived: 'Kod kelmadimi? Botda 📱 tugmani qayta bosing.',
+      ticketExpiresIn: 'Ro‘yxatdan o‘tishni yakunlash uchun vaqt: {time}',
+      startOver: 'Boshidan boshlash',
+      // Existing-account code screens (/verify-phone, /complete-profile): the
+      // backend pushes the code to Telegram when it knows the number there.
+      otpSentTelegram: 'Tasdiqlash kodini Telegramingizga yubordik',
+      otpResentTelegram: 'Kod Telegramga qayta yuborildi.',
+      getCodeViaTelegram: 'Kodni Telegram orqali olish',
+      getCodeViaTelegramHint: 'Botda 📱 tugmasini bosib raqamingizni yuboring — bot kodni ko‘rsatadi.'
     },
     verify: {
       forgotTitle: 'Parolni unutdingizmi?',
-      forgotDescription: 'Telefon raqamingizni kiriting — SMS orqali kod yuboramiz va yangi parol o‘rnatasiz.',
+      forgotDescription: 'Telefon raqamingizni kiriting — kodni Telegram yoki SMS orqali yuboramiz va yangi parol o‘rnatasiz.',
       resetTitle: 'Yangi parol o‘rnatish',
       newPassword: 'Yangi parol',
       resetSubmit: 'Parolni yangilash',
       resetSuccess: 'Parol yangilandi! Endi tizimga kiring.',
       unverifiedTitle: 'Telefon raqamni tasdiqlang',
-      unverifiedDescription: 'Hisobingizga kirish uchun avval telefon raqamingizni tasdiqlashingiz kerak. Tugmani bosing — SMS orqali tasdiqlash kodi keladi.',
+      unverifiedDescription: 'Hisobingizga kirish uchun avval telefon raqamingizni tasdiqlashingiz kerak. Tugmani bosing — tasdiqlash kodi Telegram yoki SMS orqali keladi.',
       phoneValidation: 'Telefon raqamni to‘liq kiriting.',
       sendCode: 'Kodni yuborish',
       sending: 'Yuborilmoqda...',
@@ -367,6 +380,15 @@ const messages = {
       googleEmailExists: 'Bu email bilan hisob allaqachon mavjud. Parolingiz bilan kiring.',
       googleFailed: 'Google orqali kirishda xatolik. Qayta urinib ko‘ring.',
       telegramFailed: 'Telegram orqali kirishda xatolik. Qayta urinib ko‘ring.',
+      // Telegram-bot sign-up (POST /auth/register/telegram[/verify]).
+      nameRequired: 'Ism va familiyani kiriting.',
+      passwordMissing: 'Parolni kiriting.',
+      codeRequired: 'Tasdiqlash kodini kiriting.',
+      botCodeNotIssued: 'Avval Telegram botdan kod oling: botni ochib, 📱 Raqamni yuborish tugmasini bosing.',
+      botCodeExpired: 'Kod muddati tugagan. Botda 📱 tugmani qayta bosing — yangi kod beriladi.',
+      tooManyAttempts: 'Juda ko‘p noto‘g‘ri urinish. Iltimos, ro‘yxatdan o‘tishni boshidan boshlang.',
+      registrationExpired: 'Ro‘yxatdan o‘tish muddati tugadi. Iltimos, boshidan boshlang.',
+      phoneRegisteredGoLogin: 'Bu raqam allaqachon ro‘yxatdan o‘tgan. Hisobingizga kiring.',
       // Field names as they appear in ASP.NET's validation response, for the
       // "missingFields" line above.
       fields: {
@@ -893,7 +915,7 @@ const messages = {
     },
     register: {
       title: 'Регистрация',
-      description: 'На ваш номер телефона будет отправлен код подтверждения',
+      description: 'Введите имя и фамилию и задайте пароль — номер телефона подтверждается через Telegram-бот',
       firstName: 'Имя',
       firstNamePlaceholder: 'Азиз',
       lastName: 'Фамилия',
@@ -906,7 +928,7 @@ const messages = {
       passwordConfirmPlaceholder: 'Повторите пароль',
       continue: 'Продолжить',
       submitting: 'Отправляем...',
-      validation: 'Заполните имя, фамилию и номер телефона полностью.',
+      validation: 'Заполните имя, фамилию и отчество полностью.',
       passwordValidation: 'Пароль должен содержать минимум 6 символов.',
       passwordMismatch: 'Пароли не совпадают.',
       haveAccount: 'Уже есть аккаунт?',
@@ -923,17 +945,28 @@ const messages = {
       changeNumber: 'Изменить номер',
       or: 'или',
       telegram: 'Зарегистрироваться через Telegram',
-      socialOnlyDescription: 'Зарегистрируйтесь за несколько секунд через аккаунт Google или Telegram'
+      fatherName: 'Отчество',
+      fatherNamePlaceholder: 'Каримович',
+      botInstruction: 'Чтобы получить код, перейдите в Telegram-бот и нажмите кнопку 📱 Отправить номер',
+      openBot: 'Открыть Telegram-бот',
+      qrHint: 'или отсканируйте QR-код телефоном',
+      botNotReceived: 'Не пришёл код? Нажмите 📱 в боте ещё раз.',
+      ticketExpiresIn: 'Время на завершение регистрации: {time}',
+      startOver: 'Начать заново',
+      otpSentTelegram: 'Мы отправили код подтверждения в ваш Telegram',
+      otpResentTelegram: 'Код повторно отправлен в Telegram.',
+      getCodeViaTelegram: 'Получить код через Telegram',
+      getCodeViaTelegramHint: 'Нажмите 📱 в боте и отправьте свой номер — бот покажет код.'
     },
     verify: {
       forgotTitle: 'Забыли пароль?',
-      forgotDescription: 'Введите номер телефона — мы отправим код по SMS, и вы установите новый пароль.',
+      forgotDescription: 'Введите номер телефона — мы отправим код в Telegram или по SMS, и вы установите новый пароль.',
       resetTitle: 'Новый пароль',
       newPassword: 'Новый пароль',
       resetSubmit: 'Обновить пароль',
       resetSuccess: 'Пароль обновлён! Теперь войдите в систему.',
       unverifiedTitle: 'Подтвердите номер телефона',
-      unverifiedDescription: 'Чтобы войти в аккаунт, сначала подтвердите номер телефона. Нажмите кнопку — мы отправим код подтверждения по SMS.',
+      unverifiedDescription: 'Чтобы войти в аккаунт, сначала подтвердите номер телефона. Нажмите кнопку — код подтверждения придёт в Telegram или по SMS.',
       phoneValidation: 'Введите номер телефона полностью.',
       sendCode: 'Отправить код',
       sending: 'Отправляем...',
@@ -992,6 +1025,14 @@ const messages = {
       googleEmailExists: 'Аккаунт с этим email уже существует. Войдите с помощью пароля.',
       googleFailed: 'Не удалось войти через Google. Попробуйте ещё раз.',
       telegramFailed: 'Не удалось войти через Telegram. Попробуйте ещё раз.',
+      nameRequired: 'Введите имя и фамилию.',
+      passwordMissing: 'Введите пароль.',
+      codeRequired: 'Введите код подтверждения.',
+      botCodeNotIssued: 'Сначала получите код в Telegram-боте: откройте бот и нажмите 📱 Отправить номер.',
+      botCodeExpired: 'Срок действия кода истёк. Нажмите 📱 в боте ещё раз — он выдаст новый код.',
+      tooManyAttempts: 'Слишком много неверных попыток. Пожалуйста, начните регистрацию заново.',
+      registrationExpired: 'Срок регистрации истёк. Пожалуйста, начните заново.',
+      phoneRegisteredGoLogin: 'Этот номер уже зарегистрирован. Войдите в свой аккаунт.',
       fields: {
         firstName: 'Имя',
         lastName: 'Фамилия',

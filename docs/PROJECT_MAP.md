@@ -168,14 +168,48 @@ rendered on both `/login` and `/register` (both providers create the account on
 first sign-in, so they are a registration path too). It emits `authenticated`;
 the page owns the redirect (`redirectAfterAuth` → `resolvePostAuthRoute`).
 
+**Phone sign-up = the Telegram bot (`@milliymock_bot`).** `/register`
+(`views/Register.vue`) collects first/last/father name and a password — there
+is no phone box (the API treats father name as optional; the form requires it). `authStore.registerTelegram` → `POST
+/auth/register/telegram` answers `{ ticket, botUrl, expiresInMinutes }`; the
+page switches to the code screen with a button (and, on desktop, a QR — the
+`qrcode` package, loaded on demand) to `botUrl`, the deep link that carries the
+ticket into the bot. The user shares their contact there, the bot shows a
+6-digit code, and `authStore.verifyTelegramRegistration` → `POST
+/auth/register/telegram/verify` turns ticket + code into a LoginResultDto (same
+as login: token stored, `user` cached, redirect). There is no resend endpoint —
+the bot re-shows / reissues the code on 📱. The pending ticket is mirrored in
+`sessionStorage` (`milliymock_telegram_registration`) so a tab that reloads
+after the Telegram round-trip resumes the code screen within the 30-minute
+window; the page also keeps its own countdown and falls back to the form when
+it hits zero. Five wrong codes or an expired ticket → back to the form
+(`error.restartRegistration`); a 409 (number registered meanwhile) → `/login`
+(`error.phoneAlreadyRegistered`). The backend's English messages for this flow
+have rules in `utils/authErrors.js` (`nameRequired`, `botCodeNotIssued`,
+`botCodeExpired`, `tooManyAttempts`, `registrationExpired`, …). The legacy
+`authStore.register` + `verifyOtp` pair is the **email** sign-up path only —
+no UI calls it right now.
+
+Existing-account codes (`forgot-password`, `resend-otp`, `verify-my-phone`)
+are unchanged on the wire, but the backend now pushes the code to Telegram when
+it knows the user's number there and to SMS otherwise, saying which in the
+response `message`. `/verify-phone` and `/complete-profile` read it
+(`utils/telegramBot.js#codeChannelFromMessage`) to word their code card, and
+every screen that waits for a phone code shows
+`components/auth/TelegramCodeLink.vue` → `https://t.me/milliymock_bot?start=verify`
+("Kodni Telegram orqali olish"): in the bot the user taps 📱, shares their
+number, and gets the pending code — the fallback for numbers the bot doesn't
+know yet and for SMS outages.
+
 **TEMP (2026-08-16) — SMS is down again.** `SMS_AVAILABLE = false` in
 `utils/postAuth.js` is the one switch. It drives `PHONE_VERIFY_REDIRECTS_ENABLED`
 (every redirect into phone verification described below is off: the post-auth
 detour to `/complete-profile`, start-test's 403 hand-off, login's `/verify-phone`
 hand-off; `/complete-profile` itself saves the name/phone and finishes without an
-OTP) and `PHONE_REGISTRATION_ENABLED` (`/register` hides the name / phone /
-password form and offers only Telegram and Google). Because `/complete-profile`
-is out of action, the *old* first-time gate is back as its stand-in:
+OTP). `/register` is off this switch: phone sign-up runs through the Telegram
+bot (next section), with no SMS anywhere in that flow. Because
+`/complete-profile` is out of action, the *old* first-time gate is back as its
+stand-in:
 `PROFILE_GATE_MODAL_ENABLED = !SMS_AVAILABLE` makes `composables/useProfileGate.js`
 open `components/ProfileGateModal.vue` before start-test (in `MathTestCard`,
 `TestPage` and `useTestLauncher`) whenever firstName / lastName / fatherName /
