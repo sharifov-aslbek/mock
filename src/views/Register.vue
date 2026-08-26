@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
@@ -8,10 +8,9 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
-import { useResendCountdown } from '@/composables/useResendCountdown'
-import { formatPhoneDigits } from '@/utils/phone'
+import TelegramCodeLink from '@/components/auth/TelegramCodeLink.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
-import { PHONE_REGISTRATION_ENABLED, resolvePostAuthRoute } from '@/utils/postAuth'
+import { resolvePostAuthRoute } from '@/utils/postAuth'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -19,15 +18,18 @@ const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()
 
-// 'form' → name + phone + password, POST /auth/register sends the SMS code;
-// 'otp'  → 6-digit confirmation, POST /auth/verify-otp starts the session.
+// Phone sign-up runs through the Telegram bot (@milliymock_bot); the number
+// itself never passes through this page.
+//  'form' → name + password. POST /auth/register/telegram answers with a
+//           ticket and a bot deep link that carries it.
+//  'otp'  → the user opens that link, shares their contact with the bot, the
+//           bot shows a 6-digit code, and POST /auth/register/telegram/verify
+//           turns ticket + code into a session (same LoginResultDto as login).
 const step = ref('form')
 
 const firstName = ref('')
 const lastName = ref('')
-// The national part only (9 digits, e.g. "901234567") — the +998 prefix is a
-// fixed box in the UI and re-attached when calling the API.
-const phoneDigits = ref('')
+const fatherName = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
 const showPassword = ref(false)
@@ -35,27 +37,106 @@ const validationError = ref('')
 
 const PASSWORD_MIN_LENGTH = 6
 const OTP_LENGTH = 6
+const DEFAULT_TICKET_MINUTES = 30
 
+// The pending registration. Mirrored into sessionStorage so that leaving for
+// the Telegram app and coming back to a reloaded tab (common on phones) lands
+// on the code screen again, not on an empty form.
+const STORAGE_KEY = 'milliymock_telegram_registration'
+const ticket = ref('')
+const botUrl = ref('')
+// Epoch ms. The ticket lives `expiresInMinutes` (30) from step 1; afterwards
+// the server drops it and the user starts over.
+const expiresAt = ref(0)
+
+const qrDataUrl = ref('')
 const otpCode = ref('')
 const otpInput = ref(null)
 const isVerifying = ref(false)
-const isResending = ref(false)
 
-const {
-  remaining: resendRemaining,
-  label: resendCountdownLabel,
-  start: startResendCountdown,
-  stop: stopResendCountdown,
-} = useResendCountdown()
+// Ticket countdown, driven by a 1s tick while the code screen is up.
+const now = ref(Date.now())
+let tickId = null
 
-const phoneDisplay = computed(() => formatPhoneDigits(phoneDigits.value))
-const fullPhoneDisplay = computed(() => `+998 ${formatPhoneDigits(phoneDigits.value)}`)
-const apiPhoneNumber = computed(() => `998${phoneDigits.value}`)
+const stopTicking = () => {
+  if (tickId) {
+    window.clearInterval(tickId)
+    tickId = null
+  }
+}
 
-const onPhoneInput = (event) => {
-  phoneDigits.value = String(event.target.value).replace(/\D/g, '').slice(0, 9)
-  // Rewrite the input so stray characters vanish and grouping stays live.
-  event.target.value = formatPhoneDigits(phoneDigits.value)
+const startTicking = () => {
+  stopTicking()
+  now.value = Date.now()
+  tickId = window.setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
+}
+
+const remainingSeconds = computed(() =>
+  Math.max(0, Math.ceil((expiresAt.value - now.value) / 1000)),
+)
+
+const remainingLabel = computed(() => {
+  const minutes = String(Math.floor(remainingSeconds.value / 60)).padStart(2, '0')
+  const seconds = String(remainingSeconds.value % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+})
+
+const persistRegistration = () => {
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ticket: ticket.value, botUrl: botUrl.value, expiresAt: expiresAt.value }),
+    )
+  } catch {
+    // Private mode / storage disabled: the in-memory state still carries the flow.
+  }
+}
+
+const clearStoredRegistration = () => {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+// A stored registration that is still inside its 30-minute window, or null.
+const readStoredRegistration = () => {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+    const stored = JSON.parse(raw)
+    if (!stored?.ticket || !stored?.botUrl || !(Number(stored.expiresAt) > Date.now())) {
+      return null
+    }
+    return stored
+  } catch {
+    return null
+  }
+}
+
+// Desktop users scan this with their phone to land in the bot with the ticket
+// attached. The encoder is loaded on demand — it's dead weight for the form
+// step and for phone users, who just tap the button.
+const renderQr = async () => {
+  qrDataUrl.value = ''
+  if (!botUrl.value) {
+    return
+  }
+  try {
+    const { default: QRCode } = await import('qrcode')
+    qrDataUrl.value = await QRCode.toDataURL(botUrl.value, {
+      width: 176,
+      margin: 1,
+      color: { dark: '#1a1814', light: '#ffffff' },
+    })
+  } catch {
+    // The button and link still work without the QR.
+  }
 }
 
 const redirectQuery = computed(() =>
@@ -64,7 +145,7 @@ const redirectQuery = computed(() =>
     : {},
 )
 
-// Runs after the OTP confirms a phone registration AND after a Telegram/Google
+// Runs after the bot code confirms a registration AND after a Telegram/Google
 // sign-in from the social buttons below the form.
 const redirectAfterAuth = async () => {
   // Same as Login: finishing registration lands the student in the platform,
@@ -73,19 +154,51 @@ const redirectAfterAuth = async () => {
     typeof route.query.redirect === 'string' && route.query.redirect
       ? route.query.redirect
       : PLATFORM_HOME
-  // The phone is confirmed by the time we get here, but fatherName isn't
-  // collected during registration — /complete-profile picks that up. A
-  // Telegram/Google sign-in has no phone at all, so it always detours there.
+  // A bot-confirmed registration arrives with the full name and the phone
+  // confirmed, so it goes straight through. A Telegram/Google sign-in has no
+  // phone at all, so it always detours via /complete-profile.
   return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
 const enterOtpStep = async () => {
   step.value = 'otp'
   otpCode.value = ''
-  startResendCountdown()
+  validationError.value = ''
+  startTicking()
+  void renderQr()
   await nextTick()
-  otpInput.value?.focus()
+  // Focus the code boxes on desktop only: on a phone that raises the keyboard
+  // over the bot button, which is the thing to tap first.
+  if (window.matchMedia?.('(min-width: 768px)').matches) {
+    otpInput.value?.focus()
+  }
 }
+
+const backToForm = () => {
+  stopTicking()
+  clearStoredRegistration()
+  ticket.value = ''
+  botUrl.value = ''
+  expiresAt.value = 0
+  qrDataUrl.value = ''
+  otpCode.value = ''
+  authStore.errorMessage = ''
+  validationError.value = ''
+  step.value = 'form'
+}
+
+// Our clock says the ticket is gone — same outcome as the server's "This
+// registration has expired", without waiting for a doomed verify call.
+const expireRegistration = () => {
+  backToForm()
+  validationError.value = t('authErrors.registrationExpired')
+}
+
+watch(remainingSeconds, (seconds) => {
+  if (step.value === 'otp' && expiresAt.value && seconds <= 0) {
+    expireRegistration()
+  }
+})
 
 const submitRegisterForm = async () => {
   if (authStore.isLoading) {
@@ -94,7 +207,7 @@ const submitRegisterForm = async () => {
 
   validationError.value = ''
 
-  if (!firstName.value.trim() || !lastName.value.trim() || phoneDigits.value.length !== 9) {
+  if (!firstName.value.trim() || !lastName.value.trim() || !fatherName.value.trim()) {
     validationError.value = t('register.validation')
     return
   }
@@ -110,19 +223,21 @@ const submitRegisterForm = async () => {
   }
 
   try {
-    await authStore.register({
+    const data = await authStore.registerTelegram({
       firstName: firstName.value.trim(),
       lastName: lastName.value.trim(),
-      phoneNumber: apiPhoneNumber.value,
+      fatherName: fatherName.value.trim(),
       password: password.value,
     })
+    ticket.value = data.ticket
+    // Always the API's own link — it carries the ticket into the bot.
+    botUrl.value = data.botUrl
+    expiresAt.value =
+      Date.now() + (Number(data.expiresInMinutes) || DEFAULT_TICKET_MINUTES) * 60_000
+    persistRegistration()
     await enterOtpStep()
   } catch {
     // authStore.errorMessage already carries the localized backend message.
-    // Note a 409 here is deliberately NOT routed into /verify-phone: the
-    // backend only rejects a number that belongs to a *verified* account
-    // (AuthService.Register), so the copy sends them to the login link below.
-    // An unverified leftover is resumed server-side and never reaches here.
   }
 }
 
@@ -141,48 +256,44 @@ const submitOtp = async () => {
   isVerifying.value = true
 
   try {
-    // verify-otp answers with a LoginResultDto, so a call that comes back
-    // clean means the session is already live — no separate login step.
-    await authStore.verifyOtp({
-      phoneNumber: apiPhoneNumber.value,
+    // Same LoginResultDto as /auth/login — the store holds the token by now.
+    await authStore.verifyTelegramRegistration({
+      ticket: ticket.value,
       code: otpCode.value,
     })
+    stopTicking()
+    clearStoredRegistration()
     await redirectAfterAuth()
-  } catch {
-    // Wrong/expired code: clear the boxes for a clean retry.
+  } catch (error) {
+    if (error?.phoneAlreadyRegistered) {
+      // The number the bot saw now belongs to an account (409): this person
+      // should sign in, not register.
+      stopTicking()
+      clearStoredRegistration()
+      message.warning(t('authErrors.phoneRegisteredGoLogin'), { duration: 5000 })
+      await router.push({ path: '/login', query: redirectQuery.value })
+      return
+    }
+
+    if (error?.restartRegistration) {
+      // Five wrong codes, or a ticket older than 30 minutes: the server dropped
+      // it. Back to the form, keeping the reason on screen.
+      const reason = authStore.errorMessage
+      backToForm()
+      validationError.value = reason
+      return
+    }
+
+    // Wrong code, no code issued yet, or a code that expired in the bot: stay
+    // here — the message says what to do in the bot. Clear the boxes for a
+    // clean retry.
     await otpInput.value?.clear()
   } finally {
     isVerifying.value = false
   }
 }
 
-const resendCode = async () => {
-  if (isResending.value || resendRemaining.value > 0) {
-    return
-  }
-
-  isResending.value = true
-  validationError.value = ''
-
-  try {
-    await authStore.resendOtp({ phoneNumber: apiPhoneNumber.value })
-    message.success(t('register.otpResent'), { duration: 3000 })
-    startResendCountdown()
-  } catch {
-    // authStore.errorMessage already carries the localized backend message.
-  } finally {
-    isResending.value = false
-  }
-}
-
-const backToForm = () => {
-  stopResendCountdown()
-  authStore.errorMessage = ''
-  validationError.value = ''
-  step.value = 'form'
-}
-
-onMounted(() => {
+onMounted(async () => {
   // A fresh visit shouldn't show a stale error from the login page.
   authStore.errorMessage = ''
 
@@ -192,7 +303,20 @@ onMounted(() => {
   if (route.query.reason === 'auth-required') {
     message.warning(t('testPage.authRequiredRegister'), { duration: 4000 })
   }
+
+  // Back from Telegram into a reloaded tab: pick the code screen up again.
+  const stored = readStoredRegistration()
+  if (stored) {
+    ticket.value = stored.ticket
+    botUrl.value = stored.botUrl
+    expiresAt.value = Number(stored.expiresAt)
+    await enterOtpStep()
+  } else {
+    clearStoredRegistration()
+  }
 })
+
+onBeforeUnmount(stopTicking)
 </script>
 
 <template>
@@ -202,19 +326,16 @@ onMounted(() => {
         {{ t('register.title') }}
       </h1>
       <p class="mt-3 text-sm leading-relaxed text-[#6b6760]">
-        {{ PHONE_REGISTRATION_ENABLED ? t('register.description') : t('register.socialOnlyDescription') }}
+        {{ t('register.description') }}
       </p>
     </div>
 
-    <!-- ── Step 1: name + phone + password ──────────────────────────── -->
-    <!-- TEMP: while SMS is down (PHONE_REGISTRATION_ENABLED, utils/postAuth.js)
-         the phone form and its "yoki" divider are hidden — the code it leads
-         to would never arrive — and the card holds only Telegram / Google. -->
+    <!-- ── Step 1: name + password (no phone — the bot supplies it) ─── -->
     <div
       v-if="step === 'form'"
       class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]"
     >
-      <form v-if="PHONE_REGISTRATION_ENABLED" @submit.prevent="submitRegisterForm">
+      <form @submit.prevent="submitRegisterForm">
         <div class="flex flex-col gap-4">
           <div class="flex gap-3">
             <label class="flex-1">
@@ -247,23 +368,16 @@ onMounted(() => {
 
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-semibold text-[#1a1814]">
-              {{ t('register.phone') }}
+              {{ t('register.fatherName') }}
             </span>
-            <div class="flex items-stretch overflow-hidden rounded-xl border-[1.5px] border-[#e0ddd7] bg-white transition focus-within:border-[#1a1814]">
-              <span class="flex items-center border-r border-[#e0ddd7] bg-[#f5f3ef] px-3.5 text-sm font-medium text-[#1a1814]">
-                +998
-              </span>
-              <input
-                :value="phoneDisplay"
-                type="tel"
-                name="tel-national"
-                inputmode="numeric"
-                autocomplete="tel-national"
-                :placeholder="t('register.phonePlaceholder')"
-                class="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-[#1a1814] outline-none placeholder:text-[#b8b3a9]"
-                @input="onPhoneInput"
-              />
-            </div>
+            <input
+              v-model="fatherName"
+              type="text"
+              name="additional-name"
+              autocomplete="additional-name"
+              :placeholder="t('register.fatherNamePlaceholder')"
+              class="w-full rounded-xl border-[1.5px] border-[#e0ddd7] bg-white px-4 py-3 text-sm text-[#1a1814] outline-none transition placeholder:text-[#b8b3a9] focus:border-[#1a1814]"
+            />
           </label>
 
           <label class="block">
@@ -319,25 +433,16 @@ onMounted(() => {
         </button>
       </form>
 
-      <div v-if="PHONE_REGISTRATION_ENABLED" class="my-5 flex items-center gap-3">
+      <div class="my-5 flex items-center gap-3">
         <div class="h-px flex-1 bg-[#e4e0d8]"></div>
         <span class="text-xs text-[#8a857c]">{{ t('register.or') }}</span>
         <div class="h-px flex-1 bg-[#e4e0d8]"></div>
       </div>
 
-      <!-- With the form hidden there is no error box above the buttons, so a
-           failed Telegram / Google sign-in shows here instead. -->
-      <p
-        v-if="!PHONE_REGISTRATION_ENABLED && authStore.errorMessage"
-        class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-      >
-        {{ authStore.errorMessage }}
-      </p>
-
       <!-- Telegram + Google, the same block /login shows. Both create the
            account on first sign-in, so they are a registration path too; the
-           name/phone step happens on /complete-profile afterwards. Errors
-           surface in the form's message above, via authStore.errorMessage. -->
+           name step happens on /complete-profile afterwards. Errors surface in
+           the form's message above, via authStore.errorMessage. -->
       <SocialAuthButtons
         :telegram-label="t('register.telegram')"
         google-text="signup_with"
@@ -351,15 +456,14 @@ onMounted(() => {
       />
     </div>
 
-    <!-- ── Step 2: OTP confirmation ─────────────────────────────────── -->
+    <!-- ── Step 2: the code from the bot ────────────────────────────── -->
     <div
       v-else
       class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 text-center shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]"
     >
-      <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#1a1814] text-white">
-        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="5" y="2" width="14" height="20" rx="3" />
-          <path d="M9 18h6" />
+      <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#29a9eb] text-white">
+        <svg class="h-6 w-6" viewBox="0 0 448 512" fill="currentColor" aria-hidden="true">
+          <path d="M446.7 98.6l-67.6 318.8c-5.1 22.5-18.4 28.1-37.3 17.5l-103-75.9-49.7 47.8c-5.5 5.5-10.1 10.1-20.7 10.1l7.4-104.9 190.9-172.5c8.3-7.4-1.8-11.5-12.9-4.1L117.8 284 16.2 252.2c-22.1-6.9-22.5-22.1 4.6-32.7L418.2 66.4c18.4-6.9 34.5 4.1 28.5 32.2z" />
         </svg>
       </div>
 
@@ -367,10 +471,28 @@ onMounted(() => {
         {{ t('register.otpTitle') }}
       </h1>
       <p class="mt-2 text-sm leading-relaxed text-[#6b6760]">
-        {{ t('register.otpSentPrefix') }}
-        <b class="text-[#1a1814]">{{ fullPhoneDisplay }}</b>
-        {{ t('register.otpSentSuffix') }}
+        {{ t('register.botInstruction') }}
       </p>
+
+      <!-- The user has to reach the bot THROUGH this link: it carries the ticket. -->
+      <TelegramCodeLink
+        class="mt-5"
+        :href="botUrl"
+        :label="t('register.openBot')"
+        variant="primary"
+      />
+
+      <!-- Desktop only — on a phone the button above already opens the app. -->
+      <div v-if="qrDataUrl" class="mt-4 hidden flex-col items-center md:flex">
+        <img
+          :src="qrDataUrl"
+          :alt="t('register.openBot')"
+          width="176"
+          height="176"
+          class="rounded-xl border border-[#e4e0d8] p-1"
+        />
+        <span class="mt-2 text-[12px] text-[#8a857c]">{{ t('register.qrHint') }}</span>
+      </div>
 
       <OtpCodeInput
         ref="otpInput"
@@ -396,23 +518,14 @@ onMounted(() => {
         {{ isVerifying ? t('register.otpSubmitting') : t('register.otpSubmit') }}
       </button>
 
+      <!-- No resend endpoint: the bot re-shows the code while it's valid
+           (5 min) or hands out a new one, on the same 📱 tap. -->
       <p class="mt-5 text-sm text-[#6b6760]">
-        {{ t('register.otpNotReceived') }}
-        <span
-          v-if="resendRemaining > 0"
-          class="font-mono-custom font-semibold text-[#1a1814]"
-        >
-          {{ resendCountdownLabel }}
-        </span>
-        <button
-          v-else
-          type="button"
-          :disabled="isResending"
-          class="font-semibold text-[#1a1814] underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-          @click="resendCode"
-        >
-          {{ t('register.otpResend') }}
-        </button>
+        {{ t('register.botNotReceived') }}
+      </p>
+
+      <p class="mt-3 text-[12px] text-[#8a857c]">
+        {{ t('register.ticketExpiresIn', { time: remainingLabel }) }}
       </p>
 
       <button
@@ -420,9 +533,8 @@ onMounted(() => {
         class="mt-2 text-[12.5px] font-medium text-[#8a857c] underline underline-offset-2 transition hover:text-[#1a1814]"
         @click="backToForm"
       >
-        {{ t('register.changeNumber') }}
+        {{ t('register.startOver') }}
       </button>
     </div>
-
   </AuthLayout>
 </template>

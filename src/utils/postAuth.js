@@ -4,10 +4,14 @@ import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 export const COMPLETE_PROFILE_PATH = '/complete-profile'
 
 // TEMP (2026-08-16): the SMS provider is down again, so nothing that ends in an
-// OTP can complete — registration by phone, /complete-profile (verify-my-phone)
-// and /verify-phone are all dead ends right now. The backend's own gates were
-// disabled at the same time. This is the ONE switch: set it back to true once
-// SMS works again and everything below comes back — nothing else changes.
+// OTP can complete — /complete-profile (verify-my-phone) and /verify-phone are
+// dead ends right now. The backend's own gates were disabled at the same time.
+// This is the ONE switch: set it back to true once SMS works again and
+// everything below comes back — nothing else changes.
+//
+// /register is not on this switch: phone sign-up runs through the Telegram bot
+// (the bot reads the number from a shared contact and shows the code — no SMS
+// anywhere in that flow), so it renders the same with SMS up or down.
 export const SMS_AVAILABLE = false
 
 // While false, no flow redirects INTO phone verification: post-auth routing goes
@@ -20,10 +24,13 @@ export const SMS_AVAILABLE = false
 // views/TestPage.vue, composables/useTestLauncher.js, views/CompleteProfilePage.vue.
 export const PHONE_VERIFY_REDIRECTS_ENABLED = SMS_AVAILABLE
 
-// While false, /register hides the name / phone / password form (its OTP would
-// never arrive) and offers only Telegram and Google, which need no code.
-// Read by: views/Register.vue.
-export const PHONE_REGISTRATION_ENABLED = SMS_AVAILABLE
+// While SMS is down, /complete-profile can't run, so the OLD first-time gate is
+// back: before a test starts, ProfileGateModal asks for first/last/father name
+// and a phone number (saved with PUT /user, no OTP) — the certificate is printed
+// from them. It goes dormant again the moment SMS_AVAILABLE flips, because
+// /complete-profile then collects the same fields, with verification.
+// Read by: composables/useProfileGate.js (the one place that checks it).
+export const PROFILE_GATE_MODAL_ENABLED = !SMS_AVAILABLE
 
 // Where to send someone who has just authenticated, or who just tried to start
 // a test without a usable profile.

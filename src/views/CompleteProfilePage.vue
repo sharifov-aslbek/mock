@@ -5,9 +5,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
+import TelegramCodeLink from '@/components/auth/TelegramCodeLink.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
 import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
+import { codeChannelFromMessage } from '@/utils/telegramBot'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 
 // The one gate that stands between a signed-in user and a test attempt.
@@ -43,6 +45,10 @@ const OTP_LENGTH = 6
 
 const otpCode = ref('')
 const otpInput = ref(null)
+// Which channel the last send used. The backend pushes codes to Telegram when
+// it knows the user's number there, SMS otherwise, and says so in the response
+// message — the code card's copy follows it.
+const codeChannel = ref('sms')
 
 const {
   remaining: resendRemaining,
@@ -127,7 +133,8 @@ const submitProfile = async () => {
 // will never come.
 const sendCode = async () => {
   try {
-    await authStore.sendMyPhoneOtp()
+    const payload = await authStore.sendMyPhoneOtp()
+    codeChannel.value = codeChannelFromMessage(payload?.message)
     await enterOtpStep()
   } catch (error) {
     if (error?.alreadyVerified) {
@@ -178,7 +185,8 @@ const resendCode = async () => {
   validationError.value = ''
 
   try {
-    await authStore.sendMyPhoneOtp()
+    const payload = await authStore.sendMyPhoneOtp()
+    codeChannel.value = codeChannelFromMessage(payload?.message)
     startResendCountdown()
   } catch (error) {
     if (error?.alreadyVerified) {
@@ -337,7 +345,10 @@ onMounted(async () => {
       <h1 class="text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">
         {{ t('register.otpTitle') }}
       </h1>
-      <p class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+      <p v-if="codeChannel === 'telegram'" class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+        {{ t('register.otpSentTelegram') }}
+      </p>
+      <p v-else class="mt-2 text-sm leading-relaxed text-[#6b6760]">
         {{ t('register.otpSentPrefix') }}
         <b class="text-[#1a1814]">{{ fullPhoneDisplay }}</b>
         {{ t('register.otpSentSuffix') }}
@@ -385,6 +396,15 @@ onMounted(async () => {
           {{ t('register.otpResend') }}
         </button>
       </p>
+
+      <!-- The bot hands a pending code to anyone who shares their number with
+           it — covers users it doesn't know yet, and SMS outages. -->
+      <div class="mt-4">
+        <TelegramCodeLink :label="t('register.getCodeViaTelegram')" />
+        <p class="mt-2 text-[12px] leading-relaxed text-[#8a857c]">
+          {{ t('register.getCodeViaTelegramHint') }}
+        </p>
+      </div>
 
       <button
         type="button"

@@ -38,6 +38,15 @@ const RULES = [
   [/add a phone number to your profile first/i, 'addPhoneFirst'],
   [/user with this phone number already exists/i, 'phoneTakenByAnother'],
   [/not authenticated/i, 'notAuthenticated'],
+  // Telegram sign-up (POST /auth/register/telegram[/verify]). The bot-specific
+  // expiry line must stay above the general "code has expired" rule below.
+  [/first name and last name are required/i, 'nameRequired'],
+  [/^password is required/i, 'passwordMissing'],
+  [/ticket and code are required/i, 'codeRequired'],
+  [/get the code from the telegram bot first/i, 'botCodeNotIssued'],
+  [/too many wrong attempts/i, 'tooManyAttempts'],
+  [/code has expired\. share your number with the bot/i, 'botCodeExpired'],
+  [/this registration has expired/i, 'registrationExpired'],
   // Two variants: the pending-registration check says only "has expired", the
   // legacy draft path adds "or was never requested".
   [/code has expired/i, 'codeExpired'],
@@ -80,6 +89,8 @@ const FIELD_LABELS = {
 const FLOW_FALLBACKS = {
   login: { 400: 'badCredentials', 401: 'badCredentials', 403: 'notVerified', 404: 'userNotFound' },
   register: { 409: 'phoneRegistered' },
+  registerTelegram: { 400: 'invalidRequest' },
+  verifyTelegramRegistration: { 400: 'codeInvalid', 404: 'registrationExpired', 409: 'identifierTakenMeanwhile' },
   verifyOtp: { 400: 'codeInvalid', 404: 'noPendingRegistration', 409: 'identifierTakenMeanwhile' },
   resendOtp: { 404: 'noPendingRegistration', 409: 'alreadyVerified' },
   sendMyPhoneOtp: { 400: 'addPhoneFirst', 404: 'userNotFound', 409: 'alreadyVerified' },

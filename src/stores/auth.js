@@ -197,8 +197,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
 
-  // Phone registration, step 1: create the account and trigger the SMS OTP.
-  // The backend stores phone numbers as digits only (e.g. "998901234567").
+  // EMAIL sign-up, step 1 (POST /auth/register → verify-otp). Phone sign-up
+  // no longer goes here — it runs through the Telegram bot, see
+  // registerTelegram below. phoneNumber is kept optional for the legacy
+  // phone+SMS path the server still accepts; when given it's sent as digits
+  // only (e.g. "998901234567"). No UI calls this at the moment.
   async function register({ firstName, lastName, phoneNumber, password }) {
     const apiBaseUrl = getTestApiBaseUrl()
 
@@ -219,7 +222,7 @@ export const useAuthStore = defineStore('auth', () => {
         body: JSON.stringify({
           firstName,
           lastName,
-          phoneNumber: String(phoneNumber).replace(/\D/g, ''),
+          ...(phoneNumber ? { phoneNumber: String(phoneNumber).replace(/\D/g, '') } : {}),
           password,
         }),
       })
@@ -239,8 +242,121 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Phone registration, step 2: confirm the SMS code. When the backend returns
-  // a token the session starts right here (no separate login step).
+  // Phone sign-up through the Telegram bot, step 1: open a pending
+  // registration. The number is never typed on the site — the user shares
+  // their contact with @milliymock_bot, which then shows a 6-digit code.
+  // Answers { ticket, botUrl, expiresInMinutes }: the ticket keys step 2, the
+  // botUrl is the deep link that carries it into the bot (use it as-is), and
+  // the ticket dies after expiresInMinutes (30).
+  async function registerTelegram({ firstName, lastName, fatherName, password }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    isLoading.value = true
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/register/telegram`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          fatherName,
+          password,
+        }),
+      })
+
+      const payload = await readJsonBody(response)
+
+      if (!response.ok || payload?.code !== 200 || !payload?.data?.ticket) {
+        throw authApiError(payload, response.status, 'registerTelegram')
+      }
+
+      return payload.data
+    } catch (error) {
+      errorMessage.value = localizeAuthFailure(error)
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // Telegram sign-up, step 2: the code the bot showed. A clean answer is the
+  // same LoginResultDto as /auth/login — the session starts right here, and
+  // `user` arrives with phoneNumber set and phoneNumberConfirmed = true.
+  //
+  // Two failure flags for the page, both derived from the RAW backend message
+  // / status (error.message is already localized by then):
+  //  - restartRegistration: the ticket is gone (5 wrong codes, or older than
+  //    30 minutes) → back to the form;
+  //  - phoneAlreadyRegistered (409): the number was claimed by another account
+  //    in the meantime → this person should log in.
+  // Everything else ("Invalid verification code", "Get the code from the
+  // Telegram bot first.", "The code has expired…") keeps the user on the code
+  // screen; the localized message says what to do in the bot.
+  async function verifyTelegramRegistration({ ticket, code }) {
+    const apiBaseUrl = getTestApiBaseUrl()
+
+    if (!apiBaseUrl) {
+      throw new Error('API base URL is missing.')
+    }
+
+    isLoading.value = true
+    errorMessage.value = ''
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/register/telegram/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify({
+          ticket: String(ticket),
+          code: String(code),
+        }),
+      })
+
+      const payload = await readJsonBody(response)
+
+      if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
+        const error = authApiError(payload, response.status, 'verifyTelegramRegistration')
+        const rawMessage = String(payload?.message || '')
+        error.restartRegistration =
+          /too many wrong attempts|registration has expired/i.test(rawMessage)
+        error.phoneAlreadyRegistered =
+          response.status === 409 || payload?.code === 409
+        throw error
+      }
+
+      token.value = payload.data.token
+      localStorage.setItem(TOKEN_KEY, payload.data.token)
+
+      // Same shape GET /user returns; saves a round trip for the post-auth
+      // routing, and getUserInfo() overwrites it anyway when it next runs.
+      if (payload.data.user && typeof payload.data.user === 'object') {
+        userInfo.value = payload.data.user
+      }
+
+      return payload.data
+    } catch (error) {
+      errorMessage.value = localizeAuthFailure(error)
+      throw error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // Email sign-up, step 2 (also the legacy phone+SMS path): confirm the code.
+  // When the backend returns a token the session starts right here (no
+  // separate login step).
   async function verifyOtp({ phoneNumber, code }) {
     const apiBaseUrl = getTestApiBaseUrl()
 
@@ -561,6 +677,8 @@ export const useAuthStore = defineStore('auth', () => {
     needsProfileSetup,
     login,
     register,
+    registerTelegram,
+    verifyTelegramRegistration,
     verifyOtp,
     resendOtp,
     sendMyPhoneOtp,

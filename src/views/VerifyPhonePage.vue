@@ -6,10 +6,12 @@ import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
+import TelegramCodeLink from '@/components/auth/TelegramCodeLink.vue'
 import { useResendCountdown } from '@/composables/useResendCountdown'
 import { formatPhoneDigits } from '@/utils/phone'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 import { resolvePostAuthRoute } from '@/utils/postAuth'
+import { codeChannelFromMessage } from '@/utils/telegramBot'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -46,6 +48,10 @@ const isResending = ref(false)
 // Set when forgot-password answers 403 (phone never confirmed): the error box
 // grows a button that flips into the unverified drill.
 const showVerifyHint = ref(false)
+// Which channel the last send used. The backend pushes codes to Telegram when
+// it knows the user's number there, SMS otherwise, and says so in the response
+// message — the code card's copy follows it.
+const codeChannel = ref('sms')
 
 const OTP_LENGTH = 6
 const PASSWORD_MIN_LENGTH = 6
@@ -115,7 +121,8 @@ const sendCode = async () => {
   isSending.value = true
 
   try {
-    await sendCodeRequest()
+    const payload = await sendCodeRequest()
+    codeChannel.value = codeChannelFromMessage(payload?.message)
     step.value = reason.value === 'forgot' ? 'reset' : 'otp'
     otpCode.value = ''
     newPassword.value = ''
@@ -257,8 +264,12 @@ const resendCode = async () => {
   validationError.value = ''
 
   try {
-    await sendCodeRequest()
-    message.success(t('register.otpResent'), { duration: 3000 })
+    const payload = await sendCodeRequest()
+    codeChannel.value = codeChannelFromMessage(payload?.message)
+    message.success(
+      t(codeChannel.value === 'telegram' ? 'register.otpResentTelegram' : 'register.otpResent'),
+      { duration: 3000 },
+    )
     startResendCountdown()
   } catch {
     // authStore.errorMessage already carries the localized backend message.
@@ -361,7 +372,10 @@ onMounted(() => {
       <h1 class="text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">
         {{ t('register.otpTitle') }}
       </h1>
-      <p class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+      <p v-if="codeChannel === 'telegram'" class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+        {{ t('register.otpSentTelegram') }}
+      </p>
+      <p v-else class="mt-2 text-sm leading-relaxed text-[#6b6760]">
         {{ t('register.otpSentPrefix') }}
         <b class="text-[#1a1814]">{{ fullPhoneDisplay }}</b>
         {{ t('register.otpSentSuffix') }}
@@ -410,6 +424,15 @@ onMounted(() => {
         </button>
       </p>
 
+      <!-- The bot hands a pending code to anyone who shares their number with
+           it — covers users it doesn't know yet, and SMS outages. -->
+      <div class="mt-4">
+        <TelegramCodeLink :label="t('register.getCodeViaTelegram')" />
+        <p class="mt-2 text-[12px] leading-relaxed text-[#8a857c]">
+          {{ t('register.getCodeViaTelegramHint') }}
+        </p>
+      </div>
+
       <button
         type="button"
         class="mt-2 text-[12.5px] font-medium text-[#8a857c] underline underline-offset-2 transition hover:text-[#1a1814]"
@@ -435,7 +458,10 @@ onMounted(() => {
       <h1 class="text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">
         {{ t('verify.resetTitle') }}
       </h1>
-      <p class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+      <p v-if="codeChannel === 'telegram'" class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+        {{ t('register.otpSentTelegram') }}
+      </p>
+      <p v-else class="mt-2 text-sm leading-relaxed text-[#6b6760]">
         {{ t('register.otpSentPrefix') }}
         <b class="text-[#1a1814]">{{ fullPhoneDisplay }}</b>
         {{ t('register.otpSentSuffix') }}
@@ -521,6 +547,15 @@ onMounted(() => {
           {{ t('register.otpResend') }}
         </button>
       </p>
+
+      <!-- The bot hands a pending code to anyone who shares their number with
+           it — covers users it doesn't know yet, and SMS outages. -->
+      <div class="mt-4">
+        <TelegramCodeLink :label="t('register.getCodeViaTelegram')" />
+        <p class="mt-2 text-[12px] leading-relaxed text-[#8a857c]">
+          {{ t('register.getCodeViaTelegramHint') }}
+        </p>
+      </div>
 
       <button
         type="button"

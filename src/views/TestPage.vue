@@ -17,9 +17,11 @@ import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
 import TestOpenResponseQuestion from '@/components/test/TestOpenResponseQuestion.vue'
 import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
 import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
+import ProfileGateModal from '@/components/ProfileGateModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
+import { useProfileGate } from '@/composables/useProfileGate'
 import { getTestApiBaseUrl } from '@/utils/api'
 import { COMPLETE_PROFILE_PATH, PHONE_VERIFY_REDIRECTS_ENABLED } from '@/utils/postAuth'
 
@@ -29,6 +31,8 @@ const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
+const { showProfileGate, ensureProfileComplete, onProfileCompleted, onProfileCancel } =
+  useProfileGate()
 const answers = reactive({})
 const freeAnswers = reactive({})
 const pageErrorKey = ref('')
@@ -1161,6 +1165,19 @@ const loadTest = async (testId) => {
         return
       }
     } else {
+      // First-time gate: a direct link with no attempt starts a brand-new attempt
+      // here, so the test-taker must have a real name on file for the certificate.
+      // No-op once the profile is complete; otherwise this blocks on the
+      // ProfileGateModal. Backing out returns them to where they came from rather
+      // than starting a nameless attempt. (TEMP: the SMS-down stand-in for
+      // /complete-profile; a no-op again once SMS_AVAILABLE is true.)
+      const profileOk = await ensureProfileComplete()
+      if (!profileOk) {
+        shouldPersistProgress.value = false
+        router.back()
+        return
+      }
+
       try {
         await testStore.startTest(testId)
       } catch (error) {
@@ -1674,6 +1691,12 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="font-sans-custom min-h-screen touch-manipulation bg-[#f5f3ef] pb-[116px] pt-2 text-black selection:bg-black selection:text-white sm:pb-[76px] sm:pt-6">
+
+    <ProfileGateModal
+      v-model:show="showProfileGate"
+      @completed="onProfileCompleted"
+      @cancel="onProfileCancel"
+    />
 
     <EssayProcessingOverlay
       v-if="finishOverlayState"
