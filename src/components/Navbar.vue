@@ -91,12 +91,16 @@ const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value
 }
 
+// Signing out lands on the landing page, like the platform's own "Chiqish" in
+// AppTopbar and Sozlamalar — dropping someone on a login form is telling them
+// to undo what they just asked for.
 const handleLogout = async () => {
-  authStore.logout()
-  authStore.userInfo = null
   isUserMenuOpen.value = false
   closeMobileMenu()
-  await router.push('/login')
+  await router.push({ name: 'home' })
+  authStore.logout()
+  authStore.userInfo = null
+  balanceStore.reset()
 }
 
 onMounted(() => {

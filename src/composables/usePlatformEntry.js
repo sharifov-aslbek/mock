@@ -3,7 +3,8 @@
 // One place decides this, because four buttons each hardcoding their own answer
 // is exactly how "Platformaga kirish" ended up pointing at /math — a public
 // subject page — for signed-in visitors, while "Bepul boshlash" sent people who
-// were already signed in to a login form.
+// were already signed in to a login form. Signed out, they all now land on
+// /register.
 //
 // The landing shell deliberately never calls the session API (see
 // MarketingLayout), so this peeks at localStorage only. A stale token here costs
@@ -21,18 +22,20 @@ export function usePlatformEntry() {
     hasSession.value = hasStoredSession()
   })
 
-  // "Platformaga kirish" — straight in when there is a session; otherwise sign
-  // in and carry the platform as the destination, so the journey finishes where
-  // the button promised rather than on whatever the login page defaults to.
-  const enter = computed(() =>
-    hasSession.value ? PLATFORM_HOME : { path: '/login', query: { redirect: PLATFORM_HOME } },
-  )
-
-  // "Bepul boshlash" — a visitor who has never registered should meet the
-  // registration form, not a login form they cannot fill in.
-  const start = computed(() =>
+  // Every marketing CTA — "Platformaga kirish" as much as "Bepul boshlash" —
+  // leads to the same door: straight into the platform when there is a session,
+  // otherwise registration, carrying the platform as the destination so the
+  // journey finishes where the button promised.
+  //
+  // Registration, not login, for both: most people arriving from the landing
+  // page have no account yet, and /register already offers "Hisobingiz bormi?
+  // Kirish" for the ones who do. Sending a first-time visitor to a login form
+  // they cannot fill in is the worse failure of the two.
+  const entry = computed(() =>
     hasSession.value ? PLATFORM_HOME : { path: '/register', query: { redirect: PLATFORM_HOME } },
   )
 
-  return { hasSession, enter, start }
+  // Two names kept because the CTAs read differently, even though they now
+  // resolve identically.
+  return { hasSession, enter: entry, start: entry }
 }

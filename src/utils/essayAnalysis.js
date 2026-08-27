@@ -31,6 +31,23 @@ export const ESSAY_BAND_MAX = 24
 export const ESSAY_SCALED_MAX = 75
 export const JUDGMENT_BAND_MAX = 2
 
+// The one definition of that projection. It has to agree exactly with the
+// server's ScaleEssayScore in UserTestAttemptService.cs, because that is what
+// lands in the attempt total and on the certificate — if this rounded to a
+// decimal and the server rounded to a whole point, the essay section and the
+// score above it would disagree about the same essay. Whole points, halves up
+// (12 → 37.5 → 38), matching Math.Round(..., MidpointRounding.AwayFromZero).
+export function scaleEssayBand(bandTotal, bandMax = ESSAY_BAND_MAX) {
+  const total = Number(bandTotal)
+  const max = Number(bandMax)
+
+  if (!Number.isFinite(total) || !Number.isFinite(max) || max <= 0) {
+    return null
+  }
+
+  return Math.round((total / max) * ESSAY_SCALED_MAX)
+}
+
 // Judgment criteria (holistic bands) — labels for known keys; unknown keys
 // fall back to the raw key so new criteria never break the UI.
 export const judgmentCriteriaMeta = {

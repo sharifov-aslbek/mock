@@ -6,7 +6,6 @@ import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
-import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
 import TelegramCodeLink from '@/components/auth/TelegramCodeLink.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
@@ -145,8 +144,7 @@ const redirectQuery = computed(() =>
     : {},
 )
 
-// Runs after the bot code confirms a registration AND after a Telegram/Google
-// sign-in from the social buttons below the form.
+// Runs once the bot code confirms the registration.
 const redirectAfterAuth = async () => {
   // Same as Login: finishing registration lands the student in the platform,
   // not back on the public catalogue.
@@ -155,8 +153,7 @@ const redirectAfterAuth = async () => {
       ? route.query.redirect
       : PLATFORM_HOME
   // A bot-confirmed registration arrives with the full name and the phone
-  // confirmed, so it goes straight through. A Telegram/Google sign-in has no
-  // phone at all, so it always detours via /complete-profile.
+  // confirmed, so it goes straight through without the /complete-profile detour.
   return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
@@ -432,22 +429,6 @@ onBeforeUnmount(stopTicking)
           {{ authStore.isLoading ? t('register.submitting') : t('register.continue') }}
         </button>
       </form>
-
-      <div class="my-5 flex items-center gap-3">
-        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
-        <span class="text-xs text-[#8a857c]">{{ t('register.or') }}</span>
-        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
-      </div>
-
-      <!-- Telegram + Google, the same block /login shows. Both create the
-           account on first sign-in, so they are a registration path too; the
-           name step happens on /complete-profile afterwards. Errors surface in
-           the form's message above, via authStore.errorMessage. -->
-      <SocialAuthButtons
-        :telegram-label="t('register.telegram')"
-        google-text="signup_with"
-        @authenticated="redirectAfterAuth"
-      />
 
       <AuthSwitchCta
         :question="t('register.haveAccount')"

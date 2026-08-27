@@ -35,11 +35,17 @@ const initial = computed(() => (props.user?.name || 'S').charAt(0).toUpperCase()
 // picking "Chiqish" is already two steps, and nothing is lost — attempts and
 // results are server-side. The confirm on Sozlamalar covers the button that
 // sits in the open on a page.
-function signOut() {
+//
+// Leave first, then clear the session — never the other way round. Dropping the
+// token while still standing on a `requiresAuth` route wakes every guard that
+// watches for it (AppShell's watcher, router.beforeEach) and one of them wins
+// the race, which is how "Chiqish" ended up on an auth screen instead of the
+// landing page. Once we are on `/`, there is nothing left for them to eject.
+async function signOut() {
   isUserMenuOpen.value = false
+  await router.push({ name: 'home' })
   authStore.logout()
   balanceStore.reset()
-  router.push({ name: 'home' })
 }
 </script>
 

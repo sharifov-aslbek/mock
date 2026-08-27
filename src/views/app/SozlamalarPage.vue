@@ -182,11 +182,13 @@ const changeLanguage = (value) => setLocale(value)
 // the student an unfinished attempt's worth of context.
 const isSignOutOpen = ref(false)
 
-function signOut() {
+// Leave the platform first, then clear the token — see the note on AppTopbar's
+// signOut for why that order matters.
+async function signOut() {
+  isSignOutOpen.value = false
+  await router.push({ name: 'home' })
   authStore.logout()
   balanceStore.reset()
-  isSignOutOpen.value = false
-  router.push({ name: 'home' })
 }
 </script>
 

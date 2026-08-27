@@ -5,7 +5,6 @@ import { useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 import { onMounted, ref } from 'vue'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
-import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 import { PHONE_VERIFY_REDIRECTS_ENABLED, resolvePostAuthRoute } from '@/utils/postAuth'
@@ -16,15 +15,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()
 
-// Telegram + Google live in SocialAuthButtons (shared with /register); the ref
-// is only for the legacy `?focus=telegram` deep link below.
-const socialAuth = ref<InstanceType<typeof SocialAuthButtons> | null>(null)
-
-// After any successful login, honour a `?redirect=` target if present,
-// otherwise fall back to the platform — unless the account still needs a name
-// and a confirmed phone, in which case /complete-profile comes first and
-// carries the destination along. Google and Telegram sign-ins land there every
-// time, since neither ever supplies a phone number.
+// After a successful login, honour a `?redirect=` target if present, otherwise
+// fall back to the platform — unless the account still needs a name and a
+// confirmed phone, in which case /complete-profile comes first and carries the
+// destination along.
 const redirectAfterAuth = async () => {
   // Default to the platform, not /math: signing in is entering the product, and
   // landing back on the public subject catalogue made "Platformaga kirish" a
@@ -95,11 +89,6 @@ onMounted(() => {
   if (route.query.reason === 'auth-required') {
     message.warning(t('testPage.authRequired'), { duration: 3500 })
   }
-  // Legacy deep link (`?focus=telegram`, from when Telegram was the only way
-  // to sign up): scroll to + highlight the Telegram button.
-  if (route.query.focus === 'telegram') {
-    window.setTimeout(() => socialAuth.value?.focusTelegram(), 400)
-  }
 })
 </script>
 
@@ -145,7 +134,7 @@ onMounted(() => {
             </label>
             <router-link
               :to="forgotLocation"
-              class="text-xs font-medium text-[#8a857c] transition hover:text-[#1a1814]"
+              class="text-[13px] font-semibold text-[#1a1814] underline decoration-[#1a1814]/30 underline-offset-2 transition hover:decoration-[#1a1814]"
             >
               {{ t('login.forgot') }}
             </router-link>
@@ -186,21 +175,6 @@ onMounted(() => {
           {{ authStore.isLoading ? t('login.loading') : t('login.submit') }}
         </button>
       </form>
-
-      <div class="my-5 flex items-center gap-3">
-        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
-        <span class="text-xs text-[#8a857c]">{{ t('login.or') }}</span>
-        <div class="h-px flex-1 bg-[#e4e0d8]"></div>
-      </div>
-
-      <!-- Telegram + Google. Both register as well as log in, so the same
-           block sits on /register; success routes through redirectAfterAuth
-           (→ /complete-profile first, since neither supplies a phone). -->
-      <SocialAuthButtons
-        ref="socialAuth"
-        :telegram-label="t('login.telegram')"
-        @authenticated="redirectAfterAuth"
-      />
 
       <AuthSwitchCta
         :question="t('login.noAccount')"

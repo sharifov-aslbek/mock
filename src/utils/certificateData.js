@@ -1,3 +1,5 @@
+import { hasAiReview } from '@/utils/aiReview'
+
 function formatScore(value) {
   const numeric = Number(value)
 
@@ -117,8 +119,23 @@ export function buildCertificateViewModel({
     (sum, question) => sum + (Number(question?.score) || 0),
     0,
   )
+
+  // ...except when a question is AI-reviewed, where summing question rows is
+  // simply wrong. Those questions are graded on their own rubric and the server
+  // decides what they are worth in the total — the Ona tili essay carries 75
+  // regardless of the Score on its question row, which the backend ignores. Add
+  // that row up and the certificate divides by a different number than the
+  // results card, so the same attempt shows two percentages and two grades.
+  const hasAiReviewedQuestion = testQuestions.some(hasAiReview)
+
   const effectiveMax =
-    fullMaxFromTest > 0 ? fullMaxFromTest : maxScore > 0 ? maxScore : 0
+    hasAiReviewedQuestion && maxScore > 0
+      ? maxScore
+      : fullMaxFromTest > 0
+        ? fullMaxFromTest
+        : maxScore > 0
+          ? maxScore
+          : 0
 
   // Percentage and grade are POINT-based — derived from the same earned/max
   // points printed on the certificate — so the points, the percentage and the

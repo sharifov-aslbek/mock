@@ -9,7 +9,7 @@
 // It owns the same guard as PlatformLayout: the router's beforeEach and the
 // group's beforeEnter are the first two lines, and this layout re-checks on
 // mount and keeps watching, so a token cleared mid-session ejects the user.
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
@@ -28,10 +28,23 @@ const isDrawerOpen = ref(false)
 
 watch(
   () => authStore.isAuthenticated,
-  (isAuthenticated) => {
+  async (isAuthenticated) => {
     if (!isAuthenticated) {
-      void router.replace({ name: 'register', query: { redirect: route.fullPath } })
       balanceStore.reset()
+      // Last resort only, and deliberately late. Everything that clears the
+      // token already picks its own destination and navigates: "Chiqish" in
+      // AppTopbar / Sozlamalar goes to the landing page, the 401 handler in
+      // utils/api.js goes to /login, and router.beforeEach catches anyone
+      // *navigating* into a requiresAuth route without a session. Redirecting
+      // from here synchronously simply overrode whichever of those had just
+      // fired — which is how signing out landed on /register instead of home.
+      //
+      // So: let their navigation settle first, then step in only if nothing
+      // moved us and we are still parked on a route that needs a session.
+      await nextTick()
+      if (!authStore.isAuthenticated && route.meta?.requiresAuth) {
+        void router.replace({ name: 'register', query: { redirect: route.fullPath } })
+      }
       return
     }
     if (!authStore.userInfo) void authStore.getUserInfo().catch(() => {})
@@ -54,7 +67,42 @@ watch(
 </script>
 
 <template>
-  <div v-if="authStore.isAuthenticated" class="min-h-screen bg-app-bg text-app-ink">
+  <!-- No overflow-hidden here: the backdrop below is fixed, so it cannot spill,
+       and clipping this element would break sticky positioning inside pages. -->
+  <div v-if="authStore.isAuthenticated" class="relative isolate min-h-screen bg-app-bg text-app-ink">
+    <!-- Backdrop. The platform's page colour is a single flat tone, so a short
+         page (four subject tiles) left two thirds of the screen visibly empty.
+         This gives that space something to hold: one warm wash bled in from the
+         top right, and two arc families at border weight. Fixed, so it stays
+         put while the content scrolls over it, and never intercepts a click. -->
+    <div class="pointer-events-none fixed inset-0 -z-10" aria-hidden="true">
+      <div
+        class="absolute -right-[10%] -top-[22%] h-[720px] w-[720px] rounded-full bg-app-warm opacity-60 blur-[120px]"
+      ></div>
+      <div
+        class="absolute -bottom-[26%] left-[14%] hidden h-[560px] w-[560px] rounded-full bg-app-tile opacity-70 blur-[130px] lg:block"
+      ></div>
+
+      <svg
+        class="absolute -right-[9%] top-[24%] hidden h-[620px] w-[620px] text-app-border lg:block"
+        viewBox="0 0 1000 1000"
+        fill="none"
+      >
+        <circle cx="500" cy="500" r="499" stroke="currentColor" stroke-width="1.6" />
+        <circle cx="500" cy="500" r="352" stroke="currentColor" stroke-width="1.6" />
+        <circle cx="500" cy="500" r="205" stroke="currentColor" stroke-width="1.6" />
+      </svg>
+
+      <svg
+        class="absolute -left-[6%] bottom-[6%] hidden h-[520px] w-[520px] text-app-border lg:block"
+        viewBox="0 0 1000 1000"
+        fill="none"
+      >
+        <circle cx="500" cy="500" r="499" stroke="currentColor" stroke-width="1.6" />
+        <circle cx="500" cy="500" r="330" stroke="currentColor" stroke-width="1.6" />
+      </svg>
+    </div>
+
     <aside
       class="fixed inset-y-0 left-0 z-30 hidden w-[240px] border-r border-app-border lg:block"
     >

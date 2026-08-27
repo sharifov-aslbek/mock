@@ -23,7 +23,13 @@
 // tying a highlight in the essay to its card in the inspector, so they are
 // structural here rather than decoration.
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { ESSAY_BAND_MAX, ESSAY_SCALED_MAX, catMeta, normalizeEssayAnalysis } from '@/utils/essayAnalysis'
+import {
+  ESSAY_BAND_MAX,
+  ESSAY_SCALED_MAX,
+  catMeta,
+  normalizeEssayAnalysis,
+  scaleEssayBand,
+} from '@/utils/essayAnalysis'
 
 const props = defineProps({
   // Raw AI grading response (pass-through from the backend).
@@ -43,12 +49,13 @@ const props = defineProps({
 
 const normalized = computed(() => normalizeEssayAnalysis(props.analysis))
 
-// The same band total projected onto the 75-point certificate scale.
+// The same band total projected onto the 75-point certificate scale — via the
+// shared helper, so this reads the same number the attempt total counted.
 const scaledBandTotal = computed(() => {
-  if (props.bandTotal == null || !props.bandMax) {
+  if (props.bandTotal == null) {
     return null
   }
-  return Math.round((props.bandTotal / props.bandMax) * ESSAY_SCALED_MAX * 10) / 10
+  return scaleEssayBand(props.bandTotal, props.bandMax)
 })
 const flatErrors = computed(() => normalized.value.errors)
 const errorCatsWithHits = computed(() => normalized.value.catsWithHits)

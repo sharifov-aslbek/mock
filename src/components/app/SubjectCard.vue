@@ -26,7 +26,7 @@ const entry = computed(
        the cards sit side by side in a grid, it is the centred tile again. -->
   <RouterLink
     :to="`/testlar/${encodeURIComponent(subjectKey)}`"
-    class="group flex h-full items-center gap-3.5 rounded-xl border border-app-border bg-app-surface p-3.5 text-left transition-colors hover:border-app-ink/15 hover:bg-app-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink sm:flex-col sm:items-center sm:gap-0 sm:px-4 sm:py-6 sm:text-center"
+    class="group flex h-full items-center gap-3.5 rounded-xl border border-app-border bg-app-surface p-3.5 text-left transition duration-200 hover:border-app-ink/15 hover:bg-app-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-ink sm:flex-col sm:items-center sm:gap-0 sm:px-4 sm:pb-5 sm:pt-6 sm:text-center sm:hover:-translate-y-1 sm:hover:border-app-ink/15 sm:hover:bg-app-surface sm:hover:shadow-[0_14px_30px_rgba(10,10,10,0.08)] motion-reduce:hover:translate-y-0"
   >
     <!-- Rounded square in the row, circle in the grid: DESIGN.md's own rule is
          that a square marks a specific subject and a circle marks a category,
@@ -57,6 +57,17 @@ const entry = computed(
         <AppIcon name="tests" :size="13" class="shrink-0 sm:hidden" />
         {{ count }} ta test
       </p>
+
+      <!-- The grid card had no visible affordance — students did not read a
+           quiet tile as something to click. This is that affordance: a button
+           the card fills in on hover. The phone row keeps its chevron instead;
+           a full-width button under every row would triple the list's height. -->
+      <span
+        class="mt-3.5 hidden items-center justify-center gap-1.5 rounded-full border border-app-border bg-app-surface px-4 py-2 text-[13px] font-semibold text-app-ink transition-colors duration-200 group-hover:border-app-ink group-hover:bg-app-ink group-hover:text-white sm:inline-flex"
+      >
+        Testlarni ko‘rish
+        <AppIcon name="arrowRight" :size="15" class="shrink-0" />
+      </span>
     </div>
 
     <AppIcon name="chevronRight" :size="18" class="shrink-0 text-app-muted sm:hidden" />
