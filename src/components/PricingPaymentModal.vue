@@ -2,7 +2,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import TelegramCodeLink from '@/components/auth/TelegramCodeLink.vue'
+import { telegramBotPayUrl } from '@/utils/telegramBot'
 
+// "Tanga sotib olish" → this dialog → @milliymock_bot. The purchase itself
+// (payment method, receipt, crediting the tanga) happens in the bot; the site
+// only hands over which package and which account, via the deep link.
 const props = defineProps({
   open: {
     type: Boolean,
@@ -19,28 +24,25 @@ const emit = defineEmits(['close'])
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-// Static payment details (manual activation flow).
-const CARD_NUMBER = '9860 3501 4242 7581'
-const TELEGRAM_USERNAME = 'Milliymocksupport'
-
 const planName = computed(() => props.plan?.name || '')
 const planPrice = computed(() => props.plan?.price || '')
+const planTokens = computed(() => Number(props.plan?.tokens) || 0)
 
-// Strip the "Ta'rif/Ta'rifi" suffix so sentences like "men {plan} tarifini..."
-// don't read "Plus Ta'rifi tarifini".
+// Strip the "Ta'rif/Ta'rifi" suffix so sentences like "{plan} ta'rifi..."
+// don't read "Plus Ta'rifi ta'rifi".
 const shortPlanName = computed(() =>
   planName.value.replace(/\s*Ta['’]rif(i)?$/i, '').trim() || planName.value,
 )
 
 const description = computed(() =>
-  t('pricing.payment.description', { plan: shortPlanName.value }),
+  t('pricing.payment.description', { plan: shortPlanName.value, price: planPrice.value }),
 )
 
 // Decode the user's DB id from the JWT. The backend embeds it as the
 // `nameid` (ClaimTypes.NameIdentifier) claim — see AuthService.GenerateToken.
-// This is the stable, unique identifier admins can look users up by
-// (e.g. api/balance/{userId}); names collide, and Telegram-login users
-// have no email, so the id is what we send.
+// It rides along in the bot deep link (`pay_coins<N>_<userId>`) so the bot
+// credits the right account: names collide, and Telegram-login users have no
+// email, so the id is the only safe handle.
 const userId = computed(() => {
   const token = authStore.token
   if (!token) return ''
@@ -67,32 +69,9 @@ const userId = computed(() => {
   }
 })
 
-// Prefill the Telegram chat with the selected package + payment details.
-const telegramMessage = computed(() => {
-  const base = t('pricing.payment.telegramMessage', {
-    plan: shortPlanName.value,
-    price: planPrice.value,
-    card: CARD_NUMBER,
-    holder: t('pricing.payment.cardHolder'),
-  })
-
-  const info = authStore.userInfo || {}
-  const name =
-    info.fullName ||
-    info.name ||
-    [info.firstName, info.lastName].filter(Boolean).join(' ').trim()
-
-  if (userId.value) {
-    const suffix = name ? ` (${name})` : ''
-    return `${base}\n${t('pricing.payment.accountLabel')}: ${userId.value}${suffix}`
-  }
-
-  return base
-})
-
-const telegramUrl = computed(
-  () => `https://t.me/${TELEGRAM_USERNAME}?text=${encodeURIComponent(telegramMessage.value)}`,
-)
+// Opens the bot directly at the payment step for this package (the plan's
+// tanga count picks the package).
+const telegramUrl = computed(() => telegramBotPayUrl(planTokens.value, userId.value))
 
 const close = () => emit('close')
 </script>
@@ -143,50 +122,33 @@ const close = () => emit('close')
               {{ description }}
             </p>
 
-            <!-- Card box -->
-            <div class="mt-6 rounded-[18px] border border-[#e8e3da] bg-[#f7f5f1] p-5">
-              <div class="flex items-center gap-4">
-                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#e8e3da]">
-                  <svg class="h-5 w-5 text-[#1a1814]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-                    <path d="M2.5 9.5h19" stroke-width="2.2" />
-                  </svg>
-                </span>
-                <div class="min-w-0">
-                  <p class="font-mono-custom text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a857c]">
-                    {{ t('pricing.payment.cardLabel') }}
-                  </p>
-                  <p class="mt-1 text-xl font-bold tracking-[0.02em] text-[#1a1814] tabular-nums">
-                    {{ CARD_NUMBER }}
-                  </p>
-                  <p class="mt-0.5 text-[13px] font-medium uppercase tracking-[0.04em] text-[#6b6760]">
-                    {{ t('pricing.payment.cardHolder') }}
-                  </p>
-                </div>
+            <!-- What's being bought -->
+            <div class="mt-6 flex items-center gap-4 rounded-[18px] border border-[#e8e3da] bg-[#f7f5f1] p-5">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#29a9eb] text-white">
+                <svg class="h-5 w-5" viewBox="0 0 448 512" fill="currentColor" aria-hidden="true">
+                  <path d="M446.7 98.6l-67.6 318.8c-5.1 22.5-18.4 28.1-37.3 17.5l-103-75.9-49.7 47.8c-5.5 5.5-10.1 10.1-20.7 10.1l7.4-104.9 190.9-172.5c8.3-7.4-1.8-11.5-12.9-4.1L117.8 284 16.2 252.2c-22.1-6.9-22.5-22.1 4.6-32.7L418.2 66.4c18.4-6.9 34.5 4.1 28.5 32.2z" />
+                </svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-semibold text-[#1a1814]">{{ planName }}</p>
+                <p class="mt-0.5 text-[13px] text-[#6b6760]">
+                  {{ planTokens }} {{ t('pricing.tokenSuffix') }}
+                </p>
               </div>
-
-              <!-- Divider -->
-              <div class="my-4 h-px w-full bg-[#e8e3da]"></div>
-
-              <!-- Plan + price -->
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-[15px] font-semibold text-[#1a1814]">{{ planName }}</span>
-                <span class="text-[17px] font-bold tracking-[-0.01em] text-[#1a1814]">{{ planPrice }}</span>
-              </div>
+              <span class="shrink-0 text-[17px] font-bold tracking-[-0.01em] text-[#1a1814]">{{ planPrice }}</span>
             </div>
 
-            <!-- Telegram CTA -->
-            <a
+            <!-- Telegram CTA — the deep link carries the package and the account. -->
+            <TelegramCodeLink
+              class="mt-6"
               :href="telegramUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="mt-6 inline-flex h-13 w-full items-center justify-center gap-2.5 rounded-full bg-[#1a1814] px-5 py-3.5 text-sm font-semibold text-white transition duration-300 hover:bg-black active:scale-[0.98]"
-            >
-              <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21.94 4.3 18.6 19.3c-.25 1.1-.92 1.37-1.86.85l-5.14-3.79-2.48 2.39c-.27.27-.5.5-1.03.5l.37-5.23 9.52-8.6c.41-.37-.09-.57-.64-.2L5.04 12.1l-5.06-1.58c-1.1-.34-1.12-1.1.23-1.63l19.78-7.62c.92-.34 1.72.2 1.42 1.4l-.47.03z" transform="translate(1 0)" />
-              </svg>
-              {{ t('pricing.payment.telegram') }} @{{ TELEGRAM_USERNAME }}
-            </a>
+              :label="t('pricing.payment.telegram')"
+              variant="primary"
+            />
+
+            <p class="mt-4 text-center text-[12px] leading-relaxed text-[#8a857c]">
+              {{ t('pricing.payment.hint') }}
+            </p>
           </div>
         </Transition>
       </div>
@@ -195,10 +157,6 @@ const close = () => emit('close')
 </template>
 
 <style scoped>
-.h-13 {
-  height: 3.25rem;
-}
-
 .pay-fade-enter-active,
 .pay-fade-leave-active {
   transition: opacity 0.25s ease;

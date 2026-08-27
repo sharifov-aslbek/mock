@@ -7,8 +7,8 @@
 //   • the balance, which lives in the top bar on every screen — this page does
 //     not repeat it
 //
-// Buying reuses PricingPaymentModal — the live manual-activation flow with the
-// real card number. Reimplementing that would risk showing a wrong account.
+// Buying reuses PricingPaymentModal — the hand-off into @milliymock_bot, where
+// the payment itself happens — so the flow can't drift from the public page.
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppTopbar from '@/components/app/AppTopbar.vue'

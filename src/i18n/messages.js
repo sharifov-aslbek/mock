@@ -190,15 +190,12 @@ const messages = {
         }
       ],
       payment: {
-        eyebrow: "Mahalliy karta orqali to'lov",
-        title: "Karta orqali to'lang, so'ng chekni yuboring",
-        description: "Quyidagi HUMO kartasiga to'lovni amalga oshiring, so'ng chekni Telegram orqali yuboring — biz {plan} ta'rifini qo'lda faollashtiramiz.",
-        cardLabel: 'HUMO',
-        cardHolder: 'ABDULLOX XABIBULLAYEV',
-        telegram: "Telegramda davom etish",
-        close: 'Yopish',
-        accountLabel: 'Foydalanuvchi ID',
-        telegramMessage: "Assalomu alaykum, men {plan} tarifini ({price}) sotib olmoqchiman.\nTo'lov usuli: HUMO\nKarta: {card} ({holder})\nTo'lovni amalga oshirgach, chekni shu yerga yuboraman."
+        eyebrow: "Telegram orqali to'lov",
+        title: 'Telegram botda davom eting',
+        description: "{plan} ta'rifi ({price}) xaridi {'@'}milliymock_bot da yakunlanadi. Tugmani bosing — bot to'lovni qabul qiladi va tangalar hisobingizga tushadi.",
+        telegram: 'Telegram botni ochish',
+        hint: 'Bot sizning hisobingizni avtomatik taniydi — hech narsa yozish shart emas.',
+        close: 'Yopish'
       }
     },
     subjectPage: {
@@ -838,15 +835,12 @@ const messages = {
         }
       ],
       payment: {
-        eyebrow: 'Оплата локальной картой',
-        title: 'Оплатите картой, затем отправьте чек',
-        description: 'Переведите сумму на карту HUMO ниже, затем отправьте чек в Telegram — мы вручную активируем тариф «{plan}».',
-        cardLabel: 'HUMO',
-        cardHolder: 'ABDULLOX XABIBULLAYEV',
-        telegram: 'Продолжить в Telegram',
-        close: 'Закрыть',
-        accountLabel: 'ID пользователя',
-        telegramMessage: 'Здравствуйте! Хочу приобрести: {plan} — {price}.\nСпособ оплаты: HUMO\nКарта: {card} ({holder})\nПосле оплаты отправлю чек сюда.'
+        eyebrow: 'Оплата через Telegram',
+        title: 'Продолжите в Telegram-боте',
+        description: "Покупка тарифа «{plan}» ({price}) завершается в {'@'}milliymock_bot. Нажмите кнопку — бот примет оплату, и токены поступят на ваш счёт.",
+        telegram: 'Открыть Telegram-бот',
+        hint: 'Бот сам распознает ваш аккаунт — ничего вводить не нужно.',
+        close: 'Закрыть'
       }
     },
     subjectPage: {

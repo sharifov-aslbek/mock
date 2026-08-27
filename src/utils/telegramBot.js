@@ -18,3 +18,16 @@ export const TELEGRAM_BOT_VERIFY_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}?st
 export function codeChannelFromMessage(message) {
   return /telegram/i.test(String(message || '')) ? 'telegram' : 'sms'
 }
+
+// Buying tanga also goes through the bot: `?start=pay_coins<N>_<userId>` opens
+// it straight at the payment step for the N-tanga package (5 / 10 / 25 — the
+// bot keys packages by their tanga count, so N must be the plan's `tokens`).
+// The user id is the DB id from the JWT's `nameid` claim; it's how the bot
+// credits the right account. Without one (shouldn't happen — both buy
+// buttons sit behind the auth gate) the link still opens the package and the
+// bot has to ask who is paying.
+export function telegramBotPayUrl(tokens, userId) {
+  const count = Number(tokens) || 0
+  const suffix = userId ? `_${userId}` : ''
+  return `https://t.me/${TELEGRAM_BOT_USERNAME}?start=pay_coins${count}${suffix}`
+}

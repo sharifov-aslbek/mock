@@ -135,9 +135,15 @@ to `/tanga` by the global guard, because the marketing page carries the public
 navbar and would drop them out of the platform shell. `/tanga` reads the
 balance (`GET /api/balance`), the plans (the same i18n source the public page
 uses, so a price cannot be right in one place and stale in the other) and the
-tanga history (`GET /api/transaction`), and reuses `PricingPaymentModal` — the
-live manual-activation flow with the real card number — rather than
-reimplementing payment.
+tanga history (`GET /api/transaction`), and reuses `PricingPaymentModal` rather
+than reimplementing purchase. That modal is a hand-off, not a payment form: it
+names the package and deep-links into `@milliymock_bot` —
+`https://t.me/milliymock_bot?start=pay_coins<N>_<userId>`
+(`utils/telegramBot.js#telegramBotPayUrl`), where N is the plan's `tokens`
+(5 / 10 / 25 — the bot keys packages by tanga count, so the i18n plans must
+stay in step with it) and userId is the `nameid` claim decoded from the JWT.
+Payment method, receipt and crediting all happen in the bot. The old card
+number + prefilled chat to the support account are gone.
 
 The dashboard is still placeholder — every figure there is marked `TODO(api)`,
 and `?empty=1` previews its first-run state.
