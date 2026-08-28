@@ -169,10 +169,17 @@ All carry `meta.requiresAuth: true` and `robots: noindex, nofollow`.
 ### auth — `BareLayout`
 `/login`, `/register`, `/verify-phone`, `/complete-profile` — all noindex.
 
-Telegram and Google sign-in are one component, `components/auth/SocialAuthButtons.vue`,
-rendered on both `/login` and `/register` (both providers create the account on
-first sign-in, so they are a registration path too). It emits `authenticated`;
-the page owns the redirect (`redirectAfterAuth` → `resolvePostAuthRoute`).
+Telegram and Google sign-in are one component, `components/auth/SocialAuthButtons.vue`
+(both providers create the account on first sign-in, so they are a registration
+path too). They are no longer a general option on `/login` / `/register`;
+`/login` mounts the component — `providers` narrowed to one — under its
+"no password yet" notice: `POST /auth/login` answers **409** for an account that
+was created through Google/Telegram and never set a password (was a 500), and
+the raw message names the provider (`error.noPassword` /
+`error.noPasswordProvider` in `authStore.login`; rules `noPasswordGoogle` /
+`noPasswordTelegram` / `noPassword` in `utils/authErrors.js`). The notice also
+links to `/register`. The component emits `authenticated`; the page owns the
+redirect (`redirectAfterAuth` → `resolvePostAuthRoute`).
 
 **Phone sign-up = the Telegram bot (`@milliymock_bot`).** `/register`
 (`views/Register.vue`) collects first/last/father name and a password — there

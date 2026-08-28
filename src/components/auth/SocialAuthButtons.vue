@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 
-// Telegram + Google sign-in, shared by /login and /register. Both providers
-// both register AND log in — the backend creates the account on first sight —
-// so the same buttons belong on both pages; keeping them in one component is
-// what stops the two from drifting apart.
+// Telegram + Google sign-in. Both providers both register AND log in — the
+// backend creates the account on first sight. They are no longer a general
+// option on /login and /register; today /login mounts this under its "no
+// password yet" notice (409 from /auth/login — an account created through
+// Google or Telegram), narrowed via `providers` to the one that account was
+// created with. Keeping both providers in one component is what stops the
+// two flows from drifting apart.
 //
 // On success the session is already live (the store holds the token). The
 // component only emits `authenticated`; the page owns the redirect, because it
@@ -65,13 +68,23 @@ const props = withDefaults(
   defineProps<{
     // Label on the Telegram button — "Kirish" on /login, "Ro‘yxatdan o‘tish"
     // on /register. The action is identical; only the promise to the user
-    // differs.
-    telegramLabel: string;
+    // differs. Not needed when `providers` leaves Telegram out.
+    telegramLabel?: string;
     // Google renders its own button text; this picks which of its variants.
     googleText?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
+    // Which buttons to render. Both by default; /login's "no password yet"
+    // notice passes just the provider the account was created with.
+    providers?: Array<'telegram' | 'google'>;
   }>(),
-  { googleText: 'continue_with' },
+  {
+    telegramLabel: '',
+    googleText: 'continue_with',
+    providers: () => ['telegram', 'google'],
+  },
 )
+
+const showTelegram = computed(() => props.providers.includes('telegram'))
+const showGoogle = computed(() => props.providers.includes('google'))
 
 const emit = defineEmits<{
   (event: 'authenticated'): void;
@@ -110,6 +123,7 @@ const loadScriptOnce = (src: string, onReady: () => void) => {
 // only defines `window.Telegram.Login.auth` and renders no iframe of its own —
 // our custom button drives the popup.
 onMounted(() => {
+  if (!showTelegram.value) return
   const markReady = () => {
     telegramReady.value = Boolean(window.Telegram?.Login?.auth)
   }
@@ -151,6 +165,7 @@ const loginWithTelegram = () => {
 // sign-in button. On success Google hands us a `credential` (a JWT id token)
 // which we forward to the backend for verification.
 onMounted(() => {
+  if (!showGoogle.value) return
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
   if (!clientId || !googleContainer.value) return
 
@@ -209,6 +224,7 @@ defineExpose({ focusTelegram })
          Telegram.Login.auth so we own the styling — a clean plane icon, no
          cross-origin iframe. -->
     <button
+      v-if="showTelegram"
       ref="telegramButton"
       type="button"
       :disabled="!telegramReady || telegramSubmitting"
@@ -224,8 +240,10 @@ defineExpose({ focusTelegram })
 
     <!-- Google Identity Services renders its sign-in button here. -->
     <div
+      v-if="showGoogle"
       ref="googleContainer"
-      class="mt-3 flex min-h-[44px] items-center justify-center"
+      class="flex min-h-[44px] items-center justify-center"
+      :class="showTelegram ? 'mt-3' : ''"
     ></div>
   </div>
 </template>

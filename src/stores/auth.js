@@ -1,7 +1,11 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { apiFetch, getTestApiBaseUrl, readJsonBody } from '@/utils/api'
-import { authApiError, localizeAuthFailure } from '@/utils/authErrors'
+import {
+  authApiError,
+  localizeAuthFailure,
+  noPasswordProviderFromMessage,
+} from '@/utils/authErrors'
 
 const TOKEN_KEY = 'milliymock_token'
 
@@ -84,15 +88,27 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (!response.ok || payload?.code !== 200 || !payload?.data?.token) {
         const error = authApiError(payload, response.status, 'login')
+        // AuthService.Login answers 409 "You don't have a password yet…" for
+        // an account that was created through Google or Telegram sign-in and
+        // never set a password (~9,300 of them; this used to be a 500). The
+        // message names the provider when the backend knows it — the login
+        // page offers that sign-in, and a way to a fresh account, right under
+        // the line. It's a 409 rather than 401/403 on purpose, so no
+        // token-clearing 401 handling can ever fire on the login page.
+        error.noPassword = response.status === 409 || payload?.code === 409
+        error.noPasswordProvider = error.noPassword
+          ? noPasswordProviderFromMessage(payload?.message)
+          : null
         // AuthService.Login answers 403 "Please verify your account before
         // logging in." for an account whose phone was never OTP-confirmed.
         // Flag it so the login page can hand the user to /verify-phone instead
         // of leaving them on a dead-end error. Matched on the RAW backend
         // message — error.message is already localized by this point.
         error.phoneNotVerified =
-          response.status === 403 ||
-          payload?.code === 403 ||
-          /verif|confirm/i.test(String(payload?.message || ''))
+          !error.noPassword &&
+          (response.status === 403 ||
+            payload?.code === 403 ||
+            /verif|confirm/i.test(String(payload?.message || '')))
         throw error
       }
 

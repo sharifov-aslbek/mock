@@ -255,6 +255,8 @@ const messages = {
       validation: 'Email/telefon va parolni kiriting.',
       noAccount: 'Hisobingiz yo‘qmi?',
       signUp: 'Ro‘yxatdan o‘tish',
+      // Link inside the "no password yet" (409) notice.
+      createAccount: 'Yangi hisob yaratish',
       brandTagline: 'Milliy sertifikatga ishonchli tayyorgarlik',
       points: [
         'Haqiqiy imtihon formatidagi mock testlar',
@@ -377,6 +379,12 @@ const messages = {
       googleEmailExists: 'Bu email bilan hisob allaqachon mavjud. Parolingiz bilan kiring.',
       googleFailed: 'Google orqali kirishda xatolik. Qayta urinib ko‘ring.',
       telegramFailed: 'Telegram orqali kirishda xatolik. Qayta urinib ko‘ring.',
+      // /auth/login 409 — an account created through Google/Telegram sign-in
+      // that has no password. The variant follows the raw message; the login
+      // page adds the matching sign-in button under the line.
+      noPasswordGoogle: 'Sizda hali parol yo‘q. Oldingidek Google orqali kiring yoki yangi hisob yarating.',
+      noPasswordTelegram: 'Sizda hali parol yo‘q. Oldingidek Telegram orqali kiring yoki yangi hisob yarating.',
+      noPassword: 'Sizda hali parol yo‘q. Oldingidek kiring yoki yangi hisob yarating.',
       // Telegram-bot sign-up (POST /auth/register/telegram[/verify]).
       nameRequired: 'Ism va familiyani kiriting.',
       passwordMissing: 'Parolni kiriting.',
@@ -900,6 +908,7 @@ const messages = {
       validation: 'Введите email/телефон и пароль.',
       noAccount: 'Нет аккаунта?',
       signUp: 'Зарегистрироваться',
+      createAccount: 'Создать новый аккаунт',
       brandTagline: 'Уверенная подготовка к Национальному сертификату',
       points: [
         'Mock-тесты в формате реального экзамена',
@@ -1019,6 +1028,9 @@ const messages = {
       googleEmailExists: 'Аккаунт с этим email уже существует. Войдите с помощью пароля.',
       googleFailed: 'Не удалось войти через Google. Попробуйте ещё раз.',
       telegramFailed: 'Не удалось войти через Telegram. Попробуйте ещё раз.',
+      noPasswordGoogle: 'У вас ещё нет пароля. Войдите как раньше — через Google — или создайте новый аккаунт.',
+      noPasswordTelegram: 'У вас ещё нет пароля. Войдите как раньше — через Telegram — или создайте новый аккаунт.',
+      noPassword: 'У вас ещё нет пароля. Войдите как раньше или создайте новый аккаунт.',
       nameRequired: 'Введите имя и фамилию.',
       passwordMissing: 'Введите пароль.',
       codeRequired: 'Введите код подтверждения.',

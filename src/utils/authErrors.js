@@ -55,6 +55,13 @@ const RULES = [
   // UserTestAttemptService refuses to mint an attempt on an unconfirmed phone.
   [/verify your phone number/i, 'phoneNotConfirmed'],
   [/verify your account before logging in/i, 'notVerified'],
+  // AuthService.Login, 409: the account was created through Google or Telegram
+  // sign-in and never set a password (used to surface as a 500). The backend
+  // names the provider when it knows it; the login page reads it back with
+  // noPasswordProviderFromMessage to offer that sign-in under the line.
+  [/don.t have a password yet.*with google/i, 'noPasswordGoogle'],
+  [/don.t have a password yet.*with telegram/i, 'noPasswordTelegram'],
+  [/don.t have a password yet/i, 'noPassword'],
   [/password or login is incorrect/i, 'badCredentials'],
   [/user not found/i, 'userNotFound'],
   [/phone number must be in international format/i, 'phoneFormat'],
@@ -87,7 +94,7 @@ const FIELD_LABELS = {
 // flow, because the same code says different things per endpoint: 404 on login
 // is "no such account", on resend-otp it's "nothing left to resend".
 const FLOW_FALLBACKS = {
-  login: { 400: 'badCredentials', 401: 'badCredentials', 403: 'notVerified', 404: 'userNotFound' },
+  login: { 400: 'badCredentials', 401: 'badCredentials', 403: 'notVerified', 404: 'userNotFound', 409: 'noPassword' },
   register: { 409: 'phoneRegistered' },
   registerTelegram: { 400: 'invalidRequest' },
   verifyTelegramRegistration: { 400: 'codeInvalid', 404: 'registrationExpired', 409: 'identifierTakenMeanwhile' },
@@ -193,6 +200,17 @@ export function authApiError(payload, status, flow) {
   error.apiCode = payload?.code
   error.rawMessage = payload?.message
   return error
+}
+
+// Which provider a 409 from /auth/login names ("Sign in the way you did before
+// — with Google —"), so the login page can put that sign-in button under the
+// message. Runs on the RAW backend message like the rules above. Null for the
+// third wording, which names none.
+export function noPasswordProviderFromMessage(message) {
+  const raw = String(message || '')
+  if (/with google/i.test(raw)) return 'google'
+  if (/with telegram/i.test(raw)) return 'telegram'
+  return null
 }
 
 // Whatever reaches a store catch block: one of ours, a TypeError from a dropped

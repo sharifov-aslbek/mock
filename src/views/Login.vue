@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { onMounted, ref } from 'vue'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
+import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 import { PHONE_VERIFY_REDIRECTS_ENABLED, resolvePostAuthRoute } from '@/utils/postAuth'
 
@@ -48,8 +49,17 @@ const password = ref('')
 const showPassword = ref(false)
 const validationError = ref('')
 
+// 409 from /auth/login: the account was created through Google or Telegram
+// sign-in and has no password. The notice replaces the plain error line and
+// carries the matching sign-in button (when the backend named the provider)
+// plus a link to a fresh account. Cleared on the next submit.
+const noPassword = ref(false)
+const noPasswordProvider = ref<'google' | 'telegram' | null>(null)
+
 const submitPasswordLogin = async () => {
   validationError.value = ''
+  noPassword.value = false
+  noPasswordProvider.value = null
   if (!identifier.value.trim() || !password.value) {
     validationError.value = t('login.validation')
     return
@@ -58,6 +68,11 @@ const submitPasswordLogin = async () => {
     await authStore.login(identifier.value, password.value)
     await redirectAfterAuth()
   } catch (error: any) {
+    if (error?.noPassword) {
+      noPassword.value = true
+      noPasswordProvider.value = error.noPasswordProvider ?? null
+      return
+    }
     // An account whose phone was never OTP-confirmed can't log in — hand the
     // user to the verify flow with the number they just tried prefilled.
     // (TEMP: skipped while SMS is down — the flag lives in utils/postAuth.js;
@@ -159,9 +174,40 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Form validation + any auth error (password or social flows). -->
+        <!-- 409 "no password yet": the account came from Google / Telegram
+             sign-in. Say so prominently and put the matching sign-in right
+             here — Google's own "Continue with Google" button or our
+             "Login with Telegram" one — plus the way to a fresh account. A
+             failed social attempt overwrites authStore.errorMessage, so the
+             notice shows the current error with the button still in reach. -->
+        <div
+          v-if="noPassword"
+          role="alert"
+          class="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-4"
+        >
+          <p class="text-sm font-semibold leading-relaxed text-[#7a4b00]">
+            {{ authStore.errorMessage }}
+          </p>
+          <SocialAuthButtons
+            v-if="noPasswordProvider"
+            class="mt-4"
+            :providers="[noPasswordProvider]"
+            :telegram-label="t('login.telegram')"
+            @authenticated="redirectAfterAuth"
+          />
+          <p class="mt-3 text-center text-[13px] text-[#6b6760]">
+            <router-link
+              :to="registerLocation"
+              class="font-semibold text-[#1a1814] underline decoration-[#1a1814]/30 underline-offset-2 transition hover:decoration-[#1a1814]"
+            >
+              {{ t('login.createAccount') }}
+            </router-link>
+          </p>
+        </div>
+
+        <!-- Form validation + any other auth error. -->
         <p
-          v-if="validationError || authStore.errorMessage"
+          v-else-if="validationError || authStore.errorMessage"
           class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
         >
           {{ validationError || authStore.errorMessage }}
