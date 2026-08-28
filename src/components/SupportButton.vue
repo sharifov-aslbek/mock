@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 <template>
   <a
-    href="https://t.me/Milliymocksupport"
+    href="https://t.me/milliymock_bot"
     target="_blank"
     rel="noopener noreferrer"
     :aria-label="t('supportButton.label')"
