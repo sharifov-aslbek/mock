@@ -5,8 +5,11 @@ const { t } = useI18n()
 </script>
 
 <template>
+  <!-- Deliberately the human support chat, not @milliymock_bot: the button
+       was moved to the bot on 2026-08-28 and users hit errors there, so it
+       went back the same day. Same link as the footer. -->
   <a
-    href="https://t.me/milliymock_bot"
+    href="https://t.me/Milliymocksupport"
     target="_blank"
     rel="noopener noreferrer"
     :aria-label="t('supportButton.label')"
