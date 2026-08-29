@@ -4,7 +4,7 @@ import { apiFetch, getTestApiBaseUrl, readJsonBody } from '@/utils/api'
 import {
   authApiError,
   localizeAuthFailure,
-  noPasswordProviderFromMessage,
+  signInProviderFromMessage,
 } from '@/utils/authErrors'
 
 const TOKEN_KEY = 'milliymock_token'
@@ -97,7 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
         // token-clearing 401 handling can ever fire on the login page.
         error.noPassword = response.status === 409 || payload?.code === 409
         error.noPasswordProvider = error.noPassword
-          ? noPasswordProviderFromMessage(payload?.message)
+          ? signInProviderFromMessage(payload?.message)
           : null
         // AuthService.Login answers 403 "Please verify your account before
         // logging in." for an account whose phone was never OTP-confirmed.
@@ -246,7 +246,16 @@ export const useAuthStore = defineStore('auth', () => {
       const payload = await readJsonBody(response)
 
       if (!response.ok || (payload?.code && payload.code !== 200)) {
-        throw authApiError(payload, response.status, 'register')
+        const error = authApiError(payload, response.status, 'register')
+        // 409 "This email is already attached to an account. Sign in with …
+        // instead." — the tail names how that account signs in ('google' |
+        // 'telegram' | 'password' | null), for a page to offer exactly that.
+        error.alreadyAttached =
+          response.status === 409 || payload?.code === 409
+        error.signInProvider = error.alreadyAttached
+          ? signInProviderFromMessage(payload?.message)
+          : null
+        throw error
       }
 
       return payload
@@ -312,8 +321,11 @@ export const useAuthStore = defineStore('auth', () => {
   // / status (error.message is already localized by then):
   //  - restartRegistration: the ticket is gone (5 wrong codes, or older than
   //    30 minutes) → back to the form;
-  //  - phoneAlreadyRegistered (409): the number was claimed by another account
-  //    in the meantime → this person should log in.
+  //  - phoneAlreadyRegistered (409): the number already belongs to an account
+  //    ("This phone number is already attached to an account. Sign in with
+  //    Google | Telegram | your password (or "Forgot password") instead.") →
+  //    this person should sign in; signInProvider carries the tail so the
+  //    page can offer that very sign-in.
   // Everything else ("Invalid verification code", "Get the code from the
   // Telegram bot first.", "The code has expired…") keeps the user on the code
   // screen; the localized message says what to do in the bot.
@@ -349,6 +361,9 @@ export const useAuthStore = defineStore('auth', () => {
           /too many wrong attempts|registration has expired/i.test(rawMessage)
         error.phoneAlreadyRegistered =
           response.status === 409 || payload?.code === 409
+        error.signInProvider = error.phoneAlreadyRegistered
+          ? signInProviderFromMessage(payload?.message)
+          : null
         throw error
       }
 

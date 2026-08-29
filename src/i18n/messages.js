@@ -284,6 +284,8 @@ const messages = {
       passwordMismatch: 'Parollar mos kelmadi.',
       haveAccount: 'Hisobingiz bormi?',
       signIn: 'Kirish',
+      // "Forgot password" link in the already-attached (409) notice.
+      forgotPassword: 'Parolni tiklash',
       otpTitle: 'Kodni kiriting',
       otpSentPrefix: '',
       otpSentSuffix: 'raqamiga 6 xonali tasdiqlash kodi yubordik',
@@ -358,8 +360,6 @@ const messages = {
       smsUnavailable: "Hozircha SMS xizmatida nosozlik bor va kod yuborilmadi. Birozdan so‘ng qayta urinib ko‘ring yoki {'@'}Milliymocksupport ga murojaat qiling.",
       smsDailyLimit: 'Bu raqam uchun bugungi SMS chegarasi tugadi. Ertaga qayta urinib ko‘ring.',
       cooldown: 'Yangi kod so‘rash uchun {seconds} soniya kuting.',
-      emailRegistered: 'Bu email allaqachon ro‘yxatdan o‘tgan. Pastdagi “Kirish” tugmasini bosib, hisobingizga kiring.',
-      phoneRegistered: 'Bu raqam allaqachon ro‘yxatdan o‘tgan. Pastdagi “Kirish” tugmasini bosib, hisobingizga kiring.',
       alreadyVerified: 'Bu hisob allaqachon tasdiqlangan. Tizimga kirishingiz mumkin.',
       identifierTakenMeanwhile: 'Bu raqam shu orada boshqa hisobga ro‘yxatdan o‘tkazilgan. Boshqa raqam bilan urinib ko‘ring.',
       noPendingRegistration: 'Ro‘yxatdan o‘tish muddati tugagan. Iltimos, qaytadan ro‘yxatdan o‘ting.',
@@ -385,6 +385,20 @@ const messages = {
       noPasswordGoogle: 'Sizda hali parol yo‘q. Oldingidek Google orqali kiring yoki yangi hisob yarating.',
       noPasswordTelegram: 'Sizda hali parol yo‘q. Oldingidek Telegram orqali kiring yoki yangi hisob yarating.',
       noPassword: 'Sizda hali parol yo‘q. Oldingidek kiring yoki yangi hisob yarating.',
+      // Registration 409 — the email / phone already belongs to an account. The
+      // tail follows how that account signs in; {identifier} comes from
+      // authErrors.identifiers below.
+      attachedGoogle: 'Bu {identifier} allaqachon mavjud hisobga biriktirilgan. Google orqali kiring.',
+      attachedTelegram: 'Bu {identifier} allaqachon mavjud hisobga biriktirilgan. Telegram orqali kiring.',
+      attachedPassword: 'Bu {identifier} allaqachon mavjud hisobga biriktirilgan. Parolingiz bilan kiring yoki «Parolni tiklash» orqali yangi parol oling.',
+      attached: 'Bu {identifier} allaqachon mavjud hisobga biriktirilgan. Hisobingizga kiring.',
+      // Status-only fallback for a registration 409 whose wording we don't know.
+      attachedUnknown: 'Bu email yoki telefon raqam allaqachon mavjud hisobga biriktirilgan. Hisobingizga kiring.',
+      identifiers: {
+        email: 'email',
+        phone: 'telefon raqam',
+        generic: 'email yoki telefon raqam',
+      },
       // Telegram-bot sign-up (POST /auth/register/telegram[/verify]).
       nameRequired: 'Ism va familiyani kiriting.',
       passwordMissing: 'Parolni kiriting.',
@@ -393,7 +407,6 @@ const messages = {
       botCodeExpired: 'Kod muddati tugagan. Botda 📱 tugmani qayta bosing — yangi kod beriladi.',
       tooManyAttempts: 'Juda ko‘p noto‘g‘ri urinish. Iltimos, ro‘yxatdan o‘tishni boshidan boshlang.',
       registrationExpired: 'Ro‘yxatdan o‘tish muddati tugadi. Iltimos, boshidan boshlang.',
-      phoneRegisteredGoLogin: 'Bu raqam allaqachon ro‘yxatdan o‘tgan. Hisobingizga kiring.',
       // Field names as they appear in ASP.NET's validation response, for the
       // "missingFields" line above.
       fields: {
@@ -936,6 +949,7 @@ const messages = {
       passwordMismatch: 'Пароли не совпадают.',
       haveAccount: 'Уже есть аккаунт?',
       signIn: 'Войти',
+      forgotPassword: 'Восстановить пароль',
       otpTitle: 'Введите код',
       otpSentPrefix: 'Мы отправили 6-значный код подтверждения на номер',
       otpSentSuffix: '',
@@ -1007,8 +1021,6 @@ const messages = {
       // zero | one (1, 21…) | few (2–4, 22–24…) | many (5–20, 25–30…).
       cooldown:
         'Подождите {seconds} секунд, прежде чем запросить новый код. | Подождите {seconds} секунду, прежде чем запросить новый код. | Подождите {seconds} секунды, прежде чем запросить новый код. | Подождите {seconds} секунд, прежде чем запросить новый код.',
-      emailRegistered: 'Этот email уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.',
-      phoneRegistered: 'Этот номер уже зарегистрирован. Нажмите «Войти» ниже, чтобы войти в аккаунт.',
       alreadyVerified: 'Этот аккаунт уже подтверждён. Вы можете войти в систему.',
       identifierTakenMeanwhile: 'Этот номер за это время был зарегистрирован на другой аккаунт. Попробуйте другой номер.',
       noPendingRegistration: 'Срок регистрации истёк. Пожалуйста, зарегистрируйтесь заново.',
@@ -1031,6 +1043,16 @@ const messages = {
       noPasswordGoogle: 'У вас ещё нет пароля. Войдите как раньше — через Google — или создайте новый аккаунт.',
       noPasswordTelegram: 'У вас ещё нет пароля. Войдите как раньше — через Telegram — или создайте новый аккаунт.',
       noPassword: 'У вас ещё нет пароля. Войдите как раньше или создайте новый аккаунт.',
+      attachedGoogle: 'Этот {identifier} уже привязан к аккаунту. Войдите через Google.',
+      attachedTelegram: 'Этот {identifier} уже привязан к аккаунту. Войдите через Telegram.',
+      attachedPassword: 'Этот {identifier} уже привязан к аккаунту. Войдите с паролем или получите новый через «Восстановить пароль».',
+      attached: 'Этот {identifier} уже привязан к аккаунту. Войдите в него.',
+      attachedUnknown: 'Этот email или номер телефона уже привязан к аккаунту. Войдите в него.',
+      identifiers: {
+        email: 'email',
+        phone: 'номер телефона',
+        generic: 'email или номер телефона',
+      },
       nameRequired: 'Введите имя и фамилию.',
       passwordMissing: 'Введите пароль.',
       codeRequired: 'Введите код подтверждения.',
@@ -1038,7 +1060,6 @@ const messages = {
       botCodeExpired: 'Срок действия кода истёк. Нажмите 📱 в боте ещё раз — он выдаст новый код.',
       tooManyAttempts: 'Слишком много неверных попыток. Пожалуйста, начните регистрацию заново.',
       registrationExpired: 'Срок регистрации истёк. Пожалуйста, начните заново.',
-      phoneRegisteredGoLogin: 'Этот номер уже зарегистрирован. Войдите в свой аккаунт.',
       fields: {
         firstName: 'Имя',
         lastName: 'Фамилия',

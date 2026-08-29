@@ -6,6 +6,15 @@ import { isNetworkError } from '@/utils/api'
 // and SmsService.cs). Those strings are English and the backend serves both uz
 // and ru clients, so nothing is localized server-side — we match them here.
 //
+// `identifier` for the "already attached to an account" rules below: what
+// clashed, in the user's language. The group is the backend's "email" /
+// "phone number"; when a wording we only half-recognise names neither, say both.
+const attachedParams = (match) => ({
+  identifier: i18n.global.t(
+    `authErrors.identifiers.${match[1] ? match[1].toLowerCase() : 'generic'}`,
+  ),
+})
+
 // Ordered: first match wins, so keep specific patterns above general ones. The
 // patterns run against the RAW backend message, never against localized text.
 const RULES = [
@@ -24,8 +33,17 @@ const RULES = [
   // The IP-level OTP limiter (RateLimiterConfiguration: 10 calls/hour), which
   // answers before the controller runs and carries no wait time of its own.
   [/too many requests/i, 'tooManyRequests'],
-  [/this email is already registered/i, 'emailRegistered'],
-  [/this phone number is already registered/i, 'phoneRegistered'],
+  // Registration (POST /auth/register and /auth/register/telegram/verify),
+  // 409: the email / phone already belongs to an account. Replaced the old
+  // "This email/phone number is already registered." wording and the 500 some
+  // of these used to be. The tail says how that account signs in — "Sign in
+  // with Google | Telegram | your password (or "Forgot password") instead." —
+  // and the pages read it back with signInProviderFromMessage to offer
+  // exactly that.
+  [/(?:(email|phone)[^.]*)?already attached to an account.*sign in with google/i, 'attachedGoogle', attachedParams],
+  [/(?:(email|phone)[^.]*)?already attached to an account.*sign in with telegram/i, 'attachedTelegram', attachedParams],
+  [/(?:(email|phone)[^.]*)?already attached to an account.*sign in with your password/i, 'attachedPassword', attachedParams],
+  [/(?:(email|phone)[^.]*)?already attached to an account/i, 'attached', attachedParams],
   // Registration lives in the server's cache until the code is confirmed, so
   // someone else can claim the number in between and verify-otp 409s.
   [/has since been registered by another account/i, 'identifierTakenMeanwhile'],
@@ -58,7 +76,7 @@ const RULES = [
   // AuthService.Login, 409: the account was created through Google or Telegram
   // sign-in and never set a password (used to surface as a 500). The backend
   // names the provider when it knows it; the login page reads it back with
-  // noPasswordProviderFromMessage to offer that sign-in under the line.
+  // signInProviderFromMessage to offer that sign-in under the line.
   [/don.t have a password yet.*with google/i, 'noPasswordGoogle'],
   [/don.t have a password yet.*with telegram/i, 'noPasswordTelegram'],
   [/don.t have a password yet/i, 'noPassword'],
@@ -95,9 +113,9 @@ const FIELD_LABELS = {
 // is "no such account", on resend-otp it's "nothing left to resend".
 const FLOW_FALLBACKS = {
   login: { 400: 'badCredentials', 401: 'badCredentials', 403: 'notVerified', 404: 'userNotFound', 409: 'noPassword' },
-  register: { 409: 'phoneRegistered' },
+  register: { 409: 'attachedUnknown' },
   registerTelegram: { 400: 'invalidRequest' },
-  verifyTelegramRegistration: { 400: 'codeInvalid', 404: 'registrationExpired', 409: 'identifierTakenMeanwhile' },
+  verifyTelegramRegistration: { 400: 'codeInvalid', 404: 'registrationExpired', 409: 'attachedUnknown' },
   verifyOtp: { 400: 'codeInvalid', 404: 'noPendingRegistration', 409: 'identifierTakenMeanwhile' },
   resendOtp: { 404: 'noPendingRegistration', 409: 'alreadyVerified' },
   sendMyPhoneOtp: { 400: 'addPhoneFirst', 404: 'userNotFound', 409: 'alreadyVerified' },
@@ -202,14 +220,17 @@ export function authApiError(payload, status, flow) {
   return error
 }
 
-// Which provider a 409 from /auth/login names ("Sign in the way you did before
-// — with Google —"), so the login page can put that sign-in button under the
-// message. Runs on the RAW backend message like the rules above. Null for the
-// third wording, which names none.
-export function noPasswordProviderFromMessage(message) {
+// How the backend says an existing account signs in, read off a 409 message:
+// /auth/login's "Sign in the way you did before — with Google —" and the
+// registration endpoints' "Sign in with Google | Telegram | your password (or
+// "Forgot password") instead." The pages use it to put exactly that sign-in
+// under the message. Runs on the RAW backend message like the rules above.
+// Null when the wording names none (login's third variant).
+export function signInProviderFromMessage(message) {
   const raw = String(message || '')
   if (/with google/i.test(raw)) return 'google'
   if (/with telegram/i.test(raw)) return 'telegram'
+  if (/with your password/i.test(raw)) return 'password'
   return null
 }
 

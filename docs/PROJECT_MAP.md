@@ -196,8 +196,15 @@ the bot re-shows / reissues the code on 📱. The pending ticket is mirrored in
 after the Telegram round-trip resumes the code screen within the 30-minute
 window; the page also keeps its own countdown and falls back to the form when
 it hits zero. Five wrong codes or an expired ticket → back to the form
-(`error.restartRegistration`); a 409 (number registered meanwhile) → `/login`
-(`error.phoneAlreadyRegistered`). The backend's English messages for this flow
+(`error.restartRegistration`); a 409 — the number already belongs to an
+account: "This phone number is already attached to an account. Sign in with
+Google | Telegram | your password (or "Forgot password") instead." (this
+wording replaced the old "…is already registered." and a 500) — → back to the
+form with a notice that offers that very sign-in: the Google / Telegram button
+(`SocialAuthButtons` with one provider) or the forgot-password link, plus a
+"Sign in" link always (`error.phoneAlreadyRegistered` + `error.signInProvider`;
+rules `attachedGoogle` / `attachedTelegram` / `attachedPassword` / `attached`
+with a localized `{identifier}`). The backend's English messages for this flow
 have rules in `utils/authErrors.js` (`nameRequired`, `botCodeNotIssued`,
 `botCodeExpired`, `tooManyAttempts`, `registrationExpired`, …). The legacy
 `authStore.register` + `verifyOtp` pair is the **email** sign-up path only —

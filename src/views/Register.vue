@@ -8,6 +8,7 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import OtpCodeInput from '@/components/auth/OtpCodeInput.vue'
 import AuthSwitchCta from '@/components/auth/AuthSwitchCta.vue'
 import TelegramCodeLink from '@/components/auth/TelegramCodeLink.vue'
+import SocialAuthButtons from '@/components/auth/SocialAuthButtons.vue'
 import { PLATFORM_HOME } from '@/composables/usePlatformEntry'
 import { resolvePostAuthRoute } from '@/utils/postAuth'
 
@@ -144,7 +145,19 @@ const redirectQuery = computed(() =>
     : {},
 )
 
-// Runs once the bot code confirms the registration.
+// "Forgot password" in the already-attached notice — the OTP verify flow,
+// keeping the post-auth redirect target intact, as on /login.
+const forgotLocation = computed(() => ({ path: '/verify-phone', query: redirectQuery.value }))
+
+// 409 from the verify step: the number the bot saw already belongs to an
+// account. Holds the localized message and how that account signs in
+// ('google' | 'telegram' | 'password' | null) so the notice above the form can
+// offer exactly that — the Google / Telegram button right here, or the login
+// and forgot-password links. Cleared on the next submit.
+const alreadyAttached = ref(null)
+
+// Runs once the bot code confirms the registration — or once a Google /
+// Telegram sign-in from the already-attached notice lands.
 const redirectAfterAuth = async () => {
   // Same as Login: finishing registration lands the student in the platform,
   // not back on the public catalogue.
@@ -153,7 +166,9 @@ const redirectAfterAuth = async () => {
       ? route.query.redirect
       : PLATFORM_HOME
   // A bot-confirmed registration arrives with the full name and the phone
-  // confirmed, so it goes straight through without the /complete-profile detour.
+  // confirmed, so it goes straight through without the /complete-profile
+  // detour; resolvePostAuthRoute still adds it for a social sign-in that
+  // needs it.
   return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
@@ -203,6 +218,7 @@ const submitRegisterForm = async () => {
   }
 
   validationError.value = ''
+  alreadyAttached.value = null
 
   if (!firstName.value.trim() || !lastName.value.trim() || !fatherName.value.trim()) {
     validationError.value = t('register.validation')
@@ -263,12 +279,13 @@ const submitOtp = async () => {
     await redirectAfterAuth()
   } catch (error) {
     if (error?.phoneAlreadyRegistered) {
-      // The number the bot saw now belongs to an account (409): this person
-      // should sign in, not register.
-      stopTicking()
-      clearStoredRegistration()
-      message.warning(t('authErrors.phoneRegisteredGoLogin'), { duration: 5000 })
-      await router.push({ path: '/login', query: redirectQuery.value })
+      // The number the bot saw already belongs to an account (409): this
+      // person should sign in, not register. Back to the form with the notice
+      // — the message says how that account signs in, and the notice offers
+      // it. (backToForm clears the store message, so capture it first.)
+      const reason = authStore.errorMessage
+      backToForm()
+      alreadyAttached.value = { message: reason, provider: error.signInProvider ?? null }
       return
     }
 
@@ -332,6 +349,43 @@ onBeforeUnmount(stopTicking)
       v-if="step === 'form'"
       class="rounded-[24px] border border-[#e4e0d8] bg-white p-7 shadow-[0_18px_50px_rgba(26,24,20,0.08)] ring-1 ring-[#f0ece5]"
     >
+      <!-- 409 from the verify step: the number already belongs to an account.
+           Say so and offer that account's own way in — Google's "Continue with
+           Google" / our Telegram button right here, or the forgot-password
+           link — with a "Sign in" link in every case. A failed social attempt
+           lands in authStore.errorMessage, shown under the form as usual. -->
+      <div
+        v-if="alreadyAttached"
+        role="alert"
+        class="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-4"
+      >
+        <p class="text-sm font-semibold leading-relaxed text-[#7a4b00]">
+          {{ alreadyAttached.message }}
+        </p>
+        <SocialAuthButtons
+          v-if="alreadyAttached.provider === 'google' || alreadyAttached.provider === 'telegram'"
+          class="mt-4"
+          :providers="[alreadyAttached.provider]"
+          :telegram-label="t('login.telegram')"
+          @authenticated="redirectAfterAuth"
+        />
+        <p class="mt-3 flex items-center justify-center gap-5 text-[13px] text-[#6b6760]">
+          <router-link
+            :to="{ path: '/login', query: redirectQuery }"
+            class="font-semibold text-[#1a1814] underline decoration-[#1a1814]/30 underline-offset-2 transition hover:decoration-[#1a1814]"
+          >
+            {{ t('register.signIn') }}
+          </router-link>
+          <router-link
+            v-if="alreadyAttached.provider === 'password'"
+            :to="forgotLocation"
+            class="font-semibold text-[#1a1814] underline decoration-[#1a1814]/30 underline-offset-2 transition hover:decoration-[#1a1814]"
+          >
+            {{ t('register.forgotPassword') }}
+          </router-link>
+        </p>
+      </div>
+
       <form @submit.prevent="submitRegisterForm">
         <div class="flex flex-col gap-4">
           <div class="flex gap-3">
