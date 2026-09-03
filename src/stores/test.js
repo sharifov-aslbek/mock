@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
+import { AI_REVIEW_MODES, isBiologyOpenResponseGroup } from '@/utils/aiReview'
 
 const OPTION_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -45,6 +46,17 @@ function normalizeTest(test, apiBaseUrl) {
     questionGroups.map((group) => [group.id, group.options]),
   )
 
+  // A group typed BiologyOpenResponse (numeric 1) answers by photo upload. The
+  // signal lives on the GROUP; stamp it onto each member question's aiReviewMode
+  // (when the question doesn't carry its own) so every consumer — rendering,
+  // the answered tally, image sync, the results screen — keeps reading the
+  // per-question flag it already understands.
+  const biologyGroupIds = new Set(
+    questionGroups
+      .filter((group) => isBiologyOpenResponseGroup(group))
+      .map((group) => Number(group.id)),
+  )
+
   const questions = Array.isArray(test.questions)
     ? [...test.questions]
         .sort(
@@ -60,8 +72,18 @@ function normalizeTest(test, apiBaseUrl) {
             ? withOptionLetters(shuffleItems(directOptions))
             : [...(groupOptionsById.get(question.questionGroupId) || [])]
 
+          // aiReviewMode 0 is a real mode (MotherTongueEssay) — only stamp when
+          // the question carries none at all.
+          const hasOwnReviewMode =
+            question.aiReviewMode !== null &&
+            question.aiReviewMode !== undefined &&
+            question.aiReviewMode !== ''
+
           return {
             ...question,
+            ...(!hasOwnReviewMode && biologyGroupIds.has(Number(question.questionGroupId))
+              ? { aiReviewMode: AI_REVIEW_MODES.biologyOpenResponse }
+              : {}),
             imageUrl: buildImageUrl(apiBaseUrl, question.imagePath),
             options: resolvedOptions,
           }
@@ -301,10 +323,19 @@ export const useTestStore = defineStore('test', () => {
         // essay, or while grading is still pending. ExplanationPage renders it
         // via EssayAnalysisSection.
         essayReview: data.essayReview ?? null,
-        // AI grading for the image-only open responses (Biology 41–43), one
-        // entry per question. Empty for tests without them, or while grading is
-        // still pending. Rendered by BiologyReviewSection.
+        // AI grading for the image-only open responses (Biology 41–43). The
+        // grading runs on a background worker, so get-results returns only the
+        // FINISHED reviews here (one entry per question) …
         biologyReviews: Array.isArray(data.biologyReviews) ? data.biologyReviews : [],
+        // … and the ids still queued/being graded here. The results screen polls
+        // get-results until this list comes back empty; totalScore above counts
+        // only finished reviews and grows as they land (maxScore is complete
+        // from the start).
+        pendingBiologyQuestionIds: Array.isArray(data.pendingBiologyQuestionIds)
+          ? data.pendingBiologyQuestionIds
+              .map(Number)
+              .filter((id) => Number.isFinite(id) && id > 0)
+          : [],
         userAnswers,
       }
 

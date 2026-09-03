@@ -43,17 +43,52 @@ export const ELEMENT_VERDICTS = {
 export const SKIPPED_VERDICT = { label: 'Tegishli emas', color: '#a39e94' }
 
 export const SCORE_BUCKETS = [
-  { key: 'methodologicalScore', label: 'Metodika', color: '#5b7ea3' },
-  { key: 'arithmeticScore', label: 'Hisob-kitob', color: '#4f8f88' },
+  { key: 'methodologicalScore', label: 'Metodik qism', color: '#5b7ea3' },
+  { key: 'arithmeticScore', label: 'Hisob-kitoblar', color: '#4f8f88' },
   { key: 'presentationScore', label: 'Rasmiylashtirish', color: '#b8703c' },
 ]
 
+// verdict === "graded" is the normal case. EVERY other verdict is an official
+// zero condition — totalScore is 0 and the UI shows the verdict's `explanation`
+// instead of a score breakdown.
 const REVIEW_VERDICTS = {
   graded: { label: 'Baholandi', tone: 'ok' },
-  wrong_method: { label: 'Yechim usuli xato', tone: 'bad' },
-  answer_only: { label: 'Faqat javob yozilgan', tone: 'warn' },
-  no_solution: { label: 'Yechim yozilmagan', tone: 'bad' },
-  illegible: { label: 'O‘qib bo‘lmadi', tone: 'bad' },
+  wrong_method: {
+    label: 'Yechim usuli xato',
+    tone: 'bad',
+    explanation:
+      'Tanlangan yechim usuli tubdan xato. Rasmiy baholash qoidasiga ko‘ra bunday yechimga 0 ball qo‘yiladi.',
+  },
+  answer_only: {
+    label: 'Faqat javob yozilgan',
+    tone: 'warn',
+    explanation:
+      'Rasmda faqat javob ko‘rsatilgan, yechimning o‘zi yozilmagan. Yechimsiz javob rasmiy qoidaga ko‘ra baholanmaydi — 0 ball.',
+  },
+  no_solution: {
+    label: 'Yechim yozilmagan',
+    tone: 'bad',
+    explanation:
+      'Yuborilgan rasmda bu topshiriqning yechimi topilmadi, shuning uchun 0 ball qo‘yildi.',
+  },
+  illegible: {
+    label: 'O‘qib bo‘lmadi',
+    tone: 'bad',
+    explanation:
+      'Qo‘lyozmani o‘qib bo‘lmadi, shuning uchun yechim baholanmadi. Keyingi safar yechimni aniqroq yozib, yorug‘ joyda suratga oling.',
+  },
+  gross_biological_error: {
+    label: 'Jiddiy biologik xato',
+    tone: 'bad',
+    explanation:
+      'Yechimda jiddiy biologik xato bor. Rasmiy baholash qoidasiga ko‘ra bunday yechimga 0 ball qo‘yiladi.',
+  },
+  no_applicable_elements: {
+    label: 'Baholanadigan element yo‘q',
+    tone: 'bad',
+    explanation:
+      'Yechimda baholash mezonlariga mos keladigan element topilmadi, shuning uchun ball qo‘yilmadi.',
+  },
   pending: { label: 'Tekshirilmoqda', tone: 'warn' },
 }
 
@@ -119,9 +154,23 @@ function parseJsonColumn(raw) {
 
 function normalizeVerdict(value) {
   const verdict = String(value || '').trim().toLowerCase()
+
+  if (REVIEW_VERDICTS[verdict]) {
+    return { key: verdict, ...REVIEW_VERDICTS[verdict] }
+  }
+
+  // No verdict at all → an older row from before the verdict column; treat as
+  // graded. An UNKNOWN verdict is, per the contract, some new zero condition —
+  // pass the raw name through with a generic zero explanation.
+  if (!verdict) {
+    return { key: '', ...REVIEW_VERDICTS.graded }
+  }
+
   return {
     key: verdict,
-    ...(REVIEW_VERDICTS[verdict] || { label: value ? String(value) : 'Baholandi', tone: 'ok' }),
+    label: String(value),
+    tone: 'warn',
+    explanation: 'Rasmiy baholash qoidasiga ko‘ra bu yechimga ball qo‘yilmadi.',
   }
 }
 
@@ -187,11 +236,16 @@ export function normalizeBiologyReview(raw) {
     value: readScore(review[bucket.key]) ?? 0,
   }))
 
+  const verdict = normalizeVerdict(review.verdict)
+
   return {
     id: review.id ?? null,
     questionId: Number(review.questionId) || null,
     problemType: String(review.problemType || evaluation.problem_type || '').trim(),
-    verdict: normalizeVerdict(review.verdict),
+    verdict,
+    // Only a graded review shows the score split + criterion breakdown; a zero
+    // condition shows verdict.explanation instead.
+    isGraded: verdict.key === 'graded' || verdict.key === '',
     totalScore,
     maxScore,
     percent:

@@ -59,3 +59,28 @@ export function hasAiReview(question) {
 export function isImageAnswerQuestion(question) {
   return getAiReviewMode(question) === AI_REVIEW_MODES.biologyOpenResponse
 }
+
+// Backend `QuestionGroupType` enum, carried on each question GROUP:
+//
+//   Standard            = 0   → canonical rendering by each question's own type
+//   BiologyOpenResponse = 1   → the group's question is answered ONLY by photo
+//                               upload (the biology 41–43 open-response tasks)
+//
+// Like aiReviewMode, the API may serialize it as the member name or the raw
+// integer; read both. normalizeTest stamps this group signal down onto each
+// member question's aiReviewMode, so everything downstream keeps reading the
+// per-question flag it already understands.
+export function isBiologyOpenResponseGroup(group) {
+  const rawType = group?.type
+
+  if (rawType === null || rawType === undefined || rawType === '') {
+    return false
+  }
+
+  if (typeof rawType === 'number') {
+    return rawType === 1
+  }
+
+  const typeText = String(rawType).trim().toLowerCase()
+  return typeText === '1' || typeText === 'biologyopenresponse'
+}

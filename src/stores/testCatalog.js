@@ -27,7 +27,7 @@ const isRealDate = (value) => Boolean(value) && !String(value).startsWith('0001-
 // and the dashboard all read from — so the fan disappears everywhere at once
 // instead of each surface needing its own guard. Empty this set to bring one
 // back; nothing else has to change.
-const HIDDEN_SUBJECT_KEYS = new Set(['biology'])
+const HIDDEN_SUBJECT_KEYS = new Set([])
 
 export const useTestCatalogStore = defineStore('testCatalog', () => {
   const tests = ref([])

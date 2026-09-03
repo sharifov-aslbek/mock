@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { NPopover } from 'naive-ui'
+import { NPopover, useMessage } from 'naive-ui'
 import TestCertificate from '@/components/certificate/TestCertificate.vue'
 import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
@@ -19,6 +19,7 @@ import { isImageAnswerQuestion } from '@/utils/aiReview'
 const route = useRoute()
 const router = useRouter()
 const { locale, t } = useI18n()
+const message = useMessage()
 const authStore = useAuthStore()
 const testStore = useTestStore()
 const testProgressStore = useTestProgressStore()
@@ -638,11 +639,21 @@ const essayBandTotal = computed(() => {
 // ——— Biology open-response AI review ————————————————————————————————
 // Image-only questions (AiReviewMode.BiologyOpenResponse) are graded by the AI
 // from the uploaded photos, so — like the essay — they are never marked
-// correct/incorrect in the row table; get-results returns their grade under
-// `biologyReviews`, which BiologyReviewSection renders.
+// correct/incorrect in the row table.
+//
+// The grading runs on a BACKGROUND worker: get-results returns the finished
+// reviews under `biologyReviews` and the still-queued question ids under
+// `pendingBiologyQuestionIds`. While anything is pending we re-read get-results
+// every 20s (see the polling block below) and the finished reviews fold into
+// place reactively.
 const biologyReviews = computed(() => {
   const reviews = testStore.lastSubmission?.biologyReviews
   return Array.isArray(reviews) ? reviews : []
+})
+
+const pendingBiologyQuestionIds = computed(() => {
+  const ids = testStore.lastSubmission?.pendingBiologyQuestionIds
+  return Array.isArray(ids) ? ids.map(Number).filter((id) => Number.isFinite(id) && id > 0) : []
 })
 
 // Every question on the attempt, whichever shape it arrived in — used to resolve
@@ -668,8 +679,8 @@ const aiImageQuestions = computed(() =>
 )
 
 // Ids the row table must skip: graded by AI, never correct/incorrect. Covers
-// both the questions flagged BiologyOpenResponse and anything the backend
-// actually returned a review for.
+// the questions flagged BiologyOpenResponse plus anything the backend returned
+// a review for or still holds in the grading queue.
 const aiReviewedQuestionIds = computed(() => {
   const ids = new Set(aiImageQuestions.value.map((question) => Number(question.id)))
   for (const review of biologyReviews.value) {
@@ -678,15 +689,65 @@ const aiReviewedQuestionIds = computed(() => {
       ids.add(id)
     }
   }
+  for (const id of pendingBiologyQuestionIds.value) {
+    ids.add(id)
+  }
   return ids
 })
 
-const hasBiologyReview = computed(() => biologyReviews.value.length > 0)
+// One entry per AI-graded biology question, in question order, each in exactly
+// one state — the precedence the backend contract prescribes:
+//   1. a review exists (matched by questionId)      → 'reviewed'
+//   2. id sits in pendingBiologyQuestionIds         → 'checking'
+//   3. answered but in NEITHER list                 → 'failed' (for good — never a spinner)
+//   4. never answered                               → 'unanswered' (no review will come)
+const biologyEntries = computed(() => {
+  const reviewsByQuestionId = new Map()
+  for (const review of biologyReviews.value) {
+    const id = Number(review?.questionId)
+    if (id) {
+      reviewsByQuestionId.set(id, review)
+    }
+  }
+  const pendingIds = new Set(pendingBiologyQuestionIds.value)
 
-// The attempt has image-answered questions but no grades came back yet.
-const biologyPending = computed(
-  () => !hasBiologyReview.value && aiImageQuestions.value.length > 0,
-)
+  // Every biology question on the attempt: the ones the content flags, plus any
+  // id the backend reviewed or queued that the content lookup missed.
+  const questionIds = new Set(aiImageQuestions.value.map((question) => Number(question.id)))
+  for (const id of reviewsByQuestionId.keys()) {
+    questionIds.add(id)
+  }
+  for (const id of pendingIds) {
+    questionIds.add(id)
+  }
+
+  const orderOf = (questionId) => {
+    const order = Number(allQuestionsById.value.get(questionId)?.order)
+    return Number.isFinite(order) && order > 0 ? order : Number.MAX_SAFE_INTEGER
+  }
+
+  return [...questionIds]
+    .sort((a, b) => orderOf(a) - orderOf(b) || a - b)
+    .map((questionId) => {
+      const review = reviewsByQuestionId.get(questionId) || null
+      // For an image-only question the photos ARE the answer, and an answer row
+      // only ever exists once photos were sent — either signal counts.
+      const answered =
+        biologyAnswerImages(questionId).length > 0 ||
+        Boolean(userAnswersByQuestionId.value.get(questionId))
+      const state = review
+        ? 'reviewed'
+        : pendingIds.has(questionId)
+          ? 'checking'
+          : answered
+            ? 'failed'
+            : 'unanswered'
+
+      return { questionId, state, review }
+    })
+})
+
+const hasBiologySection = computed(() => biologyEntries.value.length > 0)
 
 // Display number for a reviewed question ("41"), resolved from the test content.
 const biologyQuestionLabel = (questionId) => {
@@ -748,10 +809,7 @@ const showScoreAndTable = computed(
     isLoadingTest.value ||
     isFinalizingSubmission.value ||
     Boolean(testLoadError.value) ||
-    (!hasEssayReview.value &&
-      !essayPending.value &&
-      !hasBiologyReview.value &&
-      !biologyPending.value),
+    (!hasEssayReview.value && !essayPending.value && !hasBiologySection.value),
 )
 
 const totalQuestions = computed(() => filteredQuestions.value.length)
@@ -957,6 +1015,72 @@ async function resolveTestSubjectName(testId) {
   }
 }
 
+// ——— Async biology review polling ———————————————————————————————————
+// The background worker finishes grading 41–43 after get-results first returns.
+// While any id sits in pendingBiologyQuestionIds we re-read get-results every
+// 20s; the store swap folds newly finished reviews (and the grown totalScore)
+// into the rendered page reactively — no reload, no loading flash. An EMPTY
+// pending list is the only stop condition.
+const BIOLOGY_POLL_INTERVAL_MS = 20_000
+let biologyPollTimeout = null
+let seenBiologyReviewIds = new Set()
+
+function stopBiologyPolling() {
+  if (biologyPollTimeout !== null) {
+    window.clearTimeout(biologyPollTimeout)
+    biologyPollTimeout = null
+  }
+}
+
+function scheduleBiologyPoll() {
+  stopBiologyPolling()
+  biologyPollTimeout = window.setTimeout(() => {
+    void pollBiologyReviews()
+  }, BIOLOGY_POLL_INTERVAL_MS)
+}
+
+// After every result read: toast each review that landed since the previous
+// read (never the ones already there on the initial load), then keep polling
+// or stop on the empty pending list.
+function reconcileBiologyPolling({ initial = false } = {}) {
+  for (const review of biologyReviews.value) {
+    const questionId = Number(review?.questionId)
+    if (!questionId) {
+      continue
+    }
+    if (!initial && !seenBiologyReviewIds.has(questionId)) {
+      message.success('AI tekshiruvi tayyor!')
+    }
+    seenBiologyReviewIds.add(questionId)
+  }
+
+  if (pendingBiologyQuestionIds.value.length) {
+    scheduleBiologyPoll()
+  } else {
+    stopBiologyPolling()
+  }
+}
+
+async function pollBiologyReviews() {
+  const attemptId = activeAttemptId.value || requestedAttemptId.value
+
+  if (!attemptId) {
+    return
+  }
+
+  try {
+    // Straight store refresh — none of the page's loading flags move, so the
+    // finished cards replace their "checking" placeholders in place.
+    await testStore.fetchAttemptResults(attemptId)
+    reconcileBiologyPolling()
+  } catch (error) {
+    // A dropped poll proves nothing about the queue — only an empty pending
+    // list may stop the loop, so try again next tick.
+    console.error(error)
+    scheduleBiologyPoll()
+  }
+}
+
 async function loadResults() {
   const attemptId = requestedAttemptId.value || activeAttemptId.value
 
@@ -967,6 +1091,7 @@ async function loadResults() {
 
   isLoadingTest.value = true
   testLoadError.value = ''
+  stopBiologyPolling()
 
   try {
     activeAttemptId.value = Number(attemptId)
@@ -980,6 +1105,11 @@ async function loadResults() {
     void resolveTestSubjectName(requestedTestId.value)
 
     hasSubmittedResult.value = true
+
+    // Fresh attempt, fresh baseline: reviews present now are not "newly
+    // arrived", and polling starts (only) if grading is still pending.
+    seenBiologyReviewIds = new Set()
+    reconcileBiologyPolling({ initial: true })
   } catch (error) {
     testLoadError.value =
       error instanceof Error ? error.message : 'Natijani yuklashda xatolik yuz berdi.'
@@ -1138,6 +1268,8 @@ watch(isAnyModalOpen, (isOpen) => {
 })
 
 onBeforeUnmount(() => {
+  stopBiologyPolling()
+
   if (reportCloseTimeout !== null) {
     window.clearTimeout(reportCloseTimeout)
   }
@@ -2066,7 +2198,7 @@ function answerFeedbackText(question) {
         </div>
 
         <div
-          v-else-if="filteredQuestions.length === 0 && !hasEssayReview && !essayPending && !hasBiologyReview && !biologyPending"
+          v-else-if="filteredQuestions.length === 0 && !hasEssayReview && !essayPending && !hasBiologySection"
           class="flex items-center justify-center py-16"
         >
           <p class="text-sm text-[#d8d3ca]">Ma'lumot topilmadi</p>
@@ -2075,38 +2207,16 @@ function answerFeedbackText(question) {
 
       <!-- ═══ Biology open-response AI analysis ═══
            Image-only questions (41–43) are graded by the AI from the uploaded
-           photos, not marked in the table above. -->
+           photos, not marked in the table above. Grading is async: each entry
+           renders as a finished review, a "checking" card that the 20s
+           get-results poll resolves, a terminal "couldn't review" card, or an
+           unanswered card. -->
       <BiologyReviewSection
-        v-if="hasBiologyReview && !isLoadingTest && !testLoadError"
-        :reviews="biologyReviews"
+        v-if="hasBiologySection && !isLoadingTest && !testLoadError"
+        :entries="biologyEntries"
         :resolve-question-label="biologyQuestionLabel"
         :resolve-answer-images="biologyAnswerImages"
       />
-
-      <!-- Answers handed in, AI grade still pending -->
-      <section
-        v-else-if="biologyPending && !isLoadingTest && !testLoadError"
-        class="mt-12"
-      >
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="font-mono-custom text-[11px] font-semibold tracking-[0.18em] text-[#bcb6a9]">IV</span>
-          <h2 class="text-xl font-bold tracking-[-0.01em] text-[#1a1814]">Ochiq javob tahlili</h2>
-          <span class="font-mono-custom rounded-full border border-[#d8d3ca] bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8a857c]">
-            AI tekshiruvi
-          </span>
-        </div>
-
-        <div class="mt-5 flex items-start gap-3 rounded-[18px] border border-[#e5ded3] bg-[#fffdfa] px-5 py-4 shadow-[0_10px_30px_rgba(26,24,20,0.05)]">
-          <span class="mt-0.5 inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[#e0ddd7] border-t-[#4a463f]" />
-          <div class="min-w-0">
-            <p class="text-[14px] font-semibold text-[#1a1814]">Yechimingiz tekshirilmoqda</p>
-            <p class="mt-0.5 text-[13px] leading-relaxed text-[#8a857c]">
-              AI yuklagan rasmlaringizni baholamoqda. Tahlil tayyor bo‘lgach, shu sahifada
-              ko‘rinadi — birozdan so‘ng qayta yangilang.
-            </p>
-          </div>
-        </div>
-      </section>
 
       <!-- ═══ Essay (insho) AI analysis — Ona tili ═══
            The 45th Essay question is graded by the AI, not marked in the table
