@@ -4,12 +4,12 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 
 // Telegram + Google sign-in. Both providers both register AND log in — the
-// backend creates the account on first sight. They are no longer a general
-// option on /login and /register; today /login mounts this under its "no
-// password yet" notice (409 from /auth/login — an account created through
-// Google or Telegram), narrowed via `providers` to the one that account was
-// created with. Keeping both providers in one component is what stops the
-// two flows from drifting apart.
+// backend creates the account on first sight. /login offers both below its
+// password form, and also mounts this under its "no password yet" notice
+// (409 from /auth/login — an account created through Google or Telegram),
+// narrowed via `providers` to the one that account was created with.
+// /register only uses the narrowed form. Keeping both providers in one
+// component is what stops the flows from drifting apart.
 //
 // On success the session is already live (the store holds the token). The
 // component only emits `authenticated`; the page owns the redirect, because it
