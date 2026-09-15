@@ -511,18 +511,77 @@ const tokenizeWithBalancedBraces = (source) => {
   return tokens
 }
 
-const renderLooseContent = (source) =>
-  tokenizeWithBalancedBraces(source)
-    .map((token) => {
+// Prose tokens from plain-text subjects (tarix, ona tili) that the loose math
+// detector would otherwise typeset: `1258-yilda` (number + suffix), `I-b,`
+// (matching-answer codes), `birga)` / `«Nizom»` (a word glued to punctuation).
+const PROSE_LETTERS = String.raw`A-Za-zÀ-ɏЀ-ӿʻʼ'’`
+const NUMBER_WITH_SUFFIX_PATTERN = new RegExp(`^\\d+-([${PROSE_LETTERS}]{3,})[.,;:!?)»"]*$`, 'u')
+const ROMAN_MATCHING_CODE_PATTERN = /^[IVX]{1,4}-[a-f][.,;:]?$/
+const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*([${PROSE_LETTERS}]{3,}(?:-[${PROSE_LETTERS}]{2,})*)[)»".,;:!?]*$`, 'u')
+// `(1598)` years in parentheses and `1, 2, 3` enumerations.
+const PLAIN_NUMBER_PATTERN = /^(?:\(\d{3,4}\)[.,;:]?|\d+[,;])$/
+const ROMAN_NUMERAL_PATTERN = /^[IVX]{1,4}[.,;:)]?$/
+const LIST_LABEL_PATTERN = /^(?:[a-z]|\d{1,2})\)$/
+const PROSE_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}-]{3,}[)»".,;:!?]*$`, 'u')
+
+const isMathFunctionWord = (word) => MATH_FUNCTION_NAMES.has(word.toLowerCase())
+
+const isProseToken = (token) => {
+  const suffix = token.match(NUMBER_WITH_SUFFIX_PATTERN)
+  if (suffix) {
+    return !isMathFunctionWord(suffix[1])
+  }
+
+  if (ROMAN_MATCHING_CODE_PATTERN.test(token) || PLAIN_NUMBER_PATTERN.test(token)) {
+    return true
+  }
+
+  // Multi-capital words (`(ABC)`, `(ABc`) are point / gene labels — leave them to the math path.
+  const word = token.match(PUNCTUATED_WORD_PATTERN)
+  return Boolean(word) && !isMathFunctionWord(word[1]) && word[1].split('-').every((part) => (part.match(/[A-Z]/g) || []).length < 2)
+}
+
+const isProseWord = (token) =>
+  Boolean(token) && (isProseToken(token) || (PROSE_WORD_PATTERN.test(token) && !isMathLikeToken(token)))
+
+const renderLooseContent = (source) => {
+  const tokens = tokenizeWithBalancedBraces(source)
+  const neighbourIndex = (index, step) => {
+    for (let i = index + step; i >= 0 && i < tokens.length; i += step) {
+      if (!/^\s+$/.test(tokens[i])) {
+        return i
+      }
+    }
+    return -1
+  }
+  const neighbour = (index, step) => tokens[neighbourIndex(index, step)] ?? null
+
+  return tokens
+    .map((token, index) => {
       if (/^\s+$/.test(token)) {
         return escapeTextSegment(token)
       }
 
-      return isMathLikeToken(token)
+      const previous = neighbour(index, -1)
+      const next = neighbour(index, 1)
+      const startsLine = index === 0 || (/^\s+$/.test(tokens[index - 1]) && (index === 1 || tokens[index - 1].includes('\n')))
+      // A dash / arrow between words (`Attika - Afina`, `I - Attika`), a Roman
+      // numeral after a name or before a dash (`Pyotr I`, `II - Lakonika`) and
+      // a line-leading list label (`a) Sparta`) are prose, not math.
+      const isProseInContext =
+        ((token === '-' || token === '->') &&
+          (isProseWord(previous) || ROMAN_NUMERAL_PATTERN.test(previous || '') || PLAIN_NUMBER_PATTERN.test(previous || '')) &&
+          isProseWord(next)) ||
+        (ROMAN_NUMERAL_PATTERN.test(token) &&
+          ((/^[A-ZА-ЯЁ]/u.test(previous || '') && isProseWord(previous)) || (next === '-' && isProseWord(neighbour(neighbourIndex(index, 1), 1))))) ||
+        (LIST_LABEL_PATTERN.test(token) && startsLine && isProseWord(next))
+
+      return !isProseInContext && !isProseToken(token) && isMathLikeToken(token)
         ? renderMathSegment(token)
         : escapeTextSegment(cleanupTextEscapes(token))
     })
     .join('')
+}
 
 // A `$$…$$` / `\(…\)` span that — once LaTeX command names are removed — still
 // contains a word-length letter run is prose the API wrapped in math
