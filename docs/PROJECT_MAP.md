@@ -232,8 +232,10 @@ bot (next section), with no SMS anywhere in that flow. Because
 stand-in:
 `PROFILE_GATE_MODAL_ENABLED = !SMS_AVAILABLE` makes `composables/useProfileGate.js`
 open `components/ProfileGateModal.vue` before start-test (in `MathTestCard`,
-`TestPage` and `useTestLauncher`) whenever firstName / lastName / fatherName /
-phoneNumber is missing — saved with `PUT /user`, no OTP. Signed-in users keep
+`TestPage` and `useTestLauncher`) whenever firstName / lastName / fatherName is
+missing — saved with `PUT /user`. Since 2026-09-14 the modal no longer asks for
+(or gates on) a phone number: a number saved there could never be confirmed, so
+nobody is made to give one. Signed-in users keep
 using the site. Flip `SMS_AVAILABLE` back to `true` when SMS works again —
 nothing else needs to change (the modal goes dormant by itself).
 

@@ -17,17 +17,16 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => Boolean(token.value))
 
-  // The certificate is printed from the user's real name. A profile is only
-  // "complete" once firstName, lastName, fatherName and phoneNumber are all
-  // filled.
+  // The certificate is printed from the user's real name. A profile is
+  // "complete" once firstName, lastName and fatherName are all filled. A phone
+  // number is not part of it — nobody is asked for one before using the site.
   const isProfileComplete = computed(() => {
     const info = userInfo.value
     return Boolean(
       info &&
         String(info.firstName || '').trim() &&
         String(info.lastName || '').trim() &&
-        String(info.fatherName || '').trim() &&
-        String(info.phoneNumber || '').trim(),
+        String(info.fatherName || '').trim(),
     )
   })
 

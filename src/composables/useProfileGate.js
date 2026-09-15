@@ -5,8 +5,8 @@ import { PROFILE_GATE_MODAL_ENABLED } from '@/utils/postAuth'
 // First-time test gate.
 //
 // Before a brand-new test attempt is created (start-test), the test-taker must
-// have a real name on file (firstName + lastName + fatherName) and a phone
-// number — the name is printed on the certificate. This composable exposes
+// have a real name on file (firstName + lastName + fatherName) — it is printed
+// on the certificate. No phone number is asked for. This composable exposes
 // `ensureProfileComplete()`, which resolves instantly when the profile is
 // already filled and otherwise opens the ProfileGateModal and waits for the
 // user to either save their details or back out. Once saved, it never asks
