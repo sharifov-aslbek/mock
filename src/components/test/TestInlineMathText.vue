@@ -522,6 +522,7 @@ const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*([${PROSE_LETTERS}]{3,}(?:-[
 const PLAIN_NUMBER_PATTERN = /^(?:\(\d{3,4}\)[.,;:]?|\d+[,;])$/
 const ROMAN_NUMERAL_PATTERN = /^[IVX]{1,4}[.,;:)]?$/
 const LIST_LABEL_PATTERN = /^(?:[a-z]|\d{1,2})\)$/
+const SHORT_AMBIGUOUS_WORD_PATTERN = /^(?:[Uu]|[Ss]in|[Tt]an|[Ll]og|[Mm]ax|[Mm]in|[Ll]im)$/
 const PROSE_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}-]{3,}[)»".,;:!?]*$`, 'u')
 
 const isMathFunctionWord = (word) => MATH_FUNCTION_NAMES.has(word.toLowerCase())
@@ -573,7 +574,12 @@ const renderLooseContent = (source) => {
           (isProseWord(previous) || ROMAN_NUMERAL_PATTERN.test(previous || '') || PLAIN_NUMBER_PATTERN.test(previous || '')) &&
           isProseWord(next)) ||
         (ROMAN_NUMERAL_PATTERN.test(token) &&
-          ((/^[A-ZА-ЯЁ]/u.test(previous || '') && isProseWord(previous)) || (next === '-' && isProseWord(neighbour(neighbourIndex(index, 1), 1))))) ||
+          ((/^[(«"]*[A-ZА-ЯЁ]/u.test(previous || '') && isProseWord(previous)) || (next === '-' && isProseWord(neighbour(neighbourIndex(index, 1), 1))))) ||
+        // Uzbek words that collide with math names — `u` (he), `tan olinishi`,
+        // `Sin Shixuandi` — when a real word follows and nothing math precedes.
+        (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) &&
+          isProseWord(next) &&
+          (!previous || isProseWord(previous) || LIST_LABEL_PATTERN.test(previous) || /[.,;:]$/.test(previous))) ||
         (LIST_LABEL_PATTERN.test(token) && startsLine && isProseWord(next))
 
       return !isProseInContext && !isProseToken(token) && isMathLikeToken(token)
