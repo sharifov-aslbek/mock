@@ -524,7 +524,7 @@ const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*-?([${PROSE_LETTERS}]{3,}(?:
 // `2-,` ordinals whose suffix is elided.
 const PLAIN_NUMBER_PATTERN = /^(?:\(\d{1,4}\)?|\d{1,4}\)|\d+[,;]|\d{1,3}-)[.,;:]?$/
 // `(a)` / `(b);` sub-question labels and `(A-F)` option ranges.
-const PAREN_LABEL_PATTERN = /^\((?:[a-fA-F]|[A-Za-z]-[A-Za-z])\)[.,;:]?$/
+const PAREN_LABEL_PATTERN = new RegExp(`^\\((?:[a-fA-F]|[A-Za-z]-[A-Za-z])\\)(?:[${PROSE_LETTERS}]{2,})?[.,;:]?$`, 'u')
 // `[1]` / `[2]` markers pointing at a sentence inside a reading passage,
 // optionally carrying a suffix: `[4]-gap`.
 const BRACKET_LABEL_PATTERN = new RegExp(`^\\[\\d{1,2}\\](?:-[${PROSE_LETTERS}]{2,})?[.,;:]?$`, 'u')
@@ -538,6 +538,8 @@ const HYPHENATED_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}]{2,}(?:-[$
 // `hukm(lar)dan`, `gap(lar)da` — an optional plural suffix in brackets. The
 // bracketed part must be a 3+ letter suffix, so `f(x)` and `log(ab)` stay math.
 const OPTIONAL_SUFFIX_WORD_PATTERN = new RegExp(`^([${PROSE_LETTERS}]{2,})\\([${PROSE_LETTERS}]{3,}\\)[${PROSE_LETTERS}]*[.,;:!?]*$`, 'u')
+// `(33-35)` — a bracketed range of question numbers.
+const PAREN_RANGE_PATTERN = /^\(\d{1,4}[-–]\d{1,4}\)[.,;:]?$/
 // `2-3 jumladan`, `4000-5000, ichki` — a numeric range, not a subtraction.
 const NUMBER_RANGE_PATTERN = /^\d{1,4}-\d{1,4}[.,;:]?$/
 // Guillemets only ever quote a title or a cited word, never a formula.
@@ -574,6 +576,7 @@ const isProseToken = (token) => {
     INITIALS_PATTERN.test(token) ||
     DIGIT_SEQUENCE_PATTERN.test(token) ||
     HYPHENATED_WORD_PATTERN.test(token) ||
+    PAREN_RANGE_PATTERN.test(token) ||
     (OPTIONAL_SUFFIX_WORD_PATTERN.test(token) && !isMathFunctionWord(token.match(OPTIONAL_SUFFIX_WORD_PATTERN)[1])) ||
     GUILLEMET_PATTERN.test(token)
   ) {
