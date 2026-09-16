@@ -648,6 +648,8 @@ const renderLooseContent = (source) => {
         (ROMAN_NUMERAL_PATTERN.test(token) &&
           ((/^[(«"]*[A-ZА-ЯЁ]/u.test(previous || '') && isProseWord(previous)) ||
             (next === '-' && isProseWord(neighbour(neighbourIndex(index, 1), 1))) ||
+            // `I qism`, `V asteroid`, `I gapda` — a numeral naming a lowercase noun.
+            /^[(«"]*[a-zа-яёʻʼ]/u.test(next || '') && isProseWord(next) ||
             // A matching option that is nothing but `I` / `III`.
             (!previous && !next))) ||
         // Uzbek words that collide with math names — `u` (he), `tan olinishi`,
