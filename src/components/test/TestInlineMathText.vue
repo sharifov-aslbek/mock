@@ -535,6 +535,9 @@ const DIGIT_SEQUENCE_PATTERN = /^\d(?:-\d)+[.,;:]?$/
 // `hm-m,` — a hyphenated word whose first part is too short for the word
 // pattern. A single-letter first part (`x-y`) stays on the math path.
 const HYPHENATED_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}]{2,}(?:-[${PROSE_LETTERS}]+)+[)»".,;:!?]*$`, 'u')
+// `hukm(lar)dan`, `gap(lar)da` — an optional plural suffix in brackets. The
+// bracketed part must be a 3+ letter suffix, so `f(x)` and `log(ab)` stay math.
+const OPTIONAL_SUFFIX_WORD_PATTERN = new RegExp(`^([${PROSE_LETTERS}]{2,})\\([${PROSE_LETTERS}]{3,}\\)[${PROSE_LETTERS}]*[.,;:!?]*$`, 'u')
 // `2-3 jumladan`, `4000-5000, ichki` — a numeric range, not a subtraction.
 const NUMBER_RANGE_PATTERN = /^\d{1,4}-\d{1,4}[.,;:]?$/
 // Guillemets only ever quote a title or a cited word, never a formula.
@@ -571,6 +574,7 @@ const isProseToken = (token) => {
     INITIALS_PATTERN.test(token) ||
     DIGIT_SEQUENCE_PATTERN.test(token) ||
     HYPHENATED_WORD_PATTERN.test(token) ||
+    (OPTIONAL_SUFFIX_WORD_PATTERN.test(token) && !isMathFunctionWord(token.match(OPTIONAL_SUFFIX_WORD_PATTERN)[1])) ||
     GUILLEMET_PATTERN.test(token)
   ) {
     return true
