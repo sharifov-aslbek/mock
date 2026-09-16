@@ -519,26 +519,36 @@ const NUMBER_WITH_SUFFIX_PATTERN = new RegExp(`^\\d+-([${PROSE_LETTERS}]{3,})[.,
 // Matching-answer codes, keyed by either a Roman or an Arabic numeral: `I-b,`, `3-a,`.
 const MATCHING_CODE_PATTERN = /^(?:[IVX]{1,4}|\d{1,2})-[a-f][.,;:]?$/
 // A leading `-` keeps cited suffixes (`-imni`, `(-lardan)`) out of the math path.
-const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*-?([${PROSE_LETTERS}]{3,}(?:-[${PROSE_LETTERS}]{2,})*)[)»".,;:!?]*$`, 'u')
+const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*-?([${PROSE_LETTERS}]{3,}(?:-[${PROSE_LETTERS}]+)*)[)»".,;:!?]*$`, 'u')
 // `(1598)` years, `(33,` / `35)` cross-references, `1, 2, 3` enumerations and
 // `2-,` ordinals whose suffix is elided.
 const PLAIN_NUMBER_PATTERN = /^(?:\(\d{1,4}\)?|\d{1,4}\)|\d+[,;]|\d{1,3}-)[.,;:]?$/
 // `(a)` / `(b);` sub-question labels and `(A-F)` option ranges.
 const PAREN_LABEL_PATTERN = /^\((?:[a-fA-F]|[A-Za-z]-[A-Za-z])\)[.,;:]?$/
-// `[1]` / `[2]` markers pointing at a sentence inside a reading passage.
-const BRACKET_LABEL_PATTERN = /^\[\d{1,2}\][.,;:]?$/
-// `2-3 jumladan` — a numeric range, not a subtraction.
-const NUMBER_RANGE_PATTERN = /^\d{1,3}-\d{1,3}$/
+// `[1]` / `[2]` markers pointing at a sentence inside a reading passage,
+// optionally carrying a suffix: `[4]-gap`.
+const BRACKET_LABEL_PATTERN = new RegExp(`^\\[\\d{1,2}\\](?:-[${PROSE_LETTERS}]{2,})?[.,;:]?$`, 'u')
+// `A.P.` — initials, never a formula.
+const INITIALS_PATTERN = /^[(«"]*(?:[A-ZА-ЯЁ]\.){1,3}$/u
+// `1-2-3` — an ordering of numbered items, not a chain of subtractions.
+const DIGIT_SEQUENCE_PATTERN = /^\d(?:-\d)+[.,;:]?$/
+// `2-3 jumladan`, `4000-5000, ichki` — a numeric range, not a subtraction.
+const NUMBER_RANGE_PATTERN = /^\d{1,4}-\d{1,4}[.,;:]?$/
 // Guillemets only ever quote a title or a cited word, never a formula.
 const GUILLEMET_PATTERN = /[«»]/
 // What can be a math function's argument: `sin(x)`, `tan 30`, `log x`, `\tan`.
 const MATH_ARGUMENT_PATTERN = /^(?:[({[\\]|\d|[A-Za-z]$)/
+// Uzbek `u` / `U` (he, she, it) — in undelimited text this is the pronoun, not
+// a variable; a real variable reaches us wrapped in `$…$` or `\(…\)`.
+const UZBEK_PRONOUN_PATTERN = /^[Uu][.,;:!?]?$/
 const ROMAN_NUMERAL_PATTERN = /^[IVX]{1,4}[.,;:)]?$/
 const LIST_LABEL_PATTERN = /^(?:[a-z]|\d{1,2})\)$/
-const SHORT_AMBIGUOUS_WORD_PATTERN = /^(?:[Uu]|[Ss]in|[Tt]an|[Ll]og|[Mm]ax|[Mm]in|[Ll]im)$/
+const SHORT_AMBIGUOUS_WORD_PATTERN = /^(?:[Ss]in|[Tt]an|[Ll]og|[Mm]ax|[Mm]in|[Ll]im)$/
 const PROSE_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}-]{3,}[)»".,;:!?]*$`, 'u')
-// Two-letter Uzbek words (`bu`, `oʻz`, `«ey`) that follow a prose dash.
+// Two-letter Uzbek words (`bu`, `oʻz`, `«ey`) that follow a prose dash, and a
+// lone capital opening a line of dialogue (`- E, qoʻysangiz-chi`).
 const SHORT_PROSE_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}]{2,}[)»".,;:!?]*$`, 'u')
+const DIALOGUE_LETTER_PATTERN = /^[(«"]*[A-ZА-ЯЁ][)»".,;:!?]+$/u
 // A lone `A`/`D` opening an option explanation (`A qatordagi …`).
 const SECTION_LETTER_PATTERN = /^[A-F]$/
 
@@ -555,6 +565,8 @@ const isProseToken = (token) => {
     PLAIN_NUMBER_PATTERN.test(token) ||
     PAREN_LABEL_PATTERN.test(token) ||
     BRACKET_LABEL_PATTERN.test(token) ||
+    INITIALS_PATTERN.test(token) ||
+    DIGIT_SEQUENCE_PATTERN.test(token) ||
     GUILLEMET_PATTERN.test(token)
   ) {
     return true
@@ -577,7 +589,11 @@ const takesMathArgument = (token) => Boolean(token) && MATH_ARGUMENT_PATTERN.tes
 const isProseFollower = (token) =>
   Boolean(token) &&
   !isMathFunctionWord(token) &&
-  (isProseWord(token) || SHORT_PROSE_WORD_PATTERN.test(token) || SHORT_AMBIGUOUS_WORD_PATTERN.test(token))
+  (isProseWord(token) ||
+    SHORT_PROSE_WORD_PATTERN.test(token) ||
+    DIALOGUE_LETTER_PATTERN.test(token) ||
+    UZBEK_PRONOUN_PATTERN.test(token) ||
+    SHORT_AMBIGUOUS_WORD_PATTERN.test(token))
 
 const renderLooseContent = (source) => {
   const tokens = tokenizeWithBalancedBraces(source)
@@ -597,7 +613,12 @@ const renderLooseContent = (source) => {
     if (!token) {
       return false
     }
-    return isProseWord(token) || (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) && !takesMathArgument(neighbour(index, 1)))
+    return (
+      isProseWord(token) ||
+      SHORT_PROSE_WORD_PATTERN.test(token) ||
+      UZBEK_PRONOUN_PATTERN.test(token) ||
+      (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) && !takesMathArgument(neighbour(index, 1)))
+    )
   }
 
   return tokens
@@ -615,6 +636,7 @@ const renderLooseContent = (source) => {
       const isProseInContext =
         ((token === '-' || token === '->') &&
           (isWordAt(neighbourIndex(index, -1)) ||
+            DIALOGUE_LETTER_PATTERN.test(previous || '') ||
             ROMAN_NUMERAL_PATTERN.test(previous || '') ||
             PLAIN_NUMBER_PATTERN.test(previous || '')) &&
           (isProseFollower(next) || isWordAt(neighbourIndex(index, 1)))) ||
@@ -626,6 +648,7 @@ const renderLooseContent = (source) => {
             (!previous && !next))) ||
         // Uzbek words that collide with math names — `u` (he), `tan olinishi`,
         // `Sin Shixuandi` — unless what follows could be the function's argument.
+        UZBEK_PRONOUN_PATTERN.test(token) ||
         (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) && !takesMathArgument(next)) ||
         // List labels, at a line start (`a) Sparta`) or mid-line after the
         // previous item's punctuation (`1) nisbat; 2) harakat nomi`).
