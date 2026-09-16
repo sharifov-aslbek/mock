@@ -516,14 +516,31 @@ const tokenizeWithBalancedBraces = (source) => {
 // (matching-answer codes), `birga)` / `«Nizom»` (a word glued to punctuation).
 const PROSE_LETTERS = String.raw`A-Za-zÀ-ɏЀ-ӿʻʼ'’`
 const NUMBER_WITH_SUFFIX_PATTERN = new RegExp(`^\\d+-([${PROSE_LETTERS}]{3,})[.,;:!?)»"]*$`, 'u')
-const ROMAN_MATCHING_CODE_PATTERN = /^[IVX]{1,4}-[a-f][.,;:]?$/
-const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*([${PROSE_LETTERS}]{3,}(?:-[${PROSE_LETTERS}]{2,})*)[)»".,;:!?]*$`, 'u')
-// `(1598)` years in parentheses and `1, 2, 3` enumerations.
-const PLAIN_NUMBER_PATTERN = /^(?:\(\d{3,4}\)[.,;:]?|\d+[,;])$/
+// Matching-answer codes, keyed by either a Roman or an Arabic numeral: `I-b,`, `3-a,`.
+const MATCHING_CODE_PATTERN = /^(?:[IVX]{1,4}|\d{1,2})-[a-f][.,;:]?$/
+// A leading `-` keeps cited suffixes (`-imni`, `(-lardan)`) out of the math path.
+const PUNCTUATED_WORD_PATTERN = new RegExp(`^[(«"]*-?([${PROSE_LETTERS}]{3,}(?:-[${PROSE_LETTERS}]{2,})*)[)»".,;:!?]*$`, 'u')
+// `(1598)` years, `(33,` / `35)` cross-references, `1, 2, 3` enumerations and
+// `2-,` ordinals whose suffix is elided.
+const PLAIN_NUMBER_PATTERN = /^(?:\(\d{1,4}\)?|\d{1,4}\)|\d+[,;]|\d{1,3}-)[.,;:]?$/
+// `(a)` / `(b);` sub-question labels and `(A-F)` option ranges.
+const PAREN_LABEL_PATTERN = /^\((?:[a-fA-F]|[A-Za-z]-[A-Za-z])\)[.,;:]?$/
+// `[1]` / `[2]` markers pointing at a sentence inside a reading passage.
+const BRACKET_LABEL_PATTERN = /^\[\d{1,2}\][.,;:]?$/
+// `2-3 jumladan` — a numeric range, not a subtraction.
+const NUMBER_RANGE_PATTERN = /^\d{1,3}-\d{1,3}$/
+// Guillemets only ever quote a title or a cited word, never a formula.
+const GUILLEMET_PATTERN = /[«»]/
+// What can be a math function's argument: `sin(x)`, `tan 30`, `log x`, `\tan`.
+const MATH_ARGUMENT_PATTERN = /^(?:[({[\\]|\d|[A-Za-z]$)/
 const ROMAN_NUMERAL_PATTERN = /^[IVX]{1,4}[.,;:)]?$/
 const LIST_LABEL_PATTERN = /^(?:[a-z]|\d{1,2})\)$/
 const SHORT_AMBIGUOUS_WORD_PATTERN = /^(?:[Uu]|[Ss]in|[Tt]an|[Ll]og|[Mm]ax|[Mm]in|[Ll]im)$/
 const PROSE_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}-]{3,}[)»".,;:!?]*$`, 'u')
+// Two-letter Uzbek words (`bu`, `oʻz`, `«ey`) that follow a prose dash.
+const SHORT_PROSE_WORD_PATTERN = new RegExp(`^[(«"]*[${PROSE_LETTERS}]{2,}[)»".,;:!?]*$`, 'u')
+// A lone `A`/`D` opening an option explanation (`A qatordagi …`).
+const SECTION_LETTER_PATTERN = /^[A-F]$/
 
 const isMathFunctionWord = (word) => MATH_FUNCTION_NAMES.has(word.toLowerCase())
 
@@ -533,7 +550,13 @@ const isProseToken = (token) => {
     return !isMathFunctionWord(suffix[1])
   }
 
-  if (ROMAN_MATCHING_CODE_PATTERN.test(token) || PLAIN_NUMBER_PATTERN.test(token)) {
+  if (
+    MATCHING_CODE_PATTERN.test(token) ||
+    PLAIN_NUMBER_PATTERN.test(token) ||
+    PAREN_LABEL_PATTERN.test(token) ||
+    BRACKET_LABEL_PATTERN.test(token) ||
+    GUILLEMET_PATTERN.test(token)
+  ) {
     return true
   }
 
@@ -544,6 +567,17 @@ const isProseToken = (token) => {
 
 const isProseWord = (token) =>
   Boolean(token) && (isProseToken(token) || (PROSE_WORD_PATTERN.test(token) && !isMathLikeToken(token)))
+
+// What may follow a prose dash: a full word, a two-letter word (`- bu fikr`) or
+// one of the short words that collide with math names (`- u mavzudan`).
+// `sin(x)` / `tan 30` read as a function call; `u 2017-yilda` does not, because
+// the year is prose in its own right.
+const takesMathArgument = (token) => Boolean(token) && MATH_ARGUMENT_PATTERN.test(token) && !isProseToken(token)
+
+const isProseFollower = (token) =>
+  Boolean(token) &&
+  !isMathFunctionWord(token) &&
+  (isProseWord(token) || SHORT_PROSE_WORD_PATTERN.test(token) || SHORT_AMBIGUOUS_WORD_PATTERN.test(token))
 
 const renderLooseContent = (source) => {
   const tokens = tokenizeWithBalancedBraces(source)
@@ -556,6 +590,15 @@ const renderLooseContent = (source) => {
     return -1
   }
   const neighbour = (index, step) => tokens[neighbourIndex(index, step)] ?? null
+  // `tan` in `xoki tan - tan tuprogʻi` is a word: a real function call is
+  // followed by its argument (`tan 30`, `sin(x)`), a word by more prose.
+  const isWordAt = (index) => {
+    const token = tokens[index]
+    if (!token) {
+      return false
+    }
+    return isProseWord(token) || (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) && !takesMathArgument(neighbour(index, 1)))
+  }
 
   return tokens
     .map((token, index) => {
@@ -571,16 +614,25 @@ const renderLooseContent = (source) => {
       // a line-leading list label (`a) Sparta`) are prose, not math.
       const isProseInContext =
         ((token === '-' || token === '->') &&
-          (isProseWord(previous) || ROMAN_NUMERAL_PATTERN.test(previous || '') || PLAIN_NUMBER_PATTERN.test(previous || '')) &&
-          isProseWord(next)) ||
+          (isWordAt(neighbourIndex(index, -1)) ||
+            ROMAN_NUMERAL_PATTERN.test(previous || '') ||
+            PLAIN_NUMBER_PATTERN.test(previous || '')) &&
+          (isProseFollower(next) || isWordAt(neighbourIndex(index, 1)))) ||
+        (NUMBER_RANGE_PATTERN.test(token) && isProseFollower(next)) ||
         (ROMAN_NUMERAL_PATTERN.test(token) &&
-          ((/^[(«"]*[A-ZА-ЯЁ]/u.test(previous || '') && isProseWord(previous)) || (next === '-' && isProseWord(neighbour(neighbourIndex(index, 1), 1))))) ||
+          ((/^[(«"]*[A-ZА-ЯЁ]/u.test(previous || '') && isProseWord(previous)) ||
+            (next === '-' && isProseWord(neighbour(neighbourIndex(index, 1), 1))) ||
+            // A matching option that is nothing but `I` / `III`.
+            (!previous && !next))) ||
         // Uzbek words that collide with math names — `u` (he), `tan olinishi`,
-        // `Sin Shixuandi` — when a real word follows and nothing math precedes.
-        (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) &&
-          isProseWord(next) &&
-          (!previous || isProseWord(previous) || LIST_LABEL_PATTERN.test(previous) || /[.,;:]$/.test(previous))) ||
-        (LIST_LABEL_PATTERN.test(token) && startsLine && isProseWord(next))
+        // `Sin Shixuandi` — unless what follows could be the function's argument.
+        (SHORT_AMBIGUOUS_WORD_PATTERN.test(token) && !takesMathArgument(next)) ||
+        // List labels, at a line start (`a) Sparta`) or mid-line after the
+        // previous item's punctuation (`1) nisbat; 2) harakat nomi`).
+        (LIST_LABEL_PATTERN.test(token) &&
+          (startsLine || /[.,;:]$/.test(previous || '')) &&
+          isProseFollower(next)) ||
+        (SECTION_LETTER_PATTERN.test(token) && startsLine && isProseWord(next))
 
       return !isProseInContext && !isProseToken(token) && isMathLikeToken(token)
         ? renderMathSegment(token)
