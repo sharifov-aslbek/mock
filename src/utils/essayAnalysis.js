@@ -24,6 +24,7 @@
 //
 // Scoring: 12 mezon (c1–c12) × 0–2 ball = 24 ball (ESSAY_BAND_MAX). The
 // overall band total is expected from the backend alongside the analysis.
+import { AI_REVIEW_MODES, getAiReviewMode } from '@/utils/aiReview'
 
 export const ESSAY_BAND_MAX = 24
 // The official certificate scale: the 24-band total is projected linearly
@@ -31,12 +32,10 @@ export const ESSAY_BAND_MAX = 24
 export const ESSAY_SCALED_MAX = 75
 export const JUDGMENT_BAND_MAX = 2
 
-// The one definition of that projection. It has to agree exactly with the
-// server's ScaleEssayScore in UserTestAttemptService.cs, because that is what
-// lands in the attempt total and on the certificate — if this rounded to a
-// decimal and the server rounded to a whole point, the essay section and the
-// score above it would disagree about the same essay. Whole points, halves up
-// (12 → 37.5 → 38), matching Math.Round(..., MidpointRounding.AwayFromZero).
+// The one definition of that projection — used both for the "Shkala" figure in
+// the analysis section and for the insho's slice of the attempt total
+// (rescaleEssayTotals below), so the essay block and the score above it can
+// never disagree about the same essay. Whole points, halves up (12 → 37.5 → 38).
 export function scaleEssayBand(bandTotal, bandMax = ESSAY_BAND_MAX) {
   const total = Number(bandTotal)
   const max = Number(bandMax)
@@ -46,6 +45,52 @@ export function scaleEssayBand(bandTotal, bandMax = ESSAY_BAND_MAX) {
   }
 
   return Math.round((total / max) * ESSAY_SCALED_MAX)
+}
+
+// True when this attempt's questions include the Ona tili insho. Everything
+// below is keyed on it: Biology's AI-reviewed questions carry a real per-question
+// Score the server already counts, so they must pass through untouched.
+export function hasMotherTongueEssay(questions) {
+  const list = Array.isArray(questions) ? questions : []
+
+  return list.some(
+    (question) => getAiReviewMode(question) === AI_REVIEW_MODES.motherTongueEssay,
+  )
+}
+
+// The attempt's points with the insho rebased from 24 to 75 — Ona tili only.
+//
+// The server counts the essay at its RAW band: AttachEssayReviewAsync does
+// `MaxScore += 24` and `TotalScore += band`. That leaves the insho worth ~24% of
+// an Ona tili test while the analysis section prints it as "n/75" — the official
+// weighting, where the essay carries as much as the whole closed-question block.
+// The two numbers described the same essay and disagreed by ~3×.
+//
+// So the 24-point slice the server added is swapped here for its 75-point
+// projection: a test whose closed questions total 75 reads 150, and an 18/24
+// essay contributes 56 points to it rather than 18. Frontend-only — the server
+// still stores the raw band, which is what `essayReview.totalScore` carries in.
+export function rescaleEssayTotals({ totalScore, maxScore, questions, essayReview }) {
+  const total = Number(totalScore) || 0
+  const max = Number(maxScore) || 0
+
+  // `max < ESSAY_BAND_MAX` means the 24 is not in there to take back out (a
+  // half-built payload, or a server that stopped adding it) — leave it alone
+  // rather than inventing a negative maximum.
+  if (!hasMotherTongueEssay(questions) || max < ESSAY_BAND_MAX) {
+    return { totalScore: total, maxScore: max }
+  }
+
+  // The server adds the 24 to the max as soon as the test HAS an essay question,
+  // but adds to the total only once a review exists. While grading is pending
+  // (or after it failed) the band is absent and only the maximum moves.
+  const band = Number(essayReview?.totalScore)
+  const scaled = Number.isFinite(band) ? scaleEssayBand(band) : null
+
+  return {
+    totalScore: scaled === null ? total : total - band + scaled,
+    maxScore: max - ESSAY_BAND_MAX + ESSAY_SCALED_MAX,
+  }
 }
 
 // Judgment criteria (holistic bands) — labels for known keys; unknown keys

@@ -1,12 +1,14 @@
 // One attempt's grade, from GET /user-test-attempt/get-results.
 //
 // This exists because the attempts list (get-user-attempts) carries `totalScore`
-// but not `maxScore`, and maxScore is NOT always 100 — it varies per test (99 on
-// some, 100 on others). So a percentage cannot be derived from the list alone;
-// it costs one request per attempt, which is why callers resolve only the
-// attempts they are actually showing.
+// but not `maxScore`, and maxScore is NOT a constant — it varies per test (99 on
+// some, 100 on others, and an Ona tili 99 reads 150 once the insho is rebased
+// below). So a percentage cannot be derived from the list alone; it costs one
+// request per attempt, which is why callers resolve only the attempts they are
+// actually showing.
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { useAuthStore } from '@/stores/auth'
+import { rescaleEssayTotals } from '@/utils/essayAnalysis'
 
 // Grading is NOT defined here. MilliyMock has one official band table — the one
 // printed on the certificate (utils/certificateData.js) — and it does not match
@@ -35,8 +37,16 @@ export async function fetchAttemptScore(attemptId) {
   }
 
   const data = payload.data
-  const maxScore = Number(data.maxScore) || 0
-  const totalScore = Number(data.totalScore) || 0
+
+  // Same 75-point insho rebase the results page and the certificate apply, so a
+  // row in Natijalar reads the same "x / 150" the attempt itself does instead of
+  // the server's raw 24-point essay total. Non-essay tests pass through.
+  const { totalScore, maxScore } = rescaleEssayTotals({
+    totalScore: data.totalScore,
+    maxScore: data.maxScore,
+    questions: data.questions,
+    essayReview: data.essayReview,
+  })
 
   return {
     totalScore,

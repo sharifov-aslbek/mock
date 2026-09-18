@@ -1,4 +1,5 @@
 import { hasAiReview } from '@/utils/aiReview'
+import { rescaleEssayTotals } from '@/utils/essayAnalysis'
 
 function formatScore(value) {
   const numeric = Number(value)
@@ -98,8 +99,8 @@ export function buildCertificateViewModel({
     subjectName && String(subjectName).trim()
       ? String(subjectName).trim()
       : 'Matematika'
-  const totalScore = Number(submission?.totalScore ?? 0)
-  const maxScore = Number(submission?.maxScore ?? 0)
+  const rawTotalScore = Number(submission?.totalScore ?? 0)
+  const rawMaxScore = Number(submission?.maxScore ?? 0)
   const correctCount = Number(submission?.correctCount ?? 0)
   const incorrectCount = Number(submission?.incorrectCount ?? 0)
 
@@ -112,6 +113,18 @@ export function buildCertificateViewModel({
     testQuestions.length ||
     submissionQuestions.length ||
     correctCount + incorrectCount
+
+  // The Ona tili insho is worth 75 here, not the raw 24 the server totals it at
+  // (see rescaleEssayTotals). Rebased BEFORE anything below divides by the
+  // maximum, so the points, the percentage and the letter grade all speak the
+  // same scale — a 99-point Ona tili test reads out of 150. Every other subject
+  // comes back untouched.
+  const { totalScore, maxScore } = rescaleEssayTotals({
+    totalScore: rawTotalScore,
+    maxScore: rawMaxScore,
+    questions: testQuestions.length ? testQuestions : submissionQuestions,
+    essayReview: submission?.essayReview,
+  })
 
   // Full point max: prefer backend maxScore only when it spans the whole test;
   // otherwise sum per-question scores across the full test.
