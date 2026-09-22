@@ -54,6 +54,33 @@ const otpCode = ref('')
 const otpInput = ref(null)
 const isVerifying = ref(false)
 
+// The code screen comes in two halves. Until the user has actually gone to the
+// bot (tapped the button, or said they already have the code) it shows only
+// the bot instructions — no code boxes, so it doesn't read like an SMS screen
+// where you sit and wait for a message.
+const botOpened = ref(false)
+
+// Someone still on the bot instructions after this long is most likely waiting
+// for an SMS that will never come: nudge them towards the bot.
+const NUDGE_AFTER_MS = 20_000
+const showNudge = ref(false)
+let nudgeId = null
+
+const stopNudge = () => {
+  if (nudgeId) {
+    window.clearTimeout(nudgeId)
+    nudgeId = null
+  }
+  showNudge.value = false
+}
+
+const startNudge = () => {
+  stopNudge()
+  nudgeId = window.setTimeout(() => {
+    showNudge.value = true
+  }, NUDGE_AFTER_MS)
+}
+
 // Ticket countdown, driven by a 1s tick while the code screen is up.
 const now = ref(Date.now())
 let tickId = null
@@ -87,7 +114,12 @@ const persistRegistration = () => {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ ticket: ticket.value, botUrl: botUrl.value, expiresAt: expiresAt.value }),
+      JSON.stringify({
+        ticket: ticket.value,
+        botUrl: botUrl.value,
+        expiresAt: expiresAt.value,
+        botOpened: botOpened.value,
+      }),
     )
   } catch {
     // Private mode / storage disabled: the in-memory state still carries the flow.
@@ -172,6 +204,14 @@ const redirectAfterAuth = async () => {
   return router.push(await resolvePostAuthRoute(redirectTarget))
 }
 
+// Focus the code boxes on desktop only: on a phone that raises the keyboard
+// over the buttons, which are the things to tap first.
+const focusOtpOnDesktop = () => {
+  if (window.matchMedia?.('(min-width: 768px)').matches) {
+    otpInput.value?.focus()
+  }
+}
+
 const enterOtpStep = async () => {
   step.value = 'otp'
   otpCode.value = ''
@@ -179,16 +219,32 @@ const enterOtpStep = async () => {
   startTicking()
   void renderQr()
   await nextTick()
-  // Focus the code boxes on desktop only: on a phone that raises the keyboard
-  // over the bot button, which is the thing to tap first.
-  if (window.matchMedia?.('(min-width: 768px)').matches) {
-    otpInput.value?.focus()
+  if (botOpened.value) {
+    focusOtpOnDesktop()
+  } else {
+    startNudge()
   }
+}
+
+// The user tapped the bot button (or "I already have the code"): swap the
+// instructions for the code boxes. Remembered with the ticket, so a reloaded
+// tab on the way back from Telegram lands on the boxes, not the instructions.
+const markBotOpened = async () => {
+  if (botOpened.value) {
+    return
+  }
+  botOpened.value = true
+  stopNudge()
+  persistRegistration()
+  await nextTick()
+  focusOtpOnDesktop()
 }
 
 const backToForm = () => {
   stopTicking()
+  stopNudge()
   clearStoredRegistration()
+  botOpened.value = false
   ticket.value = ''
   botUrl.value = ''
   expiresAt.value = 0
@@ -324,13 +380,17 @@ onMounted(async () => {
     ticket.value = stored.ticket
     botUrl.value = stored.botUrl
     expiresAt.value = Number(stored.expiresAt)
+    botOpened.value = Boolean(stored.botOpened)
     await enterOtpStep()
   } else {
     clearStoredRegistration()
   }
 })
 
-onBeforeUnmount(stopTicking)
+onBeforeUnmount(() => {
+  stopTicking()
+  stopNudge()
+})
 </script>
 
 <template>
@@ -502,62 +562,123 @@ onBeforeUnmount(stopTicking)
         </svg>
       </div>
 
-      <h1 class="text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">
-        {{ t('register.otpTitle') }}
-      </h1>
-      <p class="mt-2 text-sm leading-relaxed text-[#6b6760]">
-        {{ t('register.botInstruction') }}
-      </p>
+      <!-- 2a: how to get the code. No code boxes yet — with them on screen
+           people assume a code is on its way by SMS and wait for it. -->
+      <template v-if="!botOpened">
+        <h1 class="text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">
+          {{ t('register.botTitle') }}
+        </h1>
 
-      <!-- The user has to reach the bot THROUGH this link: it carries the ticket. -->
-      <TelegramCodeLink
-        class="mt-5"
-        :href="botUrl"
-        :label="t('register.openBot')"
-        variant="primary"
-      />
+        <ol class="mt-5 flex flex-col gap-3 text-left">
+          <li class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1a1814] text-[12px] font-bold text-white">1</span>
+            <span class="pt-0.5 text-sm leading-relaxed text-[#1a1814]">{{ t('register.botStep1') }}</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1a1814] text-[12px] font-bold text-white">2</span>
+            <span class="pt-0.5 text-sm leading-relaxed text-[#1a1814]">
+              {{ t('register.botStep2') }}
+              <!-- A look-alike of the bot's own keyboard button, so they
+                   recognise it once they're in Telegram. -->
+              <span class="mt-1.5 flex w-fit items-center gap-1.5 rounded-lg border border-[#29a9eb]/40 bg-[#eaf6fd] px-3 py-1.5 text-[13px] font-semibold text-[#1f8fcb]">
+                📱 {{ t('register.botShareButton') }}
+              </span>
+            </span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1a1814] text-[12px] font-bold text-white">3</span>
+            <span class="pt-0.5 text-sm leading-relaxed text-[#1a1814]">{{ t('register.botStep3') }}</span>
+          </li>
+        </ol>
 
-      <!-- Desktop only — on a phone the button above already opens the app. -->
-      <div v-if="qrDataUrl" class="mt-4 hidden flex-col items-center md:flex">
-        <img
-          :src="qrDataUrl"
-          :alt="t('register.openBot')"
-          width="176"
-          height="176"
-          class="rounded-xl border border-[#e4e0d8] p-1"
+        <!-- Still here after 20s without touching the bot button: most likely
+             waiting for an SMS. -->
+        <p
+          v-if="showNudge"
+          role="status"
+          class="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-medium leading-relaxed text-[#7a4b00]"
+        >
+          {{ t('register.botNudge') }}
+        </p>
+
+        <!-- The user has to reach the bot THROUGH this link: it carries the ticket. -->
+        <TelegramCodeLink
+          class="mt-5"
+          :class="showNudge ? 'ring-4 ring-[#29a9eb]/30' : ''"
+          :href="botUrl"
+          :label="t('register.openBot')"
+          variant="primary"
+          @click="markBotOpened"
         />
-        <span class="mt-2 text-[12px] text-[#8a857c]">{{ t('register.qrHint') }}</span>
-      </div>
 
-      <OtpCodeInput
-        ref="otpInput"
-        v-model="otpCode"
-        class="mt-6"
-        @complete="submitOtp"
-        @enter="submitOtp"
-      />
+        <!-- Desktop only — on a phone the button above already opens the app. -->
+        <div v-if="qrDataUrl" class="mt-4 hidden flex-col items-center md:flex">
+          <img
+            :src="qrDataUrl"
+            :alt="t('register.openBot')"
+            width="176"
+            height="176"
+            class="rounded-xl border border-[#e4e0d8] p-1"
+          />
+          <span class="mt-2 text-[12px] text-[#8a857c]">{{ t('register.qrHint') }}</span>
+        </div>
 
-      <p
-        v-if="validationError || authStore.errorMessage"
-        class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-600"
-      >
-        {{ validationError || authStore.errorMessage }}
-      </p>
+        <!-- Scanned the QR, or came back from the bot into a fresh tab. A real
+             button, not a text link — a text link doesn't read as tappable
+             to this audience. -->
+        <button
+          type="button"
+          class="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full border-[1.5px] border-[#1a1814] bg-white text-sm font-semibold text-[#1a1814] transition duration-200 hover:bg-[#1a1814] hover:text-white active:scale-[0.99]"
+          @click="markBotOpened"
+        >
+          {{ t('register.haveCode') }}
+        </button>
+      </template>
 
-      <button
-        type="button"
-        :disabled="isVerifying"
-        class="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-        @click="submitOtp"
-      >
-        {{ isVerifying ? t('register.otpSubmitting') : t('register.otpSubmit') }}
-      </button>
+      <!-- 2b: the code from the bot. -->
+      <template v-else>
+        <h1 class="text-2xl font-bold tracking-[-0.02em] text-[#1a1814]">
+          {{ t('register.otpTitle') }}
+        </h1>
+        <p class="mt-2 text-sm leading-relaxed text-[#6b6760]">
+          {{ t('register.otpFromBot') }}
+        </p>
 
-      <!-- No resend endpoint: the bot re-shows the code while it's valid
-           (5 min) or hands out a new one, on the same 📱 tap. -->
-      <p class="mt-5 text-sm text-[#6b6760]">
-        {{ t('register.botNotReceived') }}
-      </p>
+        <OtpCodeInput
+          ref="otpInput"
+          v-model="otpCode"
+          class="mt-6"
+          @complete="submitOtp"
+          @enter="submitOtp"
+        />
+
+        <p
+          v-if="validationError || authStore.errorMessage"
+          class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-600"
+        >
+          {{ validationError || authStore.errorMessage }}
+        </p>
+
+        <button
+          type="button"
+          :disabled="isVerifying"
+          class="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#1a1814] text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+          @click="submitOtp"
+        >
+          {{ isVerifying ? t('register.otpSubmitting') : t('register.otpSubmit') }}
+        </button>
+
+        <!-- No resend endpoint: the bot re-shows the code while it's valid
+             (5 min) or hands out a new one, on the same 📱 tap. -->
+        <p class="mt-5 text-sm text-[#6b6760]">
+          {{ t('register.botNotReceived') }}
+        </p>
+        <TelegramCodeLink
+          class="mt-3"
+          :href="botUrl"
+          :label="t('register.reopenBot')"
+        />
+      </template>
 
       <p class="mt-3 text-[12px] text-[#8a857c]">
         {{ t('register.ticketExpiresIn', { time: remainingLabel }) }}
