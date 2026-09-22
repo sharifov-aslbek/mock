@@ -32,6 +32,39 @@ function buildImageUrl(apiBaseUrl, imagePath) {
   return `${apiOrigin}/${String(imagePath).replace(/^\/+/, '')}`
 }
 
+// Photos handed in for a BiologyOpenResponse GROUP, as resume and get-results
+// both return them:
+//
+//   groupAnswers: [{ questionGroupId, images: [{ id, path, order }] }]
+//
+// Normalized here once, into absolute urls in `order`, so the test page (resume)
+// and the results page read the same shape. A group with no upload is absent.
+function normalizeGroupAnswers(rawGroupAnswers, apiBaseUrl) {
+  if (!Array.isArray(rawGroupAnswers)) {
+    return []
+  }
+
+  return rawGroupAnswers
+    .map((groupAnswer) => {
+      const questionGroupId = Number(groupAnswer?.questionGroupId)
+
+      if (!Number.isFinite(questionGroupId) || questionGroupId <= 0) {
+        return null
+      }
+
+      const images = Array.isArray(groupAnswer?.images) ? [...groupAnswer.images] : []
+
+      return {
+        questionGroupId,
+        imageUrls: images
+          .sort((first, second) => Number(first?.order || 0) - Number(second?.order || 0))
+          .map((image) => buildImageUrl(apiBaseUrl, image?.path))
+          .filter(Boolean),
+      }
+    })
+    .filter(Boolean)
+}
+
 function normalizeTest(test, apiBaseUrl) {
   const questionGroups = Array.isArray(test.questionGroups)
     ? test.questionGroups.map((group) => ({
@@ -46,8 +79,9 @@ function normalizeTest(test, apiBaseUrl) {
     questionGroups.map((group) => [group.id, group.options]),
   )
 
-  // A group typed BiologyOpenResponse (numeric 1) answers by photo upload. The
-  // signal lives on the GROUP; stamp it onto each member question's aiReviewMode
+  // A group typed BiologyOpenResponse (numeric 1) is AI-reviewed: typed answers
+  // per question plus solution photos per group. The signal lives on the GROUP;
+  // stamp it onto each member question's aiReviewMode
   // (when the question doesn't carry its own) so every consumer — rendering,
   // the answered tally, image sync, the results screen — keeps reading the
   // per-question flag it already understands.
@@ -107,6 +141,12 @@ export const useTestStore = defineStore('test', () => {
   const lastResume = ref(null)
   const isLoading = ref(false)
   const errorMessage = ref('')
+
+  function normalizeIdList(value) {
+    return Array.isArray(value)
+      ? value.map(Number).filter((id) => Number.isFinite(id) && id > 0)
+      : []
+  }
 
   function buildAuthHeaders(extraHeaders = {}) {
     const authStore = useAuthStore()
@@ -254,6 +294,9 @@ export const useTestStore = defineStore('test', () => {
         isCompleted: Boolean(data.isCompleted),
         remainingSeconds: Number(data.remainingSeconds) || 0,
         userAnswers: Array.isArray(data.userAnswers) ? data.userAnswers : [],
+        // Solution photos already stored for this attempt's biology groups, so a
+        // refresh shows what was handed in instead of an empty dropzone.
+        groupAnswers: normalizeGroupAnswers(data.groupAnswers, apiBaseUrl),
       }
 
       // Set resume state BEFORE currentTest so the page's watcher (which fires
@@ -323,19 +366,20 @@ export const useTestStore = defineStore('test', () => {
         // essay, or while grading is still pending. ExplanationPage renders it
         // via EssayAnalysisSection.
         essayReview: data.essayReview ?? null,
-        // AI grading for the image-only open responses (Biology 41–43). The
-        // grading runs on a background worker, so get-results returns only the
-        // FINISHED reviews here (one entry per question) …
+        // AI grading for the biology open-response GROUPS (41–43), keyed by
+        // questionGroupId. The grading runs on a background worker, so
+        // get-results returns only the FINISHED reviews here …
         biologyReviews: Array.isArray(data.biologyReviews) ? data.biologyReviews : [],
-        // … and the ids still queued/being graded here. The results screen polls
-        // get-results until this list comes back empty; totalScore above counts
-        // only finished reviews and grows as they land (maxScore is complete
-        // from the start).
-        pendingBiologyQuestionIds: Array.isArray(data.pendingBiologyQuestionIds)
-          ? data.pendingBiologyQuestionIds
-              .map(Number)
-              .filter((id) => Number.isFinite(id) && id > 0)
-          : [],
+        // … the groups still queued/being graded here (the results screen polls
+        // get-results until this comes back empty; totalScore counts only
+        // finished reviews and grows as they land, while maxScore is complete
+        // from the start) …
+        pendingBiologyGroupIds: normalizeIdList(data.pendingBiologyGroupIds),
+        // … and the groups whose grading failed for good — they score 0 until an
+        // admin re-runs them, and never turn into a spinner.
+        failedBiologyGroupIds: normalizeIdList(data.failedBiologyGroupIds),
+        // The photos the student handed in, per group (see normalizeGroupAnswers).
+        groupAnswers: normalizeGroupAnswers(data.groupAnswers, apiBaseUrl),
         userAnswers,
       }
 
@@ -466,14 +510,15 @@ export const useTestStore = defineStore('test', () => {
     return typeof transcription === 'string' ? transcription : ''
   }
 
-  // Store the photo answer for an AI-reviewed open-response question
-  // (AiReviewMode.BiologyOpenResponse). Multipart body matching
-  // SetUserAnswerImagesDto: UserTestAttemptId + QuestionId + Images[].
+  // Store the solution photos of a BiologyOpenResponse question GROUP. Multipart
+  // body: UserTestAttemptId + QuestionGroupId + Images[], the parts in page
+  // order (that order is what the backend stores).
   //
-  // This SETS the question's image list, so callers post the full current
-  // selection rather than a delta. Nothing else changes: the attempt is finished
-  // with the usual submit, and get-results runs the AI review over the images.
-  async function setUserAnswerImages(testAttemptId, questionId, imageFiles) {
+  // This SETS the group's image list, so callers post the full current selection
+  // rather than a delta. At most 3 images, each <= 10 MB. Accepted only while the
+  // attempt is in progress; the attempt is finished with the usual submit, and
+  // the AI review runs over these photos per group.
+  async function setGroupAnswerImages(testAttemptId, questionGroupId, imageFiles) {
     const apiBaseUrl = getTestApiBaseUrl()
 
     if (!apiBaseUrl) {
@@ -484,13 +529,13 @@ export const useTestStore = defineStore('test', () => {
 
     const formData = new FormData()
     formData.append('UserTestAttemptId', String(Number(testAttemptId)))
-    formData.append('QuestionId', String(Number(questionId)))
+    formData.append('QuestionGroupId', String(Number(questionGroupId)))
 
     for (const file of imageFiles) {
       formData.append('Images', file)
     }
 
-    const response = await apiFetch(`${apiBaseUrl}/user-answer/images`, {
+    const response = await apiFetch(`${apiBaseUrl}/user-answer/group-images`, {
       method: 'POST',
       // No Content-Type here — the browser sets the multipart boundary itself.
       headers: buildAuthHeaders(),
@@ -565,7 +610,7 @@ export const useTestStore = defineStore('test', () => {
     fetchQuestionExplanation,
     createUserAnswer,
     updateUserAnswer,
-    setUserAnswerImages,
+    setGroupAnswerImages,
     clearCurrentTest,
     clearError,
   }

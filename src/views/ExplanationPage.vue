@@ -14,7 +14,7 @@ import { useTestProgressStore } from '@/stores/testProgress'
 import { apiFetch, getTestApiBaseUrl } from '@/utils/api'
 import { buildCertificateViewModel } from '@/utils/certificateData'
 import { subjectDisplayName } from '@/utils/subjects'
-import { isImageAnswerQuestion } from '@/utils/aiReview'
+import { isBiologyOpenResponseGroup } from '@/utils/aiReview'
 
 const route = useRoute()
 const router = useRouter()
@@ -313,13 +313,13 @@ const filteredQuestions = computed(() => {
     }
   }
 
-  // AI-graded questions are not marked correct/incorrect — the essay and the
-  // image-only open responses live in their own analysis sections below, never
-  // in this row table (and so don't skew the correct/omitted tallies derived
-  // from it).
+  // The essay is graded by the AI alone and lives in its own analysis section
+  // below, never in this row table (and so doesn't skew the correct/omitted
+  // tallies derived from it). The biology sub-answers DO belong here: the
+  // backend now grades each typed answer, so they carry a real isCorrect — the
+  // AI review of the task as a whole is a separate section, not a substitute.
   const apiQuestions = [...questionsById.values()].filter(
-    (question) =>
-      question?.type !== 'Essay' && !aiReviewedQuestionIds.value.has(Number(question?.id)),
+    (question) => question?.type !== 'Essay',
   )
 
   if (!apiQuestions.length) {
@@ -637,27 +637,34 @@ const essayBandTotal = computed(() => {
 })
 
 // ——— Biology open-response AI review ————————————————————————————————
-// Image-only questions (AiReviewMode.BiologyOpenResponse) are graded by the AI
-// from the uploaded photos, so — like the essay — they are never marked
-// correct/incorrect in the row table.
+// A biology open response (41–43) is one TASK per question GROUP: its typed
+// sub-answers are graded normally in the row table above, while the group as a
+// whole — those answers plus the uploaded solution photos — earns the group's
+// full mark through one AI review.
 //
-// The grading runs on a BACKGROUND worker: get-results returns the finished
-// reviews under `biologyReviews` and the still-queued question ids under
-// `pendingBiologyQuestionIds`. While anything is pending we re-read get-results
-// every 20s (see the polling block below) and the finished reviews fold into
-// place reactively.
+// The grading runs on a BACKGROUND worker, so get-results returns the finished
+// reviews under `biologyReviews` (keyed by questionGroupId), the groups still
+// queued under `pendingBiologyGroupIds`, and the ones whose grading failed for
+// good under `failedBiologyGroupIds`. While anything is pending we re-read
+// get-results every 20s (see the polling block below) and the finished reviews
+// fold into place reactively.
 const biologyReviews = computed(() => {
   const reviews = testStore.lastSubmission?.biologyReviews
   return Array.isArray(reviews) ? reviews : []
 })
 
-const pendingBiologyQuestionIds = computed(() => {
-  const ids = testStore.lastSubmission?.pendingBiologyQuestionIds
+const pendingBiologyGroupIds = computed(() => {
+  const ids = testStore.lastSubmission?.pendingBiologyGroupIds
+  return Array.isArray(ids) ? ids.map(Number).filter((id) => Number.isFinite(id) && id > 0) : []
+})
+
+const failedBiologyGroupIds = computed(() => {
+  const ids = testStore.lastSubmission?.failedBiologyGroupIds
   return Array.isArray(ids) ? ids.map(Number).filter((id) => Number.isFinite(id) && id > 0) : []
 })
 
 // Every question on the attempt, whichever shape it arrived in — used to resolve
-// a reviewed question's display number and to spot the image-answered ones.
+// a group's number span and to tell a skipped task from a failed review.
 const allQuestionsById = computed(() => {
   const questions = [
     ...(Array.isArray(submittedQuestions.value) ? submittedQuestions.value : []),
@@ -674,108 +681,161 @@ const allQuestionsById = computed(() => {
   return map
 })
 
-const aiImageQuestions = computed(() =>
-  [...allQuestionsById.value.values()].filter((question) => isImageAnswerQuestion(question)),
-)
+// The attempt's biology tasks: the group's full mark (questionGroups[].score)
+// and the `order` span its sub-questions cover, which is the card's label.
+const biologyGroupsById = computed(() => {
+  const groups = Array.isArray(testStore.currentTest?.questionGroups)
+    ? testStore.currentTest.questionGroups
+    : []
+  const map = new Map()
 
-// Ids the row table must skip: graded by AI, never correct/incorrect. Covers
-// the questions flagged BiologyOpenResponse plus anything the backend returned
-// a review for or still holds in the grading queue.
-const aiReviewedQuestionIds = computed(() => {
-  const ids = new Set(aiImageQuestions.value.map((question) => Number(question.id)))
-  for (const review of biologyReviews.value) {
-    const id = Number(review?.questionId)
-    if (id) {
-      ids.add(id)
+  for (const group of groups) {
+    const groupId = Number(group?.id)
+
+    if (!groupId || !isBiologyOpenResponseGroup(group)) {
+      continue
     }
+
+    const maxScore = Number(group?.score)
+    const orders = new Set()
+
+    // Sub-questions arrive flat (carrying questionGroupId) or nested under the
+    // group depending on the payload — read both, so the label never comes back
+    // empty on one of them.
+    for (const question of allQuestionsById.value.values()) {
+      if (Number(question?.questionGroupId) === groupId) {
+        orders.add(Number(question?.order))
+      }
+    }
+    for (const question of Array.isArray(group.questions) ? group.questions : []) {
+      orders.add(Number(question?.order))
+    }
+
+    map.set(groupId, {
+      maxScore: Number.isFinite(maxScore) ? maxScore : null,
+      orders: [...orders]
+        .filter((order) => Number.isFinite(order) && order > 0)
+        .sort((first, second) => first - second),
+    })
   }
-  for (const id of pendingBiologyQuestionIds.value) {
-    ids.add(id)
-  }
-  return ids
+
+  return map
 })
 
-// One entry per AI-graded biology question, in question order, each in exactly
-// one state — the precedence the backend contract prescribes:
-//   1. a review exists (matched by questionId)      → 'reviewed'
-//   2. id sits in pendingBiologyQuestionIds         → 'checking'
-//   3. answered but in NEITHER list                 → 'failed' (for good — never a spinner)
-//   4. never answered                               → 'unanswered' (no review will come)
-const biologyEntries = computed(() => {
-  const reviewsByQuestionId = new Map()
-  for (const review of biologyReviews.value) {
-    const id = Number(review?.questionId)
-    if (id) {
-      reviewsByQuestionId.set(id, review)
+// questionGroupId → the solution photos handed in for that task. The store has
+// already normalized them to absolute urls in page order; a group with no
+// upload is simply absent.
+const biologyImagesByGroupId = computed(() => {
+  const map = new Map()
+
+  for (const groupAnswer of testStore.lastSubmission?.groupAnswers || []) {
+    const groupId = Number(groupAnswer?.questionGroupId)
+
+    if (groupId) {
+      map.set(groupId, Array.isArray(groupAnswer.imageUrls) ? groupAnswer.imageUrls : [])
     }
   }
-  const pendingIds = new Set(pendingBiologyQuestionIds.value)
 
-  // Every biology question on the attempt: the ones the content flags, plus any
-  // id the backend reviewed or queued that the content lookup missed.
-  const questionIds = new Set(aiImageQuestions.value.map((question) => Number(question.id)))
-  for (const id of reviewsByQuestionId.keys()) {
-    questionIds.add(id)
-  }
-  for (const id of pendingIds) {
-    questionIds.add(id)
+  return map
+})
+
+const biologyGroupImages = (questionGroupId) =>
+  biologyImagesByGroupId.value.get(Number(questionGroupId)) || []
+
+// Something was handed in for the task — photos, or at least one typed
+// sub-answer. Only used to tell a review that failed for good (the student did
+// the work, we couldn't grade it) from a task that was simply skipped.
+const hasBiologyGroupAnswer = (questionGroupId) => {
+  if (biologyGroupImages(questionGroupId).length > 0) {
+    return true
   }
 
-  const orderOf = (questionId) => {
-    const order = Number(allQuestionsById.value.get(questionId)?.order)
+  for (const question of allQuestionsById.value.values()) {
+    if (Number(question?.questionGroupId) !== Number(questionGroupId)) {
+      continue
+    }
+
+    const answer = userAnswersByQuestionId.value.get(Number(question.id))
+
+    if (typeof answer?.textAnswer === 'string' && answer.textAnswer.trim()) {
+      return true
+    }
+  }
+
+  return false
+}
+
+// One entry per biology TASK, in exam order, each in exactly one state — the
+// precedence the backend contract prescribes:
+//   1. a review exists (matched by questionGroupId) → 'reviewed'
+//   2. id sits in pendingBiologyGroupIds            → 'checking'
+//   3. id sits in failedBiologyGroupIds             → 'failed' (never a spinner)
+//   4. answered but in NO list                      → 'failed' (for good)
+//   5. nothing handed in                            → 'unanswered'
+const biologyEntries = computed(() => {
+  const reviewsByGroupId = new Map()
+  for (const review of biologyReviews.value) {
+    const groupId = Number(review?.questionGroupId)
+    if (groupId) {
+      reviewsByGroupId.set(groupId, review)
+    }
+  }
+
+  const pendingIds = new Set(pendingBiologyGroupIds.value)
+  const failedIds = new Set(failedBiologyGroupIds.value)
+
+  // Every biology group in the test content, plus any group the backend
+  // reviewed, queued or failed that the content lookup missed.
+  const groupIds = new Set(biologyGroupsById.value.keys())
+  for (const groupId of reviewsByGroupId.keys()) {
+    groupIds.add(groupId)
+  }
+  for (const groupId of [...pendingIds, ...failedIds]) {
+    groupIds.add(groupId)
+  }
+
+  const orderOf = (groupId) => {
+    const order = biologyGroupsById.value.get(groupId)?.orders?.[0]
     return Number.isFinite(order) && order > 0 ? order : Number.MAX_SAFE_INTEGER
   }
 
-  return [...questionIds]
-    .sort((a, b) => orderOf(a) - orderOf(b) || a - b)
-    .map((questionId) => {
-      const review = reviewsByQuestionId.get(questionId) || null
-      // For an image-only question the photos ARE the answer, and an answer row
-      // only ever exists once photos were sent — either signal counts.
-      const answered =
-        biologyAnswerImages(questionId).length > 0 ||
-        Boolean(userAnswersByQuestionId.value.get(questionId))
+  return [...groupIds]
+    .sort((first, second) => orderOf(first) - orderOf(second) || first - second)
+    .map((questionGroupId) => {
+      const review = reviewsByGroupId.get(questionGroupId) || null
       const state = review
         ? 'reviewed'
-        : pendingIds.has(questionId)
+        : pendingIds.has(questionGroupId)
           ? 'checking'
-          : answered
+          : failedIds.has(questionGroupId) || hasBiologyGroupAnswer(questionGroupId)
             ? 'failed'
             : 'unanswered'
 
-      return { questionId, state, review }
+      return {
+        questionGroupId,
+        state,
+        review,
+        // The task's full mark, so the section header's denominator is complete
+        // from the first read instead of growing as reviews land.
+        maxScore: biologyGroupsById.value.get(questionGroupId)?.maxScore ?? null,
+      }
     })
 })
 
 const hasBiologySection = computed(() => biologyEntries.value.length > 0)
 
-// Display number for a reviewed question ("41"), resolved from the test content.
-const biologyQuestionLabel = (questionId) => {
-  const question = allQuestionsById.value.get(Number(questionId))
-  const order = Number(question?.order)
-  return Number.isFinite(order) && order > 0 ? String(order) : ''
-}
+// Card label: the order span the group's sub-questions cover ("41", "41-43").
+const biologyGroupLabel = (questionGroupId) => {
+  const orders = biologyGroupsById.value.get(Number(questionGroupId))?.orders || []
 
-// The photos the student handed in, read off the same userAnswer the grade
-// refers to. Field name isn't pinned down yet, so read the likely shapes.
-const biologyAnswerImages = (questionId) => {
-  const answer = userAnswersByQuestionId.value.get(Number(questionId))
-  const rawImages =
-    answer?.imagePaths ?? answer?.images ?? answer?.answerImages ?? answer?.imageUrls
-
-  if (!Array.isArray(rawImages)) {
-    return []
+  if (!orders.length) {
+    return ''
   }
 
-  return rawImages
-    .map((item) =>
-      typeof item === 'string'
-        ? item
-        : item?.imagePath || item?.path || item?.imageUrl || item?.url || '',
-    )
-    .filter(Boolean)
-    .map((imagePath) => buildAssetUrl(imagePath))
-    .filter(Boolean)
+  const firstOrder = orders[0]
+  const lastOrder = orders[orders.length - 1]
+
+  return firstOrder === lastOrder ? String(firstOrder) : `${firstOrder}-${lastOrder}`
 }
 
 const hasEssayReview = computed(() => Boolean(essayReview.value) && Boolean(essayAnalysis.value))
@@ -1017,13 +1077,13 @@ async function resolveTestSubjectName(testId) {
 
 // ——— Async biology review polling ———————————————————————————————————
 // The background worker finishes grading 41–43 after get-results first returns.
-// While any id sits in pendingBiologyQuestionIds we re-read get-results every
+// While any id sits in pendingBiologyGroupIds we re-read get-results every
 // 20s; the store swap folds newly finished reviews (and the grown totalScore)
 // into the rendered page reactively — no reload, no loading flash. An EMPTY
 // pending list is the only stop condition.
 const BIOLOGY_POLL_INTERVAL_MS = 20_000
 let biologyPollTimeout = null
-let seenBiologyReviewIds = new Set()
+let seenBiologyReviewGroupIds = new Set()
 
 function stopBiologyPolling() {
   if (biologyPollTimeout !== null) {
@@ -1044,17 +1104,17 @@ function scheduleBiologyPoll() {
 // or stop on the empty pending list.
 function reconcileBiologyPolling({ initial = false } = {}) {
   for (const review of biologyReviews.value) {
-    const questionId = Number(review?.questionId)
-    if (!questionId) {
+    const questionGroupId = Number(review?.questionGroupId)
+    if (!questionGroupId) {
       continue
     }
-    if (!initial && !seenBiologyReviewIds.has(questionId)) {
+    if (!initial && !seenBiologyReviewGroupIds.has(questionGroupId)) {
       message.success('AI tekshiruvi tayyor!')
     }
-    seenBiologyReviewIds.add(questionId)
+    seenBiologyReviewGroupIds.add(questionGroupId)
   }
 
-  if (pendingBiologyQuestionIds.value.length) {
+  if (pendingBiologyGroupIds.value.length) {
     scheduleBiologyPoll()
   } else {
     stopBiologyPolling()
@@ -1108,7 +1168,7 @@ async function loadResults() {
 
     // Fresh attempt, fresh baseline: reviews present now are not "newly
     // arrived", and polling starts (only) if grading is still pending.
-    seenBiologyReviewIds = new Set()
+    seenBiologyReviewGroupIds = new Set()
     reconcileBiologyPolling({ initial: true })
   } catch (error) {
     testLoadError.value =
@@ -2206,16 +2266,16 @@ function answerFeedbackText(question) {
       </section>
 
       <!-- ═══ Biology open-response AI analysis ═══
-           Image-only questions (41–43) are graded by the AI from the uploaded
-           photos, not marked in the table above. Grading is async: each entry
-           renders as a finished review, a "checking" card that the 20s
-           get-results poll resolves, a terminal "couldn't review" card, or an
-           unanswered card. -->
+           One card per TASK (question group, 41–43): the typed sub-answers are
+           marked in the table above, and the AI grades the task as a whole from
+           them plus the uploaded photos. Grading is async: each entry renders as
+           a finished review, a "checking" card that the 20s get-results poll
+           resolves, a terminal "couldn't review" card, or an unanswered card. -->
       <BiologyReviewSection
         v-if="hasBiologySection && !isLoadingTest && !testLoadError"
         :entries="biologyEntries"
-        :resolve-question-label="biologyQuestionLabel"
-        :resolve-answer-images="biologyAnswerImages"
+        :resolve-group-label="biologyGroupLabel"
+        :resolve-group-images="biologyGroupImages"
       />
 
       <!-- ═══ Essay (insho) AI analysis — Ona tili ═══

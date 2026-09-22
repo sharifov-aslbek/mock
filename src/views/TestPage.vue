@@ -7,14 +7,13 @@ import referenceImage1 from '@/assets/image1.png'
 import referenceImage2 from '@/assets/image2.png'
 import referenceImage3 from '@/assets/image3.png'
 import { isMathSubject } from '@/utils/subjects'
-import { isImageAnswerQuestion } from '@/utils/aiReview'
+import { isBiologyOpenResponseQuestion } from '@/utils/aiReview'
 import TestReferenceWindow from '@/components/TestReferenceWindow.vue'
 import TestBottomBar from '@/components/test/TestBottomBar.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
 import TestErrorState from '@/components/test/TestErrorState.vue'
 import TestEssayQuestion from '@/components/test/TestEssayQuestion.vue'
 import TestFloatingTools from '@/components/test/TestFloatingTools.vue'
-import TestOpenResponseQuestion from '@/components/test/TestOpenResponseQuestion.vue'
 import TestQuestionBlock from '@/components/test/TestQuestionBlock.vue'
 import TestQuestionGroup from '@/components/test/TestQuestionGroup.vue'
 import ProfileGateModal from '@/components/ProfileGateModal.vue'
@@ -344,8 +343,13 @@ const totalDurationSeconds = computed(() => totalDurationMinutes.value * 60)
 const isEssayQuestion = (question) =>
   question?.type === 'Essay' || question?.questionType === 'Essay'
 
+// AI-reviewed biology open response (AiReviewMode.BiologyOpenResponse): every
+// one of these tasks is a GROUP — each sub-question is answered with typed text
+// like FreeAnswer, and one set of solution photos covers the whole group.
 const isTextualQuestion = (question) =>
-  question?.type === 'FreeAnswer' || isEssayQuestion(question)
+  question?.type === 'FreeAnswer' ||
+  isEssayQuestion(question) ||
+  isBiologyOpenResponseQuestion(question)
 
 // questionId → handwritten essay pages attached in the essay component
 // ({ id, name, dataUrl }). Feeds the answered tally while the test runs and,
@@ -358,42 +362,36 @@ const updateEssayUploads = (questionId, uploads) => {
 
 const getEssayUploads = (questionId) => essayUploads[questionId] || []
 
-// ——— AI-reviewed open response (AiReviewMode.BiologyOpenResponse) ————————
-// questionId → photos of the handwritten solution ({ id, name, dataUrl }). These
-// ARE the answer — there is no typed input — and they go to
-// POST /user-answer/images, which replaces that question's stored image set.
-const answerImages = reactive({})
-// questionId → image URLs already stored server-side, read off a resume payload
-// so a refresh doesn't look like the photos were lost. Shown read-only; picking
-// new photos replaces the whole set.
-const remoteAnswerImages = reactive({})
-// Questions whose local image set changed and hasn't been pushed yet.
-const dirtyImageQuestionIds = new Set()
+// ——— Biology open-response groups: solution photos per GROUP ———————————————
+// groupId → photos of how the student solved the group ({ id, name, dataUrl }).
+// They go to POST /user-answer/group-images, which REPLACES that group's stored
+// set, so every push sends the full current selection. The typed sub-answers
+// ride the normal /user-answer flow; these photos come on top and don't count
+// toward the answered tally.
+const groupAnswerImages = reactive({})
+// groupId → image urls already stored server-side, read off a resume payload so
+// a refresh doesn't look like the photos were lost. Shown read-only; picking new
+// photos replaces the whole set.
+const remoteGroupImages = reactive({})
+// Groups whose local photo set changed and hasn't been pushed yet.
+const dirtyGroupIds = new Set()
 
-const getAnswerImages = (questionId) => answerImages[questionId] || []
+const getGroupAnswerImages = (groupId) => groupAnswerImages[groupId] || []
 
-const getRemoteAnswerImageUrls = (questionId) => remoteAnswerImages[questionId] || []
+const getRemoteGroupImageUrls = (groupId) => remoteGroupImages[groupId] || []
 
-const updateAnswerImages = (questionId, uploads) => {
-  answerImages[questionId] = Array.isArray(uploads) ? [...uploads] : []
-  dirtyImageQuestionIds.add(String(questionId))
+// How those photos are graded, shown above the group's upload box.
+const groupImagesHints = computed(() => [
+  t('testPage.aiReview.groupImagesHint.optional'),
+  t('testPage.aiReview.groupImagesHint.exactMatch'),
+  t('testPage.aiReview.groupImagesHint.partialCredit'),
+  t('testPage.aiReview.groupImagesHint.photoTip'),
+])
+
+const updateGroupAnswerImages = (groupId, uploads) => {
+  groupAnswerImages[groupId] = Array.isArray(uploads) ? [...uploads] : []
+  dirtyGroupIds.add(Number(groupId))
 }
-
-const imageAnswerQuestions = computed(() =>
-  renderedQuestions.value.filter((question) => isImageAnswerQuestion(question)),
-)
-
-// Photos are deliberately NOT written into the saved progress (a handful of
-// data URLs would blow the localStorage quota) — but the saved answered tally
-// should still move when one is added, so the "continue" card isn't stale.
-const serializedImageAnswerCounts = computed(() =>
-  JSON.stringify(
-    imageAnswerQuestions.value.map((question) => [
-      question.id,
-      getAnswerImages(question.id).length || getRemoteAnswerImageUrls(question.id).length,
-    ]),
-  ),
-)
 
 const essayQuestionsWithUploads = computed(() =>
   renderedQuestions.value.filter(
@@ -434,21 +432,13 @@ const hasFreeAnswerContent = (value) => {
 }
 
 const isQuestionAnswered = (question) => {
-  // Image-only open response: answered as soon as at least one photo exists,
-  // either picked now or already stored on the attempt.
-  if (isImageAnswerQuestion(question)) {
-    return (
-      getAnswerImages(question.id).length > 0 ||
-      getRemoteAnswerImageUrls(question.id).length > 0
-    )
-  }
   if (isEssayQuestion(question)) {
     return (
       hasFreeAnswerContent(getResolvedFreeAnswer(question.id)) ||
       getEssayUploads(question.id).length > 0
     )
   }
-  if (question.type === 'FreeAnswer') {
+  if (isTextualQuestion(question)) {
     return hasFreeAnswerContent(getResolvedFreeAnswer(question.id))
   }
   return Boolean(answers[question.id])
@@ -795,15 +785,15 @@ const clearAnswers = () => {
     delete freeAnswers[answerKey]
   }
 
-  for (const answerKey of Object.keys(answerImages)) {
-    delete answerImages[answerKey]
+  for (const groupKey of Object.keys(groupAnswerImages)) {
+    delete groupAnswerImages[groupKey]
   }
 
-  for (const answerKey of Object.keys(remoteAnswerImages)) {
-    delete remoteAnswerImages[answerKey]
+  for (const groupKey of Object.keys(remoteGroupImages)) {
+    delete remoteGroupImages[groupKey]
   }
 
-  dirtyImageQuestionIds.clear()
+  dirtyGroupIds.clear()
 }
 
 const updateFreeAnswer = (questionId, value) => {
@@ -907,27 +897,16 @@ const persistCurrentProgress = () => {
 // the attempt, so we set them straight into the UI without re-queuing a sync
 // (only fresh edits need to push). Option answers carry an option id; FreeAnswer
 // questions carry text.
-// Image answers stored against a question (AI-reviewed open response) on a
-// resumed attempt. The exact field name isn't pinned down yet, so read the
-// likely shapes tolerantly: a bare array of paths, or objects carrying one.
-// Returns [] when the payload has none, which just leaves the dropzone empty.
-const extractAnswerImageUrls = (answer) => {
-  const rawImages =
-    answer?.imagePaths ?? answer?.images ?? answer?.answerImages ?? answer?.imageUrls
+// Solution photos stored for this attempt's biology groups, already normalized
+// by the store into { questionGroupId, imageUrls } with absolute urls.
+const applyServerGroupImages = (groupAnswers) => {
+  for (const groupAnswer of groupAnswers || []) {
+    const groupId = Number(groupAnswer?.questionGroupId)
 
-  if (!Array.isArray(rawImages)) {
-    return []
+    if (groupId && groupAnswer.imageUrls?.length) {
+      remoteGroupImages[groupId] = [...groupAnswer.imageUrls]
+    }
   }
-
-  return rawImages
-    .map((item) =>
-      typeof item === 'string'
-        ? item
-        : item?.imagePath || item?.path || item?.imageUrl || item?.url || '',
-    )
-    .filter(Boolean)
-    .map((imagePath) => buildEntityImageUrl(imagePath))
-    .filter(Boolean)
 }
 
 const applyServerAnswers = (userAnswers) => {
@@ -935,11 +914,6 @@ const applyServerAnswers = (userAnswers) => {
     const questionId = Number(answer?.questionId)
     if (!questionId) {
       continue
-    }
-
-    const imageUrls = extractAnswerImageUrls(answer)
-    if (imageUrls.length) {
-      remoteAnswerImages[questionId] = imageUrls
     }
 
     if (typeof answer.textAnswer === 'string' && answer.textAnswer.trim()) {
@@ -1227,60 +1201,60 @@ const dataUrlToFile = (dataUrl, fileName) => {
   return new File([bytes], fileName, { type: mimeType })
 }
 
-// Push the photo answers of AI-reviewed open-response questions. Each call SETS
-// that question's image list server-side, so we always send the full current
-// selection. Runs on the same cadence as the text answers (and again at finish)
-// rather than only at the end, so a dropped connection can't lose the photos.
-// Returns the ids that failed, so the finish path can refuse to submit an
-// attempt whose images never landed.
+// Push a biology group's solution photos. Each call SETS that group's image list
+// server-side, so we always send the full current selection, in page order — the
+// order of the form parts is the order the backend stores. Runs on the same
+// cadence as the text answers (and again at finish) rather than only at the end,
+// so a dropped connection can't lose the photos. Returns the group ids that
+// failed, so the finish path can refuse to submit an attempt whose photos never
+// landed.
 let activeImageSyncPromise = null
 
-const performImageSyncPass = async () => {
-  const failedQuestionIds = []
+const performGroupImageSyncPass = async () => {
+  const failedGroupIds = []
 
   if (!activeAttemptId.value || !currentTest.value?.id) {
-    return failedQuestionIds
+    return failedGroupIds
   }
 
-  for (const questionId of [...dirtyImageQuestionIds]) {
-    const uploads = getAnswerImages(questionId)
+  for (const groupId of [...dirtyGroupIds]) {
+    const uploads = getGroupAnswerImages(groupId)
 
     // Nothing picked (or everything removed): there is no "clear" call in the
     // contract, so leave whatever is stored and drop the dirty flag.
     if (!uploads.length) {
-      dirtyImageQuestionIds.delete(questionId)
+      dirtyGroupIds.delete(groupId)
       continue
     }
 
     try {
       const files = uploads.map((upload, index) =>
-        dataUrlToFile(upload.dataUrl, `answer-${questionId}-${index + 1}.jpg`),
+        dataUrlToFile(upload.dataUrl, `group-${groupId}-${index + 1}.jpg`),
       )
 
-      await testStore.setUserAnswerImages(activeAttemptId.value, questionId, files)
+      await testStore.setGroupAnswerImages(activeAttemptId.value, groupId, files)
 
       // The set that just landed is now authoritative; a later edit re-dirties.
-      dirtyImageQuestionIds.delete(questionId)
-      remoteAnswerImages[questionId] = uploads.map((upload) => upload.dataUrl)
+      dirtyGroupIds.delete(groupId)
     } catch (error) {
       console.error(error)
-      failedQuestionIds.push(questionId)
+      failedGroupIds.push(groupId)
     }
   }
 
-  return failedQuestionIds
+  return failedGroupIds
 }
 
 // Single-flight, like syncDirtyAnswers — image uploads are slow enough that
 // overlapping passes would re-send the same photos.
-const syncDirtyAnswerImages = () => {
+const syncDirtyGroupImages = () => {
   if (activeImageSyncPromise) {
     return activeImageSyncPromise
   }
 
   activeImageSyncPromise = (async () => {
     try {
-      return await performImageSyncPass()
+      return await performGroupImageSyncPass()
     } finally {
       activeImageSyncPromise = null
     }
@@ -1349,12 +1323,12 @@ const applyEssayTranscriptions = async () => {
 const finishTestAndGoToExplanation = async ({ tolerateTranscribeFailure = false } = {}) => {
   await syncDirtyAnswers()
 
-  // The photo answers must be stored before submit — grading reads them from the
-  // attempt. On a manual finish a failure aborts so the user can retry; on
+  // The solution photos must be stored before submit — grading reads them from
+  // the attempt. On a manual finish a failure aborts so the user can retry; on
   // time-up there is no second chance, so we submit with whatever landed.
-  const failedImageQuestionIds = await syncDirtyAnswerImages()
+  const failedImageGroupIds = await syncDirtyGroupImages()
 
-  if (failedImageQuestionIds.length && !tolerateTranscribeFailure) {
+  if (failedImageGroupIds.length && !tolerateTranscribeFailure) {
     throw new Error('Could not save the answer images.')
   }
 
@@ -1495,6 +1469,7 @@ watch(
 
     if (resume) {
       applyServerAnswers(resume.userAnswers)
+      applyServerGroupImages(resume.groupAnswers)
       startTimer(questionCount, resume.remainingSeconds)
     } else {
       startTimer(questionCount, null)
@@ -1507,7 +1482,7 @@ watch(
   },
 )
 
-watch([serializedAnswers, serializedImageAnswerCounts, remainingSeconds, activeAttemptId], () => {
+watch([serializedAnswers, remainingSeconds, activeAttemptId], () => {
   persistCurrentProgress()
 })
 
@@ -1664,8 +1639,8 @@ onMounted(() => {
       if (hasPendingAnswerActions()) {
         void syncDirtyAnswers()
       }
-      if (dirtyImageQuestionIds.size) {
-        void syncDirtyAnswerImages()
+      if (dirtyGroupIds.size) {
+        void syncDirtyGroupImages()
       }
     }, ANSWER_SYNC_INTERVAL_MS)
   }
@@ -1679,7 +1654,7 @@ onBeforeUnmount(() => {
   // Final flush so up to ANSWER_SYNC_INTERVAL_MS of unsent edits aren't lost
   // when the user navigates away mid-window.
   void syncDirtyAnswers()
-  void syncDirtyAnswerImages()
+  void syncDirtyGroupImages()
   persistCurrentProgress()
   stopTimer()
   unlockZoom()
@@ -1786,8 +1761,11 @@ onBeforeUnmount(() => {
                   :questions="groupRenderModels.get(question.questionGroupId)?.questions || []"
                   :selected-answers="answers"
                   :resolve-free-answer="getResolvedFreeAnswer"
-                  :resolve-answer-images="getAnswerImages"
-                  :resolve-remote-image-urls="getRemoteAnswerImageUrls"
+                  :group-id="question.questionGroupId"
+                  :group-images="getGroupAnswerImages(question.questionGroupId)"
+                  :group-remote-image-urls="getRemoteGroupImageUrls(question.questionGroupId)"
+                  :group-images-label="t('testPage.aiReview.groupImagesLabel')"
+                  :group-images-hints="groupImagesHints"
                   :image-alt="t('testPage.imageAlt')"
                   :option-bank-label="t('testPage.optionBank')"
                   :select-option-label="t('testPage.selectOption')"
@@ -1798,18 +1776,7 @@ onBeforeUnmount(() => {
                   @update-matching-answer="updateMatchingAnswer"
                   @update-option="updateOptionAnswer"
                   @update-free-answer="updateFreeAnswer"
-                  @update-answer-images="updateAnswerImages"
-                />
-
-                <!-- AI-reviewed open response (Biology 41–43): no answer box —
-                     photos of the handwritten solution are the whole answer. -->
-                <TestOpenResponseQuestion
-                  v-else-if="!question.questionGroupId && isImageAnswerQuestion(question)"
-                  :question="question"
-                  :uploads="getAnswerImages(question.id)"
-                  :remote-image-urls="getRemoteAnswerImageUrls(question.id)"
-                  :image-alt="t('testPage.imageAlt')"
-                  @update-uploads="updateAnswerImages"
+                  @update-group-images="updateGroupAnswerImages"
                 />
 
                 <TestEssayQuestion

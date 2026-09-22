@@ -6,7 +6,7 @@ import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import TestOptionButtons from '@/components/test/TestOptionButtons.vue'
 import TestAiReviewBadge from '@/components/test/TestAiReviewBadge.vue'
 import TestAnswerImageUpload from '@/components/test/TestAnswerImageUpload.vue'
-import { hasAiReview, isImageAnswerQuestion } from '@/utils/aiReview'
+import { hasAiReview, isBiologyOpenResponseQuestion } from '@/utils/aiReview'
 
 const props = defineProps({
   title: {
@@ -37,14 +37,28 @@ const props = defineProps({
     type: Function,
     default: () => '',
   },
-  // Answer images for AI-reviewed open-response sub-questions (Biology 41–43):
-  // the locally picked photos, and any already stored server-side on a resume.
-  resolveAnswerImages: {
-    type: Function,
+  // Biology open-response groups (Biology 41–43): each sub-question gets a typed
+  // answer box, and the photos of how the student solved them belong to the
+  // GROUP as a whole — one upload under all the sub-questions.
+  groupId: {
+    type: [Number, String],
+    default: null,
+  },
+  groupImages: {
+    type: Array,
     default: () => [],
   },
-  resolveRemoteImageUrls: {
-    type: Function,
+  // Photos already stored for this group on the attempt (a resumed attempt).
+  groupRemoteImageUrls: {
+    type: Array,
+    default: () => [],
+  },
+  groupImagesLabel: {
+    type: String,
+    default: '',
+  },
+  groupImagesHints: {
+    type: Array,
     default: () => [],
   },
   imageAlt: {
@@ -81,7 +95,7 @@ const emit = defineEmits([
   'update-matching-answer',
   'update-option',
   'update-free-answer',
-  'update-answer-images',
+  'update-group-images',
 ])
 const openMatchingQuestionId = ref(null)
 const checkedQuestionIds = ref({})
@@ -137,6 +151,8 @@ const updateQuestionCheck = (questionId, checked) => {
 const hasSelectableQuestions = computed(() =>
   props.questions.some((question) => question?.type === 'Matching'),
 )
+
+const acceptsGroupImages = computed(() => props.questions.some(isBiologyOpenResponseQuestion))
 
 const shouldShowGroupOrderLabel = computed(() => Boolean(props.orderLabel && !hasSelectableQuestions.value))
 
@@ -369,18 +385,10 @@ const formattedQuestions = computed(() => {
 
             <TestAiReviewBadge v-if="hasAiReview(question)" />
 
-            <!-- AI-reviewed open response: photos of the handwritten solution
-                 replace the answer box entirely. -->
-            <TestAnswerImageUpload
-              v-if="isImageAnswerQuestion(question)"
-              :question-id="question.id"
-              :uploads="resolveAnswerImages(question.id)"
-              :remote-image-urls="resolveRemoteImageUrls(question.id)"
-              @update-uploads="(questionId, next) => emit('update-answer-images', questionId, next)"
-            />
-
+            <!-- AI-reviewed open response answers with typed text like
+                 FreeAnswer; its solution photos sit at the group level below. -->
             <div
-              v-else-if="question.type === 'FreeAnswer'"
+              v-if="question.type === 'FreeAnswer' || isBiologyOpenResponseQuestion(question)"
               class="max-w-[620px] space-y-2.5 sm:space-y-3"
             >
               <label class="font-mono-custom block text-[10px] font-normal uppercase tracking-[0.16em] text-[#8a857c] sm:text-[11px]">
@@ -423,6 +431,20 @@ const formattedQuestions = computed(() => {
           </button>
         </div>
       </div>
+    </div>
+
+    <div
+      v-if="acceptsGroupImages"
+      class="mt-6 border-t border-[#e5ded3] pt-5 sm:mt-7 sm:pt-6"
+    >
+      <TestAnswerImageUpload
+        :owner-id="groupId"
+        :label="groupImagesLabel"
+        :hints="groupImagesHints"
+        :uploads="groupImages"
+        :remote-image-urls="groupRemoteImageUrls"
+        @update-uploads="(ownerId, next) => emit('update-group-images', ownerId, next)"
+      />
     </div>
   </div>
 </template>

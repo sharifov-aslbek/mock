@@ -156,7 +156,11 @@ block around the canonical component — never replace it:
   canonical group card (left-bar number + stem, a/b/c parts) but the parts are
   **read-only prompts with NO answer boxes** — the whole answer is a single image
   upload (`BiologyDrawingUpload.vue`, an "AI tekshiradi" dropzone with in-browser
-  compression). These are graded purely from the uploaded photo.
+  compression). These are graded purely from the uploaded photo. On the live
+  `/test` page a BiologyOpenResponse **group** is different: each sub-question
+  gets a normal `Erkin javob` text box, and `TestQuestionGroup` shows ONE photo
+  upload for the whole group (max 3 photos → `POST /user-answer/group-images`
+  with `QuestionGroupId`, never per-question).
 - **Ona tili essay:** `TestEssayQuestion` (type-or-photo).
 - **Math:** `MathAnswerInput` auto-shows the MathQuill keyboard because
   `isMathSubject(testStore.currentTest?.subject)` is true; nothing extra to do.

@@ -583,6 +583,13 @@ const messages = {
       aiReview: {
         badge: 'AI tekshiradi',
         imagesLabel: 'Javobingizni rasm ko‘rinishida yuklang',
+        groupImagesLabel: 'Yechimingiz rasmini yuklang',
+        groupImagesHint: {
+          optional: 'Rasm yuklash majburiy emas — lekin javobingizda xatolik bo‘lsa va rasm bo‘lmasa, topshiriqqa 0 ball qo‘yiladi.',
+          exactMatch: 'Yozgan javobingiz to‘g‘ri javob bilan to‘liq mos kelsa, to‘liq ball darhol beriladi — rasm tekshirilmaydi.',
+          partialCredit: 'Mos kelmasa, AI yechimingizni rasm orqali ko‘rib chiqadi va to‘g‘ri bajarilgan qadamlar uchun qisman ball berishi mumkin.',
+          photoTip: 'Yechimning barcha qadamlari va chizmalar aniq, o‘qiladigan bo‘lib chiqsin.'
+        },
         dropTitle: 'Yechim va chizmalaringiz rasmini oling yoki shu yerga tashlang',
         dropHint: 'JPG, PNG yoki HEIC • rasmlar avtomatik siqiladi • ko‘pi bilan {max} ta',
         takePhoto: 'Rasmga olish',
@@ -1228,6 +1235,13 @@ const messages = {
       aiReview: {
         badge: 'Проверяет ИИ',
         imagesLabel: 'Загрузите ответ в виде фотографий',
+        groupImagesLabel: 'Загрузите фото вашего решения',
+        groupImagesHint: {
+          optional: 'Загружать фото необязательно — но если в ответе есть ошибка, а фото нет, за задание ставится 0 баллов.',
+          exactMatch: 'Если ваш ответ полностью совпадает с правильным, вы сразу получаете полный балл — фото не проверяется.',
+          partialCredit: 'Если не совпадает, ИИ посмотрит ваше решение на фото и может начислить частичные баллы за верно выполненные шаги.',
+          photoTip: 'Снимайте так, чтобы все шаги решения и рисунки были чёткими и разборчивыми.'
+        },
         dropTitle: 'Сфотографируйте решение и рисунки или перетащите файлы сюда',
         dropHint: 'JPG, PNG или HEIC • изображения сжимаются автоматически • не более {max} шт.',
         takePhoto: 'Сделать фото',

@@ -1,40 +1,43 @@
 <script setup>
-// Biology open-response AI review — one card per AI-graded question (the
-// image-only open responses, e.g. 41–43).
+// Biology open-response AI review — one card per AI-graded TASK, i.e. per
+// question GROUP (41–43), not per question: the group's typed sub-answers and
+// its uploaded solution photos are reviewed together for the group's full mark.
 //
 // Reviews are graded by a BACKGROUND worker, so when get-results returns they
-// may not all exist yet. The section therefore renders per-question ENTRIES,
-// each in one of four states (precedence in this order):
+// may not all exist yet. The section therefore renders per-group ENTRIES, each
+// in one of four states (precedence in this order):
 //
 //   reviewed   — a finished review came back under `biologyReviews`
-//   checking   — the id sits in `pendingBiologyQuestionIds`; the AI is on it
-//   failed     — answered, but in NEITHER list: the review failed for good.
-//                A terminal state — never a spinner.
+//   checking   — the id sits in `pendingBiologyGroupIds`; the AI is on it
+//   failed     — `failedBiologyGroupIds`, or answered and in no list at all:
+//                the review failed for good. Terminal — never a spinner.
 //   unanswered — nothing was handed in; no review will ever come
 //
 //   <BiologyReviewSection
-//     :entries="[{ questionId, state, review }]"    // review = raw backend row
-//     :resolve-question-label="fn(questionId)"      // → "41"
-//     :resolve-answer-images="fn(questionId)"       // → [imageUrl, …]
+//     :entries="[{ questionGroupId, state, review, maxScore }]"  // review = raw row
+//     :resolve-group-label="fn(questionGroupId)"                 // → "41" / "41-43"
+//     :resolve-group-images="fn(questionGroupId)"                // → [imageUrl, …]
 //   />
 //
 // A reviewed card shows the grade, how it splits across the three score blocks,
-// the AI's overall note, and the criterion-by-criterion breakdown. A review
-// whose verdict is an official zero condition (anything but "graded") shows the
-// verdict's human explanation instead of a score breakdown.
+// the AI's overall note, and the criterion-by-criterion breakdown. A verdict
+// that never went to the AI — `all_correct` (full marks) or the id 0
+// `no_solution` (nothing uploaded) — and every official zero condition show the
+// verdict's human explanation instead of a breakdown.
 import { computed } from 'vue'
 import { formatScore, normalizeBiologyReview, readScore } from '@/utils/biologyReview'
 
 const props = defineProps({
   entries: { type: Array, default: () => [] },
-  resolveQuestionLabel: { type: Function, default: () => '' },
-  resolveAnswerImages: { type: Function, default: () => [] },
+  resolveGroupLabel: { type: Function, default: () => '' },
+  resolveGroupImages: { type: Function, default: () => [] },
 })
 
 const normalizedEntries = computed(() =>
   (Array.isArray(props.entries) ? props.entries : []).map((entry) => ({
-    questionId: Number(entry?.questionId) || null,
+    questionGroupId: Number(entry?.questionGroupId) || null,
     state: entry?.state || 'unanswered',
+    maxScore: readScore(entry?.maxScore),
     review: entry?.review ? normalizeBiologyReview(entry.review) : null,
   })),
 )
@@ -51,20 +54,22 @@ const earnedTotal = computed(() =>
     0,
   ),
 )
+// Out of EVERY biology task's full mark, not just the graded ones — otherwise
+// the denominator would creep upward while the worker is still grading.
 const maxTotal = computed(() =>
-  reviewedEntries.value.reduce(
-    (total, entry) => total + (readScore(entry.review.maxScore) ?? 0),
+  normalizedEntries.value.reduce(
+    (total, entry) => total + (entry.maxScore ?? readScore(entry.review?.maxScore) ?? 0),
     0,
   ),
 )
 
-const questionLabel = (questionId) => {
-  const label = props.resolveQuestionLabel(questionId)
+const groupLabel = (questionGroupId) => {
+  const label = props.resolveGroupLabel(questionGroupId)
   return label ? `${label}-topshiriq` : 'Ochiq javob'
 }
 
-const answerImages = (questionId) => {
-  const images = props.resolveAnswerImages(questionId)
+const groupImages = (questionGroupId) => {
+  const images = props.resolveGroupImages(questionGroupId)
   return Array.isArray(images) ? images : []
 }
 
@@ -85,6 +90,17 @@ const VERDICT_TONES = {
 }
 
 const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_TONES.ok
+
+// The explanation box replaces the breakdown for every verdict the AI didn't
+// grade — including `all_correct`, which is good news, so the box follows the
+// verdict's tone instead of always reading as a failure.
+const EXPLANATION_TONES = {
+  ok: 'border-[#cfe0d2] bg-[#f2f7f2]',
+  warn: 'border-[#e8d8b4] bg-[#fdf8ef]',
+  bad: 'border-[#f0e4e2] bg-[#fdf7f6]',
+}
+
+const explanationClass = (review) => EXPLANATION_TONES[review.verdict.tone] || EXPLANATION_TONES.bad
 </script>
 
 <template>
@@ -100,8 +116,9 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
           </span>
         </div>
         <p class="mt-2 max-w-3xl text-[13px] leading-relaxed text-[#8a857c]">
-          Yuklagan yechimingiz sun’iy intellekt tomonidan mezonlar bo‘yicha baholanadi. Har bir mezon
-          uchun izoh va yechimingizdan olingan iqtibos ko‘rsatiladi.
+          Yozgan javoblaringiz va yuklagan yechim rasmlaringiz sun’iy intellekt tomonidan mezonlar
+          bo‘yicha baholanadi. Har bir mezon uchun izoh va yechimingizdan olingan iqtibos
+          ko‘rsatiladi.
         </p>
       </div>
 
@@ -121,18 +138,18 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
     </div>
 
     <div class="space-y-5">
-      <template v-for="entry in normalizedEntries" :key="entry.questionId">
+      <template v-for="entry in normalizedEntries" :key="entry.questionGroupId">
         <!-- ═══ Finished review ═══ -->
         <article
           v-if="entry.state === 'reviewed' && entry.review"
           class="rounded-[22px] bg-white p-5 ring-1 ring-[#eeeae2] shadow-[0_26px_54px_-26px_rgba(26,24,20,0.22)] sm:p-7"
         >
-          <!-- Question header: number, problem type, verdict, score -->
+          <!-- Task header: number span, problem type, verdict, score -->
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2.5">
                 <span class="font-mono-custom rounded-full bg-[#1a1814] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white">
-                  {{ questionLabel(entry.questionId) }}
+                  {{ groupLabel(entry.questionGroupId) }}
                 </span>
                 <span
                   class="rounded-full border px-2.5 py-1 text-[11px] font-semibold"
@@ -179,10 +196,12 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
             </div>
           </div>
 
-          <!-- Zero condition: the verdict's human explanation replaces the breakdown -->
+          <!-- Not graded by the AI (full marks, or an official zero condition):
+               the verdict's human explanation replaces the breakdown -->
           <div
             v-else-if="entry.review.verdict.explanation"
-            class="mt-5 rounded-[18px] border border-[#f0e4e2] bg-[#fdf7f6] px-5 py-4"
+            class="mt-5 rounded-[18px] border px-5 py-4"
+            :class="explanationClass(entry.review)"
           >
             <p class="text-[13.5px] leading-relaxed text-[#3a362f]">{{ entry.review.verdict.explanation }}</p>
           </div>
@@ -277,17 +296,17 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
             </div>
           </details>
 
-          <!-- The photos the student handed in for this question -->
-          <details v-if="answerImages(entry.questionId).length" class="group mt-4 overflow-hidden rounded-[18px] ring-1 ring-[#eeeae2]">
+          <!-- The photos the student handed in for this task -->
+          <details v-if="groupImages(entry.questionGroupId).length" class="group mt-4 overflow-hidden rounded-[18px] ring-1 ring-[#eeeae2]">
             <summary class="flex cursor-pointer items-center justify-between px-5 py-4 text-[14px] font-semibold text-[#1a1814] transition hover:bg-[#faf8f4]">
-              <span>Sizning javobingiz ({{ answerImages(entry.questionId).length }} ta rasm)</span>
+              <span>Sizning javobingiz ({{ groupImages(entry.questionGroupId).length }} ta rasm)</span>
               <svg class="h-4 w-4 text-[#8a857c] transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </summary>
             <div class="grid grid-cols-1 gap-3 border-t border-[#f3f0ea] px-5 py-5 sm:grid-cols-2">
               <a
-                v-for="(imageUrl, index) in answerImages(entry.questionId)"
+                v-for="(imageUrl, index) in groupImages(entry.questionGroupId)"
                 :key="imageUrl"
                 :href="imageUrl"
                 target="_blank"
@@ -307,7 +326,7 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
         >
           <div class="flex flex-wrap items-center gap-2.5">
             <span class="font-mono-custom rounded-full bg-[#1a1814] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white">
-              {{ questionLabel(entry.questionId) }}
+              {{ groupLabel(entry.questionGroupId) }}
             </span>
             <span class="rounded-full border border-[#e8d8b4] bg-[#fdf8ef] px-2.5 py-1 text-[11px] font-semibold text-[#a8752c]">
               Tekshirilmoqda
@@ -334,7 +353,7 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
         >
           <div class="flex flex-wrap items-center gap-2.5">
             <span class="font-mono-custom rounded-full bg-[#1a1814] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white">
-              {{ questionLabel(entry.questionId) }}
+              {{ groupLabel(entry.questionGroupId) }}
             </span>
             <span class="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600">
               Tekshirib bo‘lmadi
@@ -354,16 +373,16 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
             </div>
           </div>
 
-          <details v-if="answerImages(entry.questionId).length" class="group mt-4 overflow-hidden rounded-[18px] ring-1 ring-[#eeeae2]">
+          <details v-if="groupImages(entry.questionGroupId).length" class="group mt-4 overflow-hidden rounded-[18px] ring-1 ring-[#eeeae2]">
             <summary class="flex cursor-pointer items-center justify-between px-5 py-4 text-[14px] font-semibold text-[#1a1814] transition hover:bg-[#faf8f4]">
-              <span>Sizning javobingiz ({{ answerImages(entry.questionId).length }} ta rasm)</span>
+              <span>Sizning javobingiz ({{ groupImages(entry.questionGroupId).length }} ta rasm)</span>
               <svg class="h-4 w-4 text-[#8a857c] transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </summary>
             <div class="grid grid-cols-1 gap-3 border-t border-[#f3f0ea] px-5 py-5 sm:grid-cols-2">
               <a
-                v-for="(imageUrl, index) in answerImages(entry.questionId)"
+                v-for="(imageUrl, index) in groupImages(entry.questionGroupId)"
                 :key="imageUrl"
                 :href="imageUrl"
                 target="_blank"
@@ -383,7 +402,7 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
         >
           <div class="flex flex-wrap items-center gap-2.5">
             <span class="font-mono-custom rounded-full bg-[#1a1814] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white">
-              {{ questionLabel(entry.questionId) }}
+              {{ groupLabel(entry.questionGroupId) }}
             </span>
             <span class="rounded-full border border-[#e0ddd7] bg-[#faf8f4] px-2.5 py-1 text-[11px] font-semibold text-[#8a857c]">
               O‘tkazib yuborilgan
@@ -391,7 +410,8 @@ const verdictClass = (review) => VERDICT_TONES[review.verdict.tone] || VERDICT_T
           </div>
 
           <p class="mt-4 text-[13px] leading-relaxed text-[#8a857c]">
-            Bu topshiriqqa yechim yuklanmagan, shuning uchun AI tekshiruvi o‘tkazilmadi.
+            Bu topshiriqqa javob yozilmagan va yechim rasmi yuklanmagan, shuning uchun AI tekshiruvi
+            o‘tkazilmadi.
           </p>
         </article>
       </template>

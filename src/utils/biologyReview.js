@@ -1,10 +1,12 @@
 // Biology open-response (AiReviewMode.BiologyOpenResponse) AI review: constants
 // + normalizer for what get-results returns under `biologyReviews`.
 //
-// One entry per AI-graded question:
+// One entry per AI-graded TASK — a question GROUP, not a question: the group's
+// typed sub-answers plus the solution photos are reviewed together, for the
+// group's full mark.
 //
 //   {
-//     id, questionId,
+//     id, questionGroupId,
 //     problemType: "genetika (uch genli birikish va krossingover)",
 //     verdict: "graded" | "wrong_method" | …,
 //     totalScore: 25,                 // or { source: "22.0", parsedValue: 22 }
@@ -15,6 +17,11 @@
 //     elementBreakdownJson: "{\"a1\":{applicable,verdict,weight}, …}",
 //     evaluationJson: "{ problem_type, …flags, global_notes, elements:[…] }"
 //   }
+//
+// Two verdicts never reach the AI and arrive with `id: 0` and no JSON columns:
+// `all_correct` (every typed sub-answer matched — full marks, no review needed)
+// and `no_solution` (an answer was wrong and no photos were uploaded at all).
+// Both normalize to a verdict explanation with no criterion breakdown.
 //
 // The two JSON columns overlap: elementBreakdownJson carries each criterion's
 // WEIGHT, evaluationJson carries its REASONING and QUOTE. normalizeBiologyReview
@@ -53,6 +60,12 @@ export const SCORE_BUCKETS = [
 // instead of a score breakdown.
 const REVIEW_VERDICTS = {
   graded: { label: 'Baholandi', tone: 'ok' },
+  all_correct: {
+    label: 'Javoblar to‘liq to‘g‘ri',
+    tone: 'ok',
+    explanation:
+      'Barcha yozma javoblaringiz to‘g‘ri, shuning uchun topshiriq to‘liq ballga baholandi. Bunday holatda yechim rasmi tekshirilmaydi.',
+  },
   wrong_method: {
     label: 'Yechim usuli xato',
     tone: 'bad',
@@ -236,11 +249,22 @@ export function normalizeBiologyReview(raw) {
     value: readScore(review[bucket.key]) ?? 0,
   }))
 
-  const verdict = normalizeVerdict(review.verdict)
+  const rawVerdict = normalizeVerdict(review.verdict)
+  // `no_solution` arrives from two places: the AI (the photos held no solution)
+  // and the scorer with id 0 (no photos were ever uploaded). Same verdict, very
+  // different thing to tell the student — so re-word the id 0 one.
+  const verdict =
+    rawVerdict.key === 'no_solution' && Number(review.id ?? 0) === 0
+      ? {
+          ...rawVerdict,
+          explanation:
+            'Javoblaringizda xatolik bor, lekin yechim rasmi yuklanmagan. Yechimsiz baholash mumkin emas — bu topshiriq uchun 0 ball qo‘yildi.',
+        }
+      : rawVerdict
 
   return {
     id: review.id ?? null,
-    questionId: Number(review.questionId) || null,
+    questionGroupId: Number(review.questionGroupId) || null,
     problemType: String(review.problemType || evaluation.problem_type || '').trim(),
     verdict,
     // Only a graded review shows the score split + criterion breakdown; a zero

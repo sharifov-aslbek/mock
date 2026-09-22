@@ -2,9 +2,10 @@
 // mode means the question is graded normally and no AI review happens.
 //
 //   MotherTongueEssay   = 0   → the Ona tili insho (typed or transcribed text)
-//   BiologyOpenResponse = 1   → answered ONLY by uploading photo(s) of the
-//                               handwritten solution + drawings, via
-//                               POST /user-answer/images
+//   BiologyOpenResponse = 1   → the biology 41–43 open-response tasks: a typed
+//                               answer per sub-question, plus the solution
+//                               photos of the whole GROUP, via
+//                               POST /user-answer/group-images
 //
 // The API serializes enums as their member name, but every read here also
 // accepts the raw integer so a converter change can't silently drop the UI.
@@ -54,17 +55,19 @@ export function hasAiReview(question) {
   return getAiReviewMode(question) !== null
 }
 
-// True for the image-only open response (Biology 41–43): no typed answer box,
-// the uploaded photos ARE the answer.
-export function isImageAnswerQuestion(question) {
+// True for a biology open-response sub-question (Biology 41–43): answered with
+// typed text, with the solution photos uploaded once for its whole GROUP. Every
+// biology open-response task is a group — there is no ungrouped shape.
+export function isBiologyOpenResponseQuestion(question) {
   return getAiReviewMode(question) === AI_REVIEW_MODES.biologyOpenResponse
 }
 
 // Backend `QuestionGroupType` enum, carried on each question GROUP:
 //
 //   Standard            = 0   → canonical rendering by each question's own type
-//   BiologyOpenResponse = 1   → the group's question is answered ONLY by photo
-//                               upload (the biology 41–43 open-response tasks)
+//   BiologyOpenResponse = 1   → the biology 41–43 open-response tasks: a typed
+//                               answer per question + solution photos per group,
+//                               via POST /user-answer/group-images
 //
 // Like aiReviewMode, the API may serialize it as the member name or the raw
 // integer; read both. normalizeTest stamps this group signal down onto each

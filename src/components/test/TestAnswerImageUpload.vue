@@ -2,15 +2,21 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-// The answer box for an AI-reviewed open-response question (Biology 41–43):
-// there is no typed input — photo(s) of the handwritten solution and drawings
-// ARE the answer. The parent collects them and pushes the whole set to
-// POST /user-answer/images, which REPLACES whatever that question had stored.
+// The solution photos of a biology open-response GROUP (41–43): the sub-answers
+// are typed, and these photos show how the student got there. The parent collects
+// them and pushes the whole set to POST /user-answer/group-images, which REPLACES
+// whatever that group had stored.
 //
 // Generalized from the Biology demo's BiologyDrawingUpload so the live /test
 // page can use it for any subject, with every string coming from i18n.
 const props = defineProps({
-  questionId: { type: [Number, String], required: true },
+  // What the photos belong to — a question id, or a group id for a biology
+  // open-response group's shared solution photos. Only echoed back in the emit.
+  ownerId: { type: [Number, String], required: true },
+  // Overrides the default "upload your answer as photos" heading.
+  label: { type: String, default: '' },
+  // Lines explaining how the photos are used, shown under the heading.
+  hints: { type: Array, default: () => [] },
   uploads: { type: Array, default: () => [] },
   // Images already stored against this question server-side (a resumed attempt).
   // Shown read-only: uploading anything new replaces the whole set.
@@ -21,9 +27,12 @@ const emit = defineEmits(['update-uploads'])
 
 const { t } = useI18n()
 
-const MAX_IMAGES = 6
+// The backend rejects a group upload of more than 3 images (400), so the picker
+// stops there too.
+const MAX_IMAGES = 3
 // Raw upload cap — phone photos routinely hit 8–12 MB; compressImage() shrinks
-// whatever lands here before we hold on to it.
+// whatever lands here to a few hundred KB, well under the backend's 10 MB per
+// file / 15 MB per call, before we hold on to it.
 const MAX_FILE_MB = 25
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024
 // Downscale target (longest edge, px) + JPEG quality for the in-browser re-encode.
@@ -93,7 +102,7 @@ const addFiles = async (fileList) => {
     try {
       const dataUrl = await compressImage(file)
       const id = `answer-image-${++uploadSeq}-${file.lastModified || file.size}`
-      emit('update-uploads', props.questionId, [
+      emit('update-uploads', props.ownerId, [
         ...props.uploads,
         { id, name: file.name || t('testPage.aiReview.fileFallbackName'), dataUrl },
       ])
@@ -121,7 +130,7 @@ const removeUpload = (id) => {
   uploadError.value = ''
   emit(
     'update-uploads',
-    props.questionId,
+    props.ownerId,
     props.uploads.filter((upload) => upload.id !== id),
   )
 }
@@ -131,12 +140,26 @@ const removeUpload = (id) => {
   <div class="space-y-2.5 sm:space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <label class="font-mono-custom block text-[10px] font-normal uppercase tracking-[0.16em] text-[#8a857c] sm:text-[11px]">
-        {{ t('testPage.aiReview.imagesLabel') }}
+        {{ label || t('testPage.aiReview.imagesLabel') }}
       </label>
       <span class="font-mono-custom text-[10px] font-normal uppercase tracking-[0.14em] text-[#8a857c] sm:text-[11px]">
         {{ uploads.length }} / {{ MAX_IMAGES }}
       </span>
     </div>
+
+    <ul
+      v-if="hints.length"
+      class="space-y-1.5 rounded-2xl border border-[#e0ddd7] bg-[#faf8f4] px-4 py-3 sm:px-5 sm:py-3.5"
+    >
+      <li
+        v-for="hint in hints"
+        :key="hint"
+        class="flex gap-2.5 text-[13px] leading-[1.55] text-[#4a463f] sm:text-[14px]"
+      >
+        <span class="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-[#8a857c]" aria-hidden="true"></span>
+        <span>{{ hint }}</span>
+      </li>
+    </ul>
 
     <!-- A resumed attempt already has images stored for this question. They stay
          read-only here; picking new photos replaces the whole set server-side. -->
