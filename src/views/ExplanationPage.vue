@@ -8,6 +8,8 @@ import TestInlineMathText from '@/components/test/TestInlineMathText.vue'
 import EssayAnalysisSection from '@/components/onatili/EssayAnalysisSection.vue'
 import BiologyReviewSection from '@/components/biology/BiologyReviewSection.vue'
 import EssayProcessingOverlay from '@/components/test/EssayProcessingOverlay.vue'
+import WebinarTeaser from '@/components/webinar/WebinarTeaser.vue'
+import WebinarPromo from '@/components/webinar/WebinarPromo.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTestStore } from '@/stores/test'
 import { useTestProgressStore } from '@/stores/testProgress'
@@ -1903,6 +1905,8 @@ function answerFeedbackText(question) {
         </div>
       </div>
 
+      <WebinarTeaser v-if="!isLoadingTest && !testLoadError" />
+
       <section v-if="showScoreAndTable" class="overflow-hidden rounded-2xl border border-[#ebebeb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
         <div class="explanation-scrollbar hidden overflow-x-auto md:block">
           <table class="w-full">
@@ -2324,6 +2328,9 @@ function answerFeedbackText(question) {
           </div>
         </details>
       </section>
+
+      <!-- CEFR webinar video — temporary campaign, see WebinarPromo.vue. -->
+      <WebinarPromo v-if="!isLoadingTest && !testLoadError" />
     </div>
 
     <Teleport to="body">
