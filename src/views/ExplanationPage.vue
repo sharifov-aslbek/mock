@@ -859,6 +859,25 @@ const showEssayCheckingOverlay = computed(
     !testLoadError.value,
 )
 
+// The webinar popup opens itself on mount, so mount it once the results are
+// on screen and nothing else covers them: not over the "submitting" / essay
+// checking screen, and not over the certificate that opens on finish (it
+// waits until that is closed). Latched, so reopening the certificate later
+// doesn't unmount and re-pop it.
+const showWebinarPopup = ref(false)
+watch(
+  () =>
+    hasSubmittedResult.value &&
+    !isLoadingTest.value &&
+    !isFinalizingSubmission.value &&
+    !testLoadError.value &&
+    !isCertificateModalOpen.value,
+  (ready) => {
+    if (ready) showWebinarPopup.value = true
+  },
+  { immediate: true },
+)
+
 // The score ring + review table cover the auto-graded questions. An AI-only
 // result (no auto-graded questions, just the graded essay or open responses)
 // would otherwise show a 0% ring over an empty table — skip both and let the
@@ -2327,7 +2346,7 @@ function answerFeedbackText(question) {
       </section>
 
       <!-- CEFR webinar popup — temporary campaign, see WebinarPromo.vue. -->
-      <WebinarPromo v-if="!isLoadingTest && !testLoadError" />
+      <WebinarPromo v-if="showWebinarPopup" />
     </div>
 
     <Teleport to="body">
