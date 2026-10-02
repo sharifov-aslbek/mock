@@ -1,10 +1,12 @@
 <script setup>
-// CEFR webinar popup on the results page — temporary campaign.
+// CEFR webinar popup on mock results and essay checks — temporary campaign.
 //
 // To take it down: delete src/components/webinar/, public/webinar/, and the
-// <WebinarPromo> tag in views/ExplanationPage.vue.
+// <WebinarPromo> tags in views/ExplanationPage.vue, views/app/EssayPage.vue and
+// components/onatili/OnaTiliEssayCenter.vue.
 //
-// A native <dialog> opened with showModal() as soon as the results load. It
+// A native <dialog> opened with showModal() as soon as it mounts: on a mock's
+// results, and over the score when an essay check finishes. It
 // does not close on a backdrop click, only on the X button (and Esc, which the
 // browser handles for keyboard users).
 //
